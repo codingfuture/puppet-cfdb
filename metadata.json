@@ -1,0 +1,47 @@
+{
+  "name": "codingfuture/cfdb",
+  "version": "0.1.0",
+  "author": "Andrey Galkin",
+  "summary": "Universal multi-instance multi-type database setup tool with croup runtime isolation",
+  "license": "Apache-2.0",
+  "source": "https://github.com/codingfuture/puppet-cfdb",
+  "project_page": "https://github.com/codingfuture/puppet-cfdb",
+  "issues_url": "https://github.com/codingfuture/puppet-cfdb/issues",
+  "operatingsystem_support": [
+    {
+      "operatingsystem": "Debian",
+      "operatingsystemrelease": [
+        "8",
+        "9"
+      ]
+    },
+    {
+      "operatingsystem": "Ubuntu",
+      "operatingsystemrelease": [
+        "15.10",
+        "16.04"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "name": "puppet",
+      "version_requirement": ">=4.0.0 <5.0.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "puppetlabs-stdlib",
+      "version_requirement": ">= 4.11.0"
+    },
+    {
+      "name": "codingfuture-cfnetwork",
+      "version_requirement": ">= 0.9.5"
+    },
+    {
+      "name": "codingfuture-cfsystem",
+      "version_requirement": ">= 0.9.11"
+    }
+  ],
+  "data_provider": "hiera"
+}
