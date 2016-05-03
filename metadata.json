@@ -19,7 +19,8 @@
       "operatingsystem": "Ubuntu",
       "operatingsystemrelease": [
         "15.10",
-        "16.04"
+        "16.04",
+        "16.10"
       ]
     }
   ],
@@ -33,6 +34,10 @@
     {
       "name": "puppetlabs-stdlib",
       "version_requirement": ">= 4.11.0"
+    },
+    {
+      "name": "herculesteam/augeasproviders_sysctl",
+      "version_requirement": ">= 2.0.2"
     },
     {
       "name": "codingfuture-cfnetwork",
