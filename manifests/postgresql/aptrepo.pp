@@ -2,7 +2,7 @@
 class cfdb::postgresql::aptrepo {
     assert_private()
     
-    includ cfsystem
+    include cfsystem
     
     case $::facts['lsbdistcodename'] {
         'stretch': {

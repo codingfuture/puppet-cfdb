@@ -2,7 +2,7 @@
 class cfdb::mysql::perconaapt {
     assert_private()
     
-    includ cfsystem
+    include cfsystem
     
     case $::facts['lsbdistcodename'] {
         'xenial', 'yakkety': {
