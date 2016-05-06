@@ -2,6 +2,8 @@
 # Done this way due to some weird behavior in tests also ignoring $LOAD_PATH
 require File.expand_path( '../../../../puppet_x/cf_system/provider_base', __FILE__ )
 
+require 'fileutils'
+
 Puppet::Type.type(:cfdb_instance).provide(
     :cfdb,
     :parent => PuppetX::CfSystem::ProviderBase
@@ -11,11 +13,13 @@ Puppet::Type.type(:cfdb_instance).provide(
     commands :sudo => '/usr/bin/sudo'
     commands :systemctl => '/bin/systemctl'
     commands :df => '/bin/df'
+    commands :du => '/usr/bin/du'
     
     MYSQL = '/usr/bin/mysql'
     MYSQLD = '/usr/sbin/mysqld'
     MYSQLADMIN = '/usr/bin/mysqladmin'
     MYSQL_INSTALL_DB = '/usr/bin/mysql_install_db'
+    MYSQL_UPGRADE = '/usr/bin/mysql_upgrade'
 
     def self.get_config_index
         'cfdb_instance'
@@ -23,6 +27,10 @@ Puppet::Type.type(:cfdb_instance).provide(
 
     def self.get_generator_version
         cf_system().makeVersion(__FILE__)
+    end
+    
+    def self.check_exists(params)
+        File.exists?(params[:root_dir] + '/data')
     end
    
     def self.on_config_change(newconf)
@@ -36,34 +44,53 @@ Puppet::Type.type(:cfdb_instance).provide(
         return [min, [max, val].min].max
     end
     
-    def self.create_service(conf, service_ini)
+    def self.create_service(conf, service_ini, service_env)
+        db_type = conf[:type]
         service_name = conf[:service_name]
         service_file = "/etc/systemd/system/#{service_name}.service"
+        env_file = "/etc/default/#{service_name}.conf"
         user = conf[:user]
         
         cpu_shares = (1024 * conf[:cpu_weight].to_i / 100).to_i
+        
         mem_limit = cf_system.getMemory(conf[:cluster_name])
+        
         io_weight = (1000 * conf[:io_weight].to_i / 100).to_i
         io_weight = fit_range(1, 1000, io_weight)
         
+        #---
+        content_env = {
+            'CFDB_ROOT_DIR' => conf[:root_dir],
+        }
+        
+        content_env.merge! service_env
+       
+        cf_system().atomicWriteEnv(env_file, content_env, {:mode => 0644})
+        
+        #---
         content_ini = {
             'Unit' => {
-                'Description' => "DB instance: #{service_name}",
+                'Description' => "CFDB instance: #{service_name}",
                 'After' => [
                     'syslog.target',
                     'network.target',
                 ],
             },
             'Service' => {
-                'Type' => 'Simple',
+                'EnvironmentFile' => env_file,
+                'Type' => 'simple',
+                'Restart' => 'always',
+                'RestartSec' => 5,
                 'User' => user,
                 'Group' => user,
-                'CPUShares' => (1024 * conf[:cpu_weight].to_i / 100).to_i,
+                'CPUShares' => cpu_shares,
+                'BlockIOWeight' => io_weight,
                 'MemoryLimit' => "#{mem_limit}M",
                 'LimitMEMLOCK' => "#{mem_limit}M",
-                'BlockIOWeight' => io_weight,
+                'LimitNOFILE' => 100000,
                 'UMask' => '0027',
                 'WorkingDirectory' => conf[:root_dir],
+                'RuntimeDirectory' => service_name,
             },
             'Install' => {
                 'WantedBy' => 'multi-user.target',
@@ -72,7 +99,11 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         content_ini['Service'].merge! service_ini
         
-        cf_system().atomicWriteIni(service_file, content_ini)
+        reload = cf_system().atomicWriteIni(service_file, content_ini, {:mode => 0644})
+       
+        if reload
+            systemctl('daemon-reload')
+        end
     end
     
     def self.disk_size(dir)
@@ -89,6 +120,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         cf_system = self.cf_system()
         
         root_dir = conf[:root_dir]
+        conf_dir = "#{root_dir}/conf"
         data_dir = "#{root_dir}/data"
         tmp_dir = "#{root_dir}/tmp"
         
@@ -96,24 +128,59 @@ Puppet::Type.type(:cfdb_instance).provide(
         service_name = conf[:service_name]
         server_id = 1 # TODO
         type = conf[:type]
-        conf_file = "#{root_dir}/conf/mysql.cnf"
+        conf_file = "#{conf_dir}/mysql.cnf"
         client_conf_file = "#{root_dir}/.my.cnf"
-        init_file = "#{root_dir}/setup.sql"
-        sock_file = "/run/#{service_name}.sock"
-        pid_file = "/run/#{service_name}.pid"
+        init_file = "#{conf_dir}/setup.sql"
+        
+        run_dir = "/run/#{service_name}"
+        sock_file = "#{run_dir}/service.sock"
+        pid_file = "#{run_dir}/service.pid"
 
         user = conf[:user]
         settings_tune = conf[:settings_tune]
         cfdb_settings = settings_tune.fetch('cfdb', {})
+        mysqld_tune = settings_tune.fetch('mysqld', {})
         optimize_ssd = cfdb_settings.fetch('optimize_ssd', false)
-        
-        # TODO: auto-choose
-        bind_address = '127.0.0.1'
-        open_file_limit = 100000
-        
         
         root_pass = cf_system.genSecret(cluster_name)
         port = cf_system.genPort(cluster_name)
+        
+        data_exists = File.exists?(data_dir)
+        
+        
+        # TODO: auto-choose
+        #---
+        bind_address = '127.0.0.1'
+        #---
+        
+        # TODO: calculate based on user access list x limit
+        #---
+        max_connections = 1024
+        #---
+
+        # Auto-tune to have enough open table cache        
+        #---
+        inodes_min = 1024
+        inodex_max = 10240
+        
+        if data_exists
+            inodes_used = du('--inodes', '--summarize', data_dir).to_i
+            inodes_used = inodes_used / inodes_min * inodes_min
+        else
+            inodes_used = 1024
+        end
+           
+        inodes_used = fit_range(inodes_min, inodex_max, inodes_used)
+        table_definition_cache = mysqld_tune.fetch('table_definition_cache', inodes_used)
+        table_open_cache = mysqld_tune.fetch('table_open_cache', inodes_used)
+        #---
+        
+        # with safe limit
+        open_file_limit = 3 * (max_connections + table_definition_cache + table_open_cache)
+        
+        
+        # Complex tuning based on target DB size and available RAM
+        #==================================================
         
         # target database size
         target_size = conf[:target_size]
@@ -134,7 +201,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             max_binlog_size = gb
         end
         
-        avail_mem = cf_system.getMemory(cluster_name)
+        avail_mem = cf_system.getMemory(cluster_name) * mb
         
         #
         default_chunk_size = 2 * gb
@@ -187,6 +254,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             innodb_io_capacity = 300
             innodb_io_capacity_max = 2000
         end
+        #==================================================
         
         
         # Prepare mysql client conf
@@ -204,10 +272,10 @@ Puppet::Type.type(:cfdb_instance).provide(
         # Make sure we have root password always set
         #---
         setup_sql = [
-            "SET PASSWORD = PASSWORD('#{root_pass}');",
+            "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('#{root_pass}');",
             'FLUSH PRIVILEGES;',
         ]
-        cf_system.atomicWrite(init_file, setup_sql.join('\n'), { :user => user})
+        cf_system.atomicWrite(init_file, setup_sql.join("\n"), { :user => user})
         
         # Prepare conf
         #---
@@ -224,7 +292,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'innodb_buffer_pool_instances' => innodb_buffer_pool_instances,
                 'innodb_buffer_pool_size' => innodb_buffer_pool_size,
                 'innodb_file_format' => 'Barracuda',
-                'innodb_file_per_table:' => 'ON',
+                'innodb_file_per_table' => 'ON',
                 'innodb_flush_log_at_trx_commit' => 2,
                 'innodb_io_capacity' => innodb_io_capacity,
                 'innodb_io_capacity_max' => innodb_io_capacity_max,
@@ -233,12 +301,14 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'innodb_sort_buffer_size' => innodb_sort_buffer_size,
                 'innodb_strict_mode' => 'ON',
                 'innodb_thread_concurrency' => innodb_thread_concurrency,
-                'log_bin' => 'ON',
-                'log_bin_basename' => "#{cluster_name}#{server_id}-bin",
+                'log_bin' => "#{data_dir}/#{cluster_name}#{server_id}-bin",
                 'log_slave_updates' => 'TRUE',
                 'max_binlog_size' => max_binlog_size,
                 'max_binlog_files' => max_binlog_files,
+                'max_connections' => max_connections,
                 'server_id' => server_id,
+                'table_definition_cache' => table_definition_cache,
+                'table_open_cache' => table_open_cache,
                 'transaction_isolation' => 'READ-COMMITTED',
             },
             'client' => client_settings,
@@ -260,7 +330,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             'binlog_format' => 'ROW',
             'datadir' => data_dir,
             'default_storage_engine' => 'InnoDB',
-            'default_time_zone' => 'UTC',
+            'default_time_zone' => '+00:00',
             'memlock' => 'TRUE',
             'open_files_limit' => open_file_limit,
             'pid_file' => pid_file,
@@ -279,22 +349,61 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         # Prepare service file
         #---
-        create_service(conf, {
+        service_ini = {
             'LimitNOFILE' => open_file_limit * 2,
-        })
+            'ExecStart' => "/usr/sbin/mysqld --defaults-file=#{conf_dir}/mysql.cnf $MYSQLD_OPTS",
+        }
+        service_env = {
+            'MYSQLD_OPTS' => '',
+        }
+        create_service(conf, service_ini, service_env)
         
         # Prepare data dir
         #---
-        if not File.exists?(data_dir)
-            # TODO: only for <5.7
-            sudo('-u', user, MYSQL_INSTALL_DB,
-                "--defaults-file=#{conf_file}",
-                "--datadir=#{data_dir}",
-                "--mysqld-file=" + MYSQLD)
-            systemctl('start', "#{service_name}.service")
+        if data_exists
+            upgrade_file = "#{conf_dir}/upgrade_stamp"
+            upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--version')
+            
+            if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
+                warning('> running mysql upgrade')
+                systemctl('start', "#{service_name}.service")
+                sudo('-u', user, MYSQL_UPGRADE, '--force')
+                File.open(upgrade_file, 'w+', 0600) do |f|
+                    f.write(upgrade_ver)
+                end
+                FileUtils.chown(user, user, upgrade_file)
+            end
         else
-            # TODO: conditional upgrade DB
+            have_initialize = sudo(MYSQLD, '--verbose', '--help')
+            have_initialize = /--initialize/.match(have_initialize)
+            have_initialize = !have_initialize.nil?
+            
+            if have_initialize
+                warning('> running mysql initialize')
+                create_service(
+                    conf,
+                    service_ini,
+                    service_env.merge({ 'MYSQLD_OPTS' => '--initialize' })
+                )
+                systemctl('start', "#{service_name}.service")
+                
+                # return to normal
+                create_service(conf, service_ini, service_env)
+            else
+                warning('> running mysql install db')
+                sudo('-u', user, MYSQL_INSTALL_DB,
+                    "--defaults-file=#{conf_file}",
+                    "--datadir=#{data_dir}",
+                    "--mysqld-file=" + MYSQLD)
+                systemctl('start', "#{service_name}.service")
+            end
+            
+            if not File.exists? data_dir
+                raise Puppet::DevError, "Failed to initialize #{data_dir}"
+            end
         end
+        
+        #TODO: copy data from master, if slave
     end
     
     #==================================

@@ -16,7 +16,7 @@ define cfdb::instance (
     
     #---
     $cluster_name = $title
-    $service_name = "${type}-${cluster_name}"
+    $service_name = "cf${type}-${cluster_name}"
     $user = "${type}_${cluster_name}"
     $root_dir = "${cfdb::root_dir}/${user}"
     
@@ -28,7 +28,6 @@ define cfdb::instance (
         ensure => present,
         gid => $user,
         home => $root_dir,
-        managehome => true,
         system => true,
         shell => '/bin/bash',
         require => Group[$user],
@@ -36,6 +35,7 @@ define cfdb::instance (
     
     #---
     $user_dirs = [
+        "${root_dir}",
         "${root_dir}/bin",
         "${root_dir}/conf",
         "${root_dir}/var",

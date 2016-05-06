@@ -2,6 +2,7 @@
 class cfdb::mysql::serverpkg {
     assert_private()
     
+    include cfdb
     include cfdb::mysql
         
     if $cfdb::mysql::is_cluster {

@@ -99,7 +99,7 @@ Puppet::Type.newtype(:cfdb_instance) do
     
     newproperty(:service_name) do
         validate do |value|
-            unless value =~ /^[a-z0-9_-]+$/i
+            unless value =~ /^[a-z0-9_@-]+$/i
                 raise ArgumentError, "%s is not a valid service name" % value
             end
         end
