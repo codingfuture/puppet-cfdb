@@ -1,6 +1,11 @@
 
 # Done this way due to some weird behavior in tests also ignoring $LOAD_PATH
-require File.expand_path( '../../../../puppet_x/cf_system/provider_base', __FILE__ )
+begin
+    require File.expand_path( '../../../../puppet_x/cf_system/provider_base', __FILE__ )
+rescue
+    require File.expand_path( '../../../../../../cfsystem/lib/puppet_x/cf_system/provider_base', __FILE__ )
+end
+
 
 require 'fileutils'
 
@@ -15,11 +20,10 @@ Puppet::Type.type(:cfdb_instance).provide(
     commands :df => '/bin/df'
     commands :du => '/usr/bin/du'
     
-    MYSQL = '/usr/bin/mysql'
-    MYSQLD = '/usr/sbin/mysqld'
-    MYSQLADMIN = '/usr/bin/mysqladmin'
-    MYSQL_INSTALL_DB = '/usr/bin/mysql_install_db'
-    MYSQL_UPGRADE = '/usr/bin/mysql_upgrade'
+    MYSQLD = '/usr/sbin/mysqld' unless defined? MYSQLD
+    MYSQLADMIN = '/usr/bin/mysqladmin' unless defined? MYSQLADMIN
+    MYSQL_INSTALL_DB = '/usr/bin/mysql_install_db' unless defined? MYSQL_INSTALL_DB
+    MYSQL_UPGRADE = '/usr/bin/mysql_upgrade' unless defined? MYSQL_UPGRADE
 
     def self.get_config_index
         'cfdb_instance'
@@ -53,7 +57,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         cpu_shares = (1024 * conf[:cpu_weight].to_i / 100).to_i
         
-        mem_limit = cf_system.getMemory(conf[:cluster_name])
+        mem_limit = cf_system.getMemory(conf[:cluster])
         
         io_weight = (1000 * conf[:io_weight].to_i / 100).to_i
         io_weight = fit_range(1, 1000, io_weight)
@@ -124,7 +128,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         data_dir = "#{root_dir}/data"
         tmp_dir = "#{root_dir}/tmp"
         
-        cluster_name = conf[:cluster_name]
+        cluster = conf[:cluster]
         service_name = conf[:service_name]
         server_id = 1 # TODO
         type = conf[:type]
@@ -142,8 +146,8 @@ Puppet::Type.type(:cfdb_instance).provide(
         mysqld_tune = settings_tune.fetch('mysqld', {})
         optimize_ssd = cfdb_settings.fetch('optimize_ssd', false)
         
-        root_pass = cf_system.genSecret(cluster_name)
-        port = cf_system.genPort(cluster_name)
+        root_pass = cf_system.genSecret(cluster)
+        port = cf_system.genPort(cluster)
         
         data_exists = File.exists?(data_dir)
         
@@ -201,7 +205,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             max_binlog_size = gb
         end
         
-        avail_mem = cf_system.getMemory(cluster_name) * mb
+        avail_mem = cf_system.getMemory(cluster) * mb
         
         #
         default_chunk_size = 2 * gb
@@ -301,7 +305,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'innodb_sort_buffer_size' => innodb_sort_buffer_size,
                 'innodb_strict_mode' => 'ON',
                 'innodb_thread_concurrency' => innodb_thread_concurrency,
-                'log_bin' => "#{data_dir}/#{cluster_name}#{server_id}-bin",
+                'log_bin' => "#{data_dir}/#{cluster}#{server_id}-bin",
                 'log_slave_updates' => 'TRUE',
                 'max_binlog_size' => max_binlog_size,
                 'max_binlog_files' => max_binlog_files,

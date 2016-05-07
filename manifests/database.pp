@@ -1,13 +1,18 @@
 
-class cfdb::database (
-    $title,
+define cfdb::database (
 ) {
     $title_split = $title.split('/')
-    $cluster_name = $title_split[0]
-    $db_name = $title_split[1]
+    $cluster = $title_split[0]
+    $database = $title_split[1]
     
     cfdb_database { $title:
-        cluster_name => $cluster_name,
-        db_name => $db_name,
+        ensure => present,
+        cluster => $cluster,
+        database => $database,
+    }
+    
+    cfdb::role { $title:
+        cluster => $cluster,
+        database => $database,
     }
 }

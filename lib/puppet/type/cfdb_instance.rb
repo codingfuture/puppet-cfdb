@@ -35,10 +35,10 @@ Puppet::Type.newtype(:cfdb_instance) do
             end
         end
     end
-    newproperty(:cluster_name) do
+    newproperty(:cluster) do
         validate do |value|
             unless value =~ /^[a-zA-Z_][a-zA-Z0-9_-]*$/
-                raise ArgumentError, "%s is not valid cluster_name" % value
+                raise ArgumentError, "%s is not valid cluster" % value
             end
         end
     end

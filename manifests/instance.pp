@@ -9,15 +9,16 @@ define cfdb::instance (
     $target_size = 'auto',
     
     $settings_tune = {},
+    $databases = undef,
 ) {
     include stdlib
     include cfsystem
     include cfdb
     
     #---
-    $cluster_name = $title
-    $service_name = "cf${type}-${cluster_name}"
-    $user = "${type}_${cluster_name}"
+    $cluster = $title
+    $service_name = "cf${type}-${cluster}"
+    $user = "${type}_${cluster}"
     $root_dir = "${cfdb::root_dir}/${user}"
     
     group { $user:
@@ -49,7 +50,7 @@ define cfdb::instance (
     }
     
     #---
-    cfsystem_memory_weight { $cluster_name:
+    cfsystem_memory_weight { $cluster:
         ensure => present,
         weight => $memory_weight,
         min_mb => 128,
@@ -59,10 +60,10 @@ define cfdb::instance (
     include "cfdb::${type}"
     include "cfdb::${type}::serverpkg"
     
-    cfdb_instance { $cluster_name:
+    cfdb_instance { $cluster:
         ensure => present,
         type => $type,
-        cluster_name => $cluster_name,
+        cluster => $cluster,
         user => $user,
         is_cluster => getvar("cfdb::${type}::is_cluster"),
         is_secondary => $is_secondary,
@@ -81,31 +82,49 @@ define cfdb::instance (
             User[$user],
             File[$user_dirs],
             Class["cfdb::${type}::serverpkg"],
-            Cfsystem_memory_weight[$cluster_name],
+            Cfsystem_memory_weight[$cluster],
         ],
     }
     
     service { $service_name:
         enable => true,
         require => [
-            Cfdb_instance[$cluster_name],
+            Cfdb_instance[$cluster],
             Cfsystem_flush_config['commit'],
         ]
     }
     
     if $databases {
-        $databases.each |$db, $cfg| {
-            create_resources(
-                cfdb::db,
-                {
-                    "${cluster_name}/${db}" => pick_default($cfg, {})
-                },
-                {
-                    require => [
-                        Cfdb_instance[$cluster_name],
-                    ]
-                }
-            )
+        if is_array($databases) {
+            $databases.each |$db| {
+                create_resources(
+                    cfdb::database,
+                    {
+                        "${cluster}/${db}" => {}
+                    },
+                    {
+                        require => [
+                            Cfdb_instance[$cluster],
+                        ]
+                    }
+                )
+            }
+        } elsif is_hash($databases) {
+            $databases.each |$db, $cfg| {
+                create_resources(
+                    cfdb::database,
+                    {
+                        "${cluster}/${db}" => pick_default($cfg, {})
+                    },
+                    {
+                        require => [
+                            Cfdb_instance[$cluster],
+                        ]
+                    }
+                )
+            }
+        } else {
+            fail('$databases must be an array or hash')
         }
     }
 }
