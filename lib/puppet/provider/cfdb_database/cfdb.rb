@@ -20,7 +20,8 @@ Puppet::Type.type(:cfdb_database).provide(
     
     def self.check_exists(params)
         begin
-            inst_conf = cf_system().config.get_old('cfdb_instance')
+            instance_index = Puppet::Type.type(:cfdb_instance).provider(:cfdb).get_config_index
+            inst_conf = cf_system().config.get_old(instance_index)
             inst_conf = inst_conf[params[:cluster]]
             db_type = inst_conf['type']
             self.send("check_#{db_type}", inst_conf['user'], params[:database])
@@ -31,7 +32,7 @@ Puppet::Type.type(:cfdb_database).provide(
     end
     
     def self.get_config_index
-        'cfdb_database'
+        'cfdb2_database'
     end
 
     def self.get_generator_version
@@ -39,7 +40,8 @@ Puppet::Type.type(:cfdb_database).provide(
     end
     
     def self.on_config_change(newconf)
-        inst_conf_all = cf_system().config.get_new('cfdb_instance')
+        instance_index = Puppet::Type.type(:cfdb_instance).provider(:cfdb).get_config_index
+        inst_conf_all = cf_system().config.get_new(instance_index)
         
         newconf.each do |k, conf|
             inst_conf = inst_conf_all[conf[:cluster]]
@@ -55,7 +57,7 @@ Puppet::Type.type(:cfdb_database).provide(
     end
     
     def self.check_mysql(user, database)
-        ret = sudo('-u', user, MYSQL, '-e', "SHOW DATABASES LIKE '#{database}';")
+        ret = sudo('-u', user, MYSQL, '--wait', '-e', "SHOW DATABASES LIKE '#{database}';")
         not ret.empty?
     end
 

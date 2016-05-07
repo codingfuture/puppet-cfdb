@@ -29,7 +29,8 @@ Puppet::Type.type(:cfdb_role).provide(
     
     def self.check_exists(params)
         begin
-            inst_conf = cf_system().config.get_old('cfdb_instance')
+            instance_index = Puppet::Type.type(:cfdb_instance).provider(:cfdb).get_config_index
+            inst_conf = cf_system().config.get_old(instance_index)
             inst_conf = inst_conf[params[:cluster]]
             db_type = inst_conf['type']
             self.send("check_#{db_type}", inst_conf['user'], params)
@@ -41,7 +42,7 @@ Puppet::Type.type(:cfdb_role).provide(
     end
     
     def self.get_config_index
-        'cfdb_role'
+        'cfdb3_role'
     end
 
     def self.get_generator_version
@@ -51,7 +52,8 @@ Puppet::Type.type(:cfdb_role).provide(
     def self.on_config_change(newconf)
         to_delete = self.role_cache.clone
         
-        inst_conf_all = cf_system().config.get_new('cfdb_instance')
+        instance_index = Puppet::Type.type(:cfdb_instance).provider(:cfdb).get_config_index
+        inst_conf_all = cf_system().config.get_new(instance_index)
         
         cluster_type = {}
         
@@ -104,13 +106,13 @@ Puppet::Type.type(:cfdb_role).provide(
             sql << "DROP USER #{user}@#{host};"
         end
         
-        sudo('-u', cluster_user, MYSQL, '-e', sql.join(''))
+        sudo('-u', cluster_user, MYSQL, '--wait', '-e', sql.join(''))
     end
     
     def self.check_mysql(cluster_user, conf)
         if not self.role_cache.has_key? cluster_user
             ret = sudo('-u', cluster_user,
-                       MYSQL, '--batch', '--skip-column-names', '-e',
+                       MYSQL, '--wait', '--batch', '--skip-column-names', '-e',
                        'SELECT user, host, max_user_connections FROM mysql.user
                         WHERE Super_priv <> "Y" ORDER BY user, host;')
             ret = ret.split("\n")

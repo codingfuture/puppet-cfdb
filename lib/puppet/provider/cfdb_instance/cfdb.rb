@@ -20,13 +20,14 @@ Puppet::Type.type(:cfdb_instance).provide(
     commands :df => '/bin/df'
     commands :du => '/usr/bin/du'
     
+    MYSQL = '/usr/bin/mysql' unless defined? MYSQL
     MYSQLD = '/usr/sbin/mysqld' unless defined? MYSQLD
     MYSQLADMIN = '/usr/bin/mysqladmin' unless defined? MYSQLADMIN
     MYSQL_INSTALL_DB = '/usr/bin/mysql_install_db' unless defined? MYSQL_INSTALL_DB
     MYSQL_UPGRADE = '/usr/bin/mysql_upgrade' unless defined? MYSQL_UPGRADE
 
     def self.get_config_index
-        'cfdb_instance'
+        'cfdb1_instance'
     end
 
     def self.get_generator_version
@@ -46,6 +47,10 @@ Puppet::Type.type(:cfdb_instance).provide(
     
     def self.fit_range(min, max, val)
         return [min, [max, val].min].max
+    end
+    
+    def self.round_to(to, val)
+        return (((val + to) / to).to_i * to).to_i
     end
     
     def self.create_service(conf, service_ini, service_env)
@@ -152,26 +157,42 @@ Puppet::Type.type(:cfdb_instance).provide(
         data_exists = File.exists?(data_dir)
         
         
-        # TODO: auto-choose
+        # calculate based on user access list x limit
         #---
-        bind_address = '127.0.0.1'
+        max_connections = 0
+        have_external_conn = false
+        role_index = Puppet::Type.type(:cfdb_role).provider(:cfdb).get_config_index
+        roles = cf_system().config.get_new(role_index)
+        roles.each do |k, v|
+            if v[:cluster] == cluster
+                max_connections += v[:allowed_hosts].values.inject(0, :+)
+                
+                # check, if there is some other than locahost
+                have_external_conn = true if v[:allowed_hosts].length > 1
+            end
+        end
+        max_connections = round_to(100, max_connections)
         #---
         
-        # TODO: calculate based on user access list x limit
+        # TODO: auto-choose
         #---
-        max_connections = 1024
+        if have_external_conn
+            bind_address = '0.0.0.0'
+        else
+            bind_address = '127.0.0.1'
+        end
         #---
 
         # Auto-tune to have enough open table cache        
         #---
-        inodes_min = 1024
-        inodex_max = 10240
+        inodes_min = 10000
+        inodex_max = 100000
         
         if data_exists
             inodes_used = du('--inodes', '--summarize', data_dir).to_i
-            inodes_used = inodes_used / inodes_min * inodes_min
+            inodes_used = round_to(inodes_min, inodes_used)
         else
-            inodes_used = 1024
+            inodes_used = inodes_min
         end
            
         inodes_used = fit_range(inodes_min, inodex_max, inodes_used)
@@ -181,6 +202,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         # with safe limit
         open_file_limit = 3 * (max_connections + table_definition_cache + table_open_cache)
+        open_file_limit = round_to(10000, open_file_limit)
         
         
         # Complex tuning based on target DB size and available RAM
@@ -216,7 +238,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         if innodb_buffer_pool_size > (max_pools * innodb_buffer_pool_chunk_size)
             round_pool = gb
-            innodb_buffer_pool_chunk_size = innodb_buffer_pool_size / max_pools / round_pool * round_pool
+            innodb_buffer_pool_chunk_size = round_to(round_pool, innodb_buffer_pool_size / max_pools)
             innodb_buffer_pool_size = innodb_buffer_pool_chunk_size * max_pools
             innodb_buffer_pool_instances = max_pools
             innodb_sort_buffer_size = 64 * mb
@@ -226,7 +248,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             innodb_buffer_pool_instances = fit_range(1, max_pools, innodb_buffer_pool_instances)
             
             if innodb_buffer_pool_instances > 1
-                innodb_buffer_pool_chunk_size = innodb_buffer_pool_chunk_size / round_pool * round_pool
+                innodb_buffer_pool_chunk_size = round_to(round_pool, innodb_buffer_pool_chunk_size)
                 innodb_buffer_pool_size = innodb_buffer_pool_chunk_size * innodb_buffer_pool_instances
             else
                 innodb_buffer_pool_chunk_size = innodb_buffer_pool_size
@@ -349,7 +371,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         mysqld_settings.merge! forced_settings
         
-        cf_system.atomicWriteIni(conf_file, conf_settings, { :user => user})
+        config_changed = cf_system.atomicWriteIni(conf_file, conf_settings, { :user => user})
         
         # Prepare service file
         #---
@@ -377,8 +399,17 @@ Puppet::Type.type(:cfdb_instance).provide(
                 end
                 FileUtils.chown(user, user, upgrade_file)
             end
+            
+            if config_changed
+                warning("#{user} configuration update. Service restart is required!")
+                warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
+                
+                debug('Updating max_connections in runtime')
+                sudo('-u', user, MYSQL, '--wait', '-e',
+                     "SET GLOBAL max_connections = #{max_connections};")
+            end
         else
-            have_initialize = sudo(MYSQLD, '--verbose', '--help')
+            have_initialize = sudo('-u', user, MYSQLD, '--verbose', '--help')
             have_initialize = /--initialize/.match(have_initialize)
             have_initialize = !have_initialize.nil?
             
@@ -400,6 +431,11 @@ Puppet::Type.type(:cfdb_instance).provide(
                     "--datadir=#{data_dir}",
                     "--mysqld-file=" + MYSQLD)
                 systemctl('start', "#{service_name}.service")
+            end
+            
+            for i in 0..300
+                break if File.exists? sock_file
+                sleep 1
             end
             
             if not File.exists? data_dir
