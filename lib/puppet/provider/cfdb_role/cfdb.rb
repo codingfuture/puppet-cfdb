@@ -2,7 +2,7 @@
 # Done this way due to some weird behavior in tests also ignoring $LOAD_PATH
 begin
     require File.expand_path( '../../../../puppet_x/cf_system/provider_base', __FILE__ )
-rescue
+rescue LoadError
     require File.expand_path( '../../../../../../cfsystem/lib/puppet_x/cf_system/provider_base', __FILE__ )
 end
 
@@ -106,7 +106,17 @@ Puppet::Type.type(:cfdb_role).provide(
             sql << "DROP USER #{user}@#{host};"
         end
         
-        sudo('-u', cluster_user, MYSQL, '--wait', '-e', sql.join(''))
+        sql << 'FLUSH PRIVILEGES;'
+        
+        # Workaround possible hit of argument size limit
+        while subsql = sql.slice!(0, 10)
+            sudo('-u', cluster_user, MYSQL, '--wait', '-e', subsql.join(''))
+        end
+        
+        # Final commands, if any
+        if not sql.empty?
+            sudo('-u', cluster_user, MYSQL, '--wait', '-e', sql.join(''))
+        end
     end
     
     def self.check_mysql(cluster_user, conf)
