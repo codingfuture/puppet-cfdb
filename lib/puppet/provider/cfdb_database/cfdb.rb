@@ -27,12 +27,13 @@ Puppet::Type.type(:cfdb_database).provide(
             self.send("check_#{db_type}", inst_conf['user'], params[:database])
         rescue => e
             warning(e)
+            warning(e.backtrace)
             false
         end
     end
     
     def self.get_config_index
-        'cfdb2_database'
+        'cf10db2_database'
     end
 
     def self.get_generator_version

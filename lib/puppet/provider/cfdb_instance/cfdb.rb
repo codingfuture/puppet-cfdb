@@ -27,7 +27,7 @@ Puppet::Type.type(:cfdb_instance).provide(
     MYSQL_UPGRADE = '/usr/bin/mysql_upgrade' unless defined? MYSQL_UPGRADE
 
     def self.get_config_index
-        'cfdb1_instance'
+        'cf10db1_instance'
     end
 
     def self.get_generator_version

@@ -17,8 +17,14 @@ Puppet::Type.type(:cfdb_role).provide(
     MYSQL = '/usr/bin/mysql' unless defined? MYSQL
     
     class << self
+        # cfsystem.json config state
+        # { cluster_user => { user => orig_params }
+        attr_accessor :role_old
+        # actual DB server config state
+        # { cluster_user => { user => { allowed_hosts => max_connections } } }
         attr_accessor :role_cache
     end
+    self.role_old = {}
     self.role_cache = {}
     
     def flush
@@ -31,18 +37,24 @@ Puppet::Type.type(:cfdb_role).provide(
         begin
             instance_index = Puppet::Type.type(:cfdb_instance).provider(:cfdb).get_config_index
             inst_conf = cf_system().config.get_old(instance_index)
-            inst_conf = inst_conf[params[:cluster]]
+            cluster = params[:cluster]
+            inst_conf = inst_conf[cluster]
+            cluster_user = inst_conf['user']
             db_type = inst_conf['type']
-            self.send("check_#{db_type}", inst_conf['user'], params)
+            
+            self.role_old[cluster_user] = {} if not self.role_old.has_key? cluster_user
+            self.role_old[cluster_user][params[:user]] = params
+            self.send("check_#{db_type}", cluster_user, params)
         rescue => e
             warning(e)
+            warning(e.backtrace)
             false
         end
 
     end
     
     def self.get_config_index
-        'cfdb3_role'
+        'cf10db3_role'
     end
 
     def self.get_generator_version
@@ -91,15 +103,36 @@ Puppet::Type.type(:cfdb_role).provide(
         cache = self.role_cache[cluster_user]
         user = conf[:user]
         pass = conf[:password]
+        database = conf[:database]
+        custom_grant = conf[:custom_grant]
         allowed_hosts = conf[:allowed_hosts]
-        to_remove = cache[user].keys - allowed_hosts.keys
+        
+        to_remove = cache.fetch(user, {}).keys - allowed_hosts.keys
         sql = []
         
+        oldconf = self.role_old.fetch(cluster_user, {}).fetch(user, {})
+        grant_mismatch = oldconf.fetch(:custom_grant, nil) != custom_grant
+        database_mismatch = oldconf.fetch(:database, database) != database
+        
         allowed_hosts.each do |host, maxconn|
-            sql << "CREATE USER IF NOT EXISTS #{user}@#{host};"
-            sql << "ALTER USER #{user}@#{host}
+            atomic_sql = []
+            user_host = "#{user}@#{host}"
+            atomic_sql << "CREATE USER #{user_host};" if not cache.has_key? user
+            atomic_sql << "ALTER USER #{user_host}
                     IDENTIFIED BY '#{pass}'
                     WITH MAX_USER_CONNECTIONS #{maxconn};"
+
+            if grant_mismatch or database_mismatch
+                atomic_sql << "REVOKE ALL PRIVILEGES, GRANT OPTION FROM #{user_host};"
+            end
+                    
+            if custom_grant
+                atomic_sql << custom_grant.replace
+            else
+                atomic_sql << "GRANT ALL PRIVILEGES ON #{database}.* TO #{user_host};"
+            end
+            
+            sql << atomic_sql.join('')
         end
         
         to_remove.each do |host|
@@ -120,7 +153,9 @@ Puppet::Type.type(:cfdb_role).provide(
     end
     
     def self.check_mysql(cluster_user, conf)
-        if not self.role_cache.has_key? cluster_user
+        if self.role_cache.has_key? cluster_user
+            cache = self.role_cache[cluster_user]
+        else
             ret = sudo('-u', cluster_user,
                        MYSQL, '--wait', '--batch', '--skip-column-names', '-e',
                        'SELECT user, host, max_user_connections FROM mysql.user
@@ -138,14 +173,14 @@ Puppet::Type.type(:cfdb_role).provide(
             end
             
             self.role_cache[cluster_user] = cache
-        else
-            cache = self.role_cache[cluster_user]
         end
         
         user = conf[:user]
-        cache[user] = {} if not cache.has_key? user
         
-        cache[user] == conf[:allowed_hosts]
+        oldconf = self.role_old.fetch(cluster_user, {}).fetch(user, {:custom_grant => nil})
+        return false if oldconf[:custom_grant] != conf[:custom_grant]
+        
+        cache.fetch(user, {}) == conf[:allowed_hosts]
     end
 
     #==================================
