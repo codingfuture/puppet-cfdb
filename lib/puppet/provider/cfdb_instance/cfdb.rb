@@ -162,6 +162,8 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         cluster = conf[:cluster]
         service_name = conf[:service_name]
+        is_secondary = conf[:is_secondary]
+        is_cluster = conf[:is_cluster]
         server_id = 1 # TODO
         type = conf[:type]
         conf_file = "#{conf_dir}/mysql.cnf"
@@ -185,9 +187,13 @@ Puppet::Type.type(:cfdb_instance).provide(
         if cfdb_settings.has_key? 'optimize_ssd'
             optimize_ssd = cfdb_settings['optimize_ssd']
         else
-            optimize_ssd = !is_hdd(data_dir)
+            optimize_ssd = !is_hdd(root_dir)
         end
         
+        if is_cluster
+            # need to properly configure
+            raise Puppet::DevError, "TODO: implement MySQL is_cluster"
+        end
         
         # calculate based on user access list x limit
         #---
@@ -423,10 +429,10 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         # Prepare data dir
         #---
+        upgrade_file = "#{conf_dir}/upgrade_stamp"
+        upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--version')
+        
         if data_exists
-            upgrade_file = "#{conf_dir}/upgrade_stamp"
-            upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--version')
-            
             if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
                 warning('> running mysql upgrade')
                 systemctl('start', "#{service_name}.service")
@@ -444,6 +450,13 @@ Puppet::Type.type(:cfdb_instance).provide(
                 debug('Updating max_connections in runtime')
                 sudo('-u', user, MYSQL, '--wait', '-e',
                      "SET GLOBAL max_connections = #{max_connections};")
+            end
+        elsif is_secondary
+            if is_cluster
+                # do nothing, to be copied on startup
+            else
+                # need to manually initialize data_dir from master
+                raise Puppet::DevError, "MySQL slave is not supported.\nPlease use more reliable is_cluster setup."
             end
         else
             have_initialize = sudo('-u', user, MYSQLD, '--verbose', '--help')
@@ -478,9 +491,13 @@ Puppet::Type.type(:cfdb_instance).provide(
             if not File.exists? data_dir
                 raise Puppet::DevError, "Failed to initialize #{data_dir}"
             end
+            
+            # no need to upgrade just initialized instance
+            File.open(upgrade_file, 'w+', 0600) do |f|
+                f.write(upgrade_ver)
+            end
+            FileUtils.chown(user, user, upgrade_file)
         end
-        
-        #TODO: copy data from master, if slave
     end
     
     #==================================
