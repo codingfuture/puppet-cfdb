@@ -418,9 +418,12 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         # Prepare service file
         #---
+        restart_required_file = "#{conf_dir}/restart_required"
+        
         service_ini = {
             'LimitNOFILE' => open_file_limit * 2,
             'ExecStart' => "/usr/sbin/mysqld --defaults-file=#{conf_dir}/mysql.cnf $MYSQLD_OPTS",
+            'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
         }
         service_env = {
             'MYSQLD_OPTS' => '',
@@ -444,12 +447,17 @@ Puppet::Type.type(:cfdb_instance).provide(
             end
             
             if config_changed
-                warning("#{user} configuration update. Service restart is required!")
-                warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
-                
                 debug('Updating max_connections in runtime')
                 sudo('-u', user, MYSQL, '--wait', '-e',
                      "SET GLOBAL max_connections = #{max_connections};")
+                
+                FileUtils.touch(restart_required_file)
+                FileUtils.chown(user, user, restart_required_file)
+            end
+            
+            if File.exists?(restart_required_file)
+                warning("#{user} configuration update. Service restart is required!")
+                warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
             end
         elsif is_secondary
             if is_cluster
