@@ -127,7 +127,7 @@ Puppet::Type.type(:cfdb_role).provide(
             end
                     
             if custom_grant
-                atomic_sql << custom_grant.replace
+                atomic_sql << custom_grant.gsub('$database', database).gsub('$user', user_host)
             else
                 atomic_sql << "GRANT ALL PRIVILEGES ON #{database}.* TO #{user_host};"
             end
@@ -142,7 +142,7 @@ Puppet::Type.type(:cfdb_role).provide(
         sql << 'FLUSH PRIVILEGES;'
         
         # Workaround possible hit of argument size limit
-        while subsql = sql.slice!(0, 10)
+        while subsql = sql.slice!(0, 10) and !subsql.nil? and !subsql.empty?
             sudo('-u', cluster_user, MYSQL, '--wait', '-e', subsql.join(''))
         end
         

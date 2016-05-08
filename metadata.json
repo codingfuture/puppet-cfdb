@@ -46,6 +46,10 @@
     {
       "name": "codingfuture-cfsystem",
       "version_requirement": ">= 0.9.11"
+    },
+    {
+      "name": "dalen-puppetdbquery",
+      "version_requirement": ">= 2.1.1"
     }
   ],
   "data_provider": "hiera"
