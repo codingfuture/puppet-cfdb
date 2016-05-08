@@ -121,7 +121,34 @@ Puppet::Type.type(:cfdb_instance).provide(
         ret[1].strip().to_i
     end
     
-    BINLOG_RESERVE = 10
+    def self.is_hdd(dir)
+        ret = df('-BM', '--output=source', dir)
+        ret = ret.split("\n")
+        device = ret[1].strip()
+        
+        if not File.exists?(device)
+            debug("Device not found #{device}")
+            # assume something with high IOPS
+            return false
+        end
+        
+        if File.symlink?(device)
+            device = File.readlink(device)
+        end
+        
+        device = File.basename(device)
+        
+        begin
+            device.gsub!(/[0-9]/, '')
+            rotational = File.read("/sys/block/#{device}/queue/rotational").to_i
+            debug("Device #{device} rotational = #{rotational}")
+            return rotational.to_i == 1
+        rescue => e
+            warning(e)
+             # assume something with high IOPS
+            return false
+        end
+    end
     
     #==================================
     def self.create_mysql(conf)
@@ -149,12 +176,17 @@ Puppet::Type.type(:cfdb_instance).provide(
         settings_tune = conf[:settings_tune]
         cfdb_settings = settings_tune.fetch('cfdb', {})
         mysqld_tune = settings_tune.fetch('mysqld', {})
-        optimize_ssd = cfdb_settings.fetch('optimize_ssd', false)
         
         root_pass = cf_system.genSecret(cluster)
         port = cf_system.genPort(cluster)
         
         data_exists = File.exists?(data_dir)
+        
+        if cfdb_settings.has_key? 'optimize_ssd'
+            optimize_ssd = cfdb_settings['optimize_ssd']
+        else
+            optimize_ssd = !is_hdd(data_dir)
+        end
         
         
         # calculate based on user access list x limit
@@ -171,7 +203,8 @@ Puppet::Type.type(:cfdb_instance).provide(
                 have_external_conn = true if v[:allowed_hosts].length > 1
             end
         end
-        max_connections = round_to(100, max_connections)
+        max_connections_roundto = cfdb_settings.fetch('max_connections_roundto', 100).to_i
+        max_connections = round_to(max_connections_roundto, max_connections)
         #---
         
         # TODO: auto-choose
@@ -185,8 +218,8 @@ Puppet::Type.type(:cfdb_instance).provide(
 
         # Auto-tune to have enough open table cache        
         #---
-        inodes_min = 10000
-        inodex_max = 100000
+        inodes_min = cfdb_settings.fetch('inodes_min', 10000).to_i
+        inodex_max = cfdb_settings.fetch('inodex_max', 100000).to_i
         
         if data_exists
             inodes_used = du('--inodes', '--summarize', data_dir).to_i
@@ -201,8 +234,9 @@ Puppet::Type.type(:cfdb_instance).provide(
         #---
         
         # with safe limit
+        open_file_limit_roundto = cfdb_settings.fetch('open_file_limit_roundto', 10000).to_i
         open_file_limit = 3 * (max_connections + table_definition_cache + table_open_cache)
-        open_file_limit = round_to(10000, open_file_limit)
+        open_file_limit = round_to(open_file_limit_roundto, open_file_limit)
         
         
         # Complex tuning based on target DB size and available RAM
@@ -216,10 +250,12 @@ Puppet::Type.type(:cfdb_instance).provide(
             target_size = disk_size(root_dir)
         end
         
-        max_binlog_files = 20
         mb = 1024 * 1024
         gb = mb * 1024
-        binlog_reserve = target_size * BINLOG_RESERVE / 100
+        
+        max_binlog_files = cfdb_settings.fetch('max_binlog_files', 20).to_i
+        binlog_reserve_percent = cfdb_settings.fetch('binlog_reserve_percent', 10).to_i
+        binlog_reserve = target_size * binlog_reserve_percent / 100
         
         if binlog_reserve < (max_binlog_files * gb)
             max_binlog_size = 256 * mb
@@ -230,25 +266,26 @@ Puppet::Type.type(:cfdb_instance).provide(
         avail_mem = cf_system.getMemory(cluster) * mb
         
         #
-        default_chunk_size = 2 * gb
-        max_pools = 64
+        default_chunk_size = cfdb_settings.fetch('default_chunk_size', 2 * gb).to_i
+        max_pools = 64 # MySQL limit
 
-        innodb_buffer_pool_size = avail_mem * 80 / 100
+        innodb_buffer_pool_size_percent= cfdb_settings.fetch('innodb_buffer_pool_size_percent', 80).to_i
+        innodb_buffer_pool_size = (avail_mem * innodb_buffer_pool_size_percent / 100).to_i
         innodb_buffer_pool_chunk_size = default_chunk_size
         
         if innodb_buffer_pool_size > (max_pools * innodb_buffer_pool_chunk_size)
-            round_pool = gb
-            innodb_buffer_pool_chunk_size = round_to(round_pool, innodb_buffer_pool_size / max_pools)
+            innodb_buffer_pool_roundto = cfdb_settings.fetch('innodb_buffer_pool_roundto', gb).to_i
+            innodb_buffer_pool_chunk_size = round_to(innodb_buffer_pool_roundto, innodb_buffer_pool_size / max_pools)
             innodb_buffer_pool_size = innodb_buffer_pool_chunk_size * max_pools
             innodb_buffer_pool_instances = max_pools
             innodb_sort_buffer_size = 64 * mb
         elsif innodb_buffer_pool_size > innodb_buffer_pool_chunk_size
-            round_pool = 128 * mb
+            innodb_buffer_pool_roundto = cfdb_settings.fetch('innodb_buffer_pool_roundto', 128 * mb).to_i
             innodb_buffer_pool_instances = innodb_buffer_pool_size / innodb_buffer_pool_chunk_size
             innodb_buffer_pool_instances = fit_range(1, max_pools, innodb_buffer_pool_instances)
             
             if innodb_buffer_pool_instances > 1
-                innodb_buffer_pool_chunk_size = round_to(round_pool, innodb_buffer_pool_chunk_size)
+                innodb_buffer_pool_chunk_size = round_to(innodb_buffer_pool_roundto, innodb_buffer_pool_chunk_size)
                 innodb_buffer_pool_size = innodb_buffer_pool_chunk_size * innodb_buffer_pool_instances
             else
                 innodb_buffer_pool_chunk_size = innodb_buffer_pool_size
