@@ -1,8 +1,10 @@
 
 class cfdb (
-    $root_dir = '/db',
     $instances = {},
     $access = {},
+    $iface = 'any',
+    $root_dir = '/db',
+    $max_connections_default = 10,
 ) {
     file { $root_dir:
         ensure => directory,

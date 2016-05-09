@@ -1,0 +1,44 @@
+require 'json'
+
+Facter.add('cfdb') do
+    setcode do
+        begin
+            json = File.read('/etc/cfsystem.json')
+            json = JSON.parse(json)
+            sections = json['sections']
+            persistent = json['persistent']['ports']
+            
+            ret = {}
+            roles = {}
+            
+            sections['cf10db3_role'].each do |k, info|
+                cluster = info['cluster']
+                user = info['user']
+                roles[cluster] = {} if not roles.has_key? cluster
+                roles[cluster][user] = {
+                    'database' => info['database'],
+                    'password' => info['password'],
+                    'present' => true,
+                }
+            end
+            
+            sections['cf10db1_instance'].each do |k, info|
+                cluster = info['cluster']
+                ret[cluster] = {
+                    'roles' => roles[cluster],
+                    'socket' => "/run/#{info['service_name']}/service.sock",
+                    'host' => info['settings_tune'].fetch('cfdb', {}).fetch('listen', nil),
+                    'port' => persistent[cluster],
+                    'is_secondary' => info['is_secondary'],
+                    'is_cluster' => info['is_cluster'],
+                    'present' => true,
+                }
+            end
+            
+            ret
+        rescue => e
+            {}
+            #e
+        end
+    end 
+end

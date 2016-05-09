@@ -180,7 +180,6 @@ Puppet::Type.type(:cfdb_instance).provide(
         mysqld_tune = settings_tune.fetch('mysqld', {})
         
         root_pass = cf_system.genSecret(cluster)
-        port = cf_system.genPort(cluster)
         
         data_exists = File.exists?(data_dir)
         
@@ -216,10 +215,12 @@ Puppet::Type.type(:cfdb_instance).provide(
         # TODO: auto-choose
         #---
         if have_external_conn
-            bind_address = '0.0.0.0'
+            bind_address = cfdb_settings.fetch('listen', '0.0.0.0')
         else
             bind_address = '127.0.0.1'
         end
+        
+        port = cf_system.genPort(cluster, cfdb_settings.fetch('port', nil))
         #---
 
         # Auto-tune to have enough open table cache        

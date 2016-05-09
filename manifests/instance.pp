@@ -10,8 +10,12 @@ define cfdb::instance (
     
     $settings_tune = {},
     $databases = undef,
+    
+    $iface = $cfdb::iface,
+    $port = undef,
 ) {
     include stdlib
+    include cfnetwork
     include cfsystem
     include cfdb
     
@@ -21,6 +25,15 @@ define cfdb::instance (
     $user = "${type}_${cluster}"
     $root_dir = "${cfdb::root_dir}/${user}"
     
+    if $iface == 'any' {
+        $listen = undef
+    } elsif defined(Cfnetwork::Iface[$iface]) {
+        $listen = pick_default(getparam(Cfnetwork::Iface[$iface], 'address'), undef)
+    } else {
+        $listen = $iface
+    }
+    
+    #---
     group { $user:
         ensure => present,
     }
@@ -75,7 +88,13 @@ define cfdb::instance (
         
         root_dir => $root_dir,
         
-        settings_tune => $settings_tune,
+        settings_tune => merge(
+            $settings_tune,
+            { cfdb => merge({
+                    'listen' => $listen,
+                    'port' => $port,
+                }, pick($settings_tune['cfdb'], {}))
+            }),
         service_name => $service_name,
         
         require => [
