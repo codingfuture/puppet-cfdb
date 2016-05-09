@@ -1,9 +1,17 @@
 require 'json'
 
+# Done this way due to some weird behavior in tests also ignoring $LOAD_PATH
+begin
+    require File.expand_path( '../../puppet_x/cf_system/provider_base', __FILE__ )
+rescue LoadError
+    require File.expand_path( '../../../../cfsystem/lib/puppet_x/cf_system/provider_base', __FILE__ )
+end
+
 Facter.add('cfdb') do
     setcode do
+        cfsystem_json = PuppetX::CfSystem::CFSYSTEM_CONFIG
         begin
-            json = File.read('/etc/cfsystem.json')
+            json = File.read(cfsystem_json)
             json = JSON.parse(json)
             sections = json['sections']
             persistent = json['persistent']['ports']

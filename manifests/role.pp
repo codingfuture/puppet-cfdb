@@ -28,13 +28,24 @@ define cfdb::role(
         localhost => $cfdb::max_connections_default,
     }, $access.reduce({}) |$memo, $val| {
         $certname = $val[0]
-        $role_fact = $val[1]['cfdbaccess'][$cluster][$role]
+        $allowed =  $val[1]['cfdbaccess'][$cluster][$role]['client']
         
-        $maxconn = pick($role_fact['max_connections'], $cfdb::max_connections_default)
-        $host = pick($role_fact['host'], $certname)
-        merge($memo, {
-            $host => pick($memo[$host], 0) + $maxconn
-        })
+        $allowed_result = $allowed.reduce({}) |$imemo, $ival| {
+            $maxconn = pick($ival['max_connections'], $cfdb::max_connections_default)
+            $host = pick($ival['host'], $certname)
+            
+            if $certname == $::trusted['certname'] {
+                $host_index = 'localhost'
+            } else {
+                $host_index = $host
+            }
+
+            merge($imemo, {
+                $host_index => pick($imemo[$host_index], 0) + $maxconn
+            })
+        }
+        
+        merge($memo, $allowed_result)
     })
     
     cfdb_role { $title:

@@ -8,7 +8,27 @@ define cfdb::access(
     $max_connections = $cfdb::max_connections_default,
     $config_prefix = 'DB_',
     $env_file = '.env',
+    $iface = $cfdb::iface,
 ) {
+    include cfnetwork
+    
+    #---
+    if $iface == 'any' {
+        $client_host = undef
+    } elsif defined(Cfnetwork::Iface[$iface]) {
+        $client_host = pick_default(getparam(Cfnetwork::Iface[$iface], 'address'), undef)
+    } else {
+        $client_host = $iface
+    }
+    
+    cfdb_access { $title:
+        ensure => present,
+        cluster => $cluster,
+        role => $role,
+        max_connections => $max_connections,
+        client_host => $client_host,
+    }
+    
     #---
     if $use_proxy == 'auto' {
         $use_proxy_detected = false
