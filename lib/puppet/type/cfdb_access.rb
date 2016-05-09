@@ -33,7 +33,7 @@ Puppet::Type.newtype(:cfdb_access) do
         end
     end
 
-    newproperty(:max_connections ) do
+    newproperty(:max_connections) do
         validate do |value|
             unless value.is_a? Integer and value > 0
                 raise ArgumentError, "%s is not vakud max_connections" % value
@@ -41,6 +41,6 @@ Puppet::Type.newtype(:cfdb_access) do
         end
     end
     
-    newproperty(:client_host ) do
+    newproperty(:client_host) do
     end
 end

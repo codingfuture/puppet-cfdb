@@ -1,4 +1,7 @@
 
+require 'ipaddr'
+require 'resolv'
+
 # Done this way due to some weird behavior in tests also ignoring $LOAD_PATH
 begin
     require File.expand_path( '../../../../puppet_x/cf_system/provider_base', __FILE__ )
@@ -116,8 +119,8 @@ Puppet::Type.type(:cfdb_role).provide(
         
         allowed_hosts.each do |host, maxconn|
             atomic_sql = []
-            user_host = "#{user}@#{host}"
-            atomic_sql << "CREATE USER #{user_host};" if not cache.has_key? user
+            user_host = "'#{user}'@'#{host}'"
+            atomic_sql << "CREATE USER #{user_host};" if not cache.fetch(user, {}).has_key? host
             atomic_sql << "ALTER USER #{user_host}
                     IDENTIFIED BY '#{pass}'
                     WITH MAX_USER_CONNECTIONS #{maxconn};"

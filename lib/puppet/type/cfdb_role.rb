@@ -62,5 +62,23 @@ Puppet::Type.newtype(:cfdb_role) do
                 raise ArgumentError, "%s is not valid allowed_hosts" % value
             end
         end
+        
+        munge do |value|
+            ret = {}
+            
+            value.each do |host, maxconn|
+                begin
+                    if host != 'localhost'
+                        IPAddr.new(host)
+                    end
+                rescue
+                    host = Resolv.getaddress host
+                end
+                
+                ret[host] = maxconn
+            end
+            
+            ret
+        end
     end
 end
