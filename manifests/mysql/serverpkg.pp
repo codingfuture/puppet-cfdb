@@ -11,8 +11,11 @@ class cfdb::mysql::serverpkg {
         package { "percona-xtradb-cluster-${ver_nodot}": }
     } else {
         $ver = $cfdb::mysql::version
-        package { "percona-server-${ver}": }
+        package { "percona-server-server-${ver}": }
     }
+    
+    package { "percona-xtrabackup-24": }
+    package { "qpress": }
 
     # default instance must not run
     service { 'mysql':

@@ -13,6 +13,9 @@ define cfdb::instance (
     
     $iface = $cfdb::iface,
     $port = undef,
+    
+    $backup = $cfdb::backup,
+    $backup_tune = {},
 ) {
     include stdlib
     include cfnetwork
@@ -28,7 +31,13 @@ define cfdb::instance (
     if $iface == 'any' {
         $listen = undef
     } elsif defined(Cfnetwork::Iface[$iface]) {
-        $listen = pick_default(getparam(Cfnetwork::Iface[$iface], 'address'), undef)
+        $iface_addr = pick_default(getparam(Cfnetwork::Iface[$iface], 'address'), undef)
+        
+        if is_string($iface_addr) {
+            $listen = $iface_addr.split('/')[0]
+        } else {
+            $listen = undef
+        }
     } else {
         $listen = $iface
     }
@@ -144,6 +153,40 @@ define cfdb::instance (
             }
         } else {
             fail('$databases must be an array or hash')
+        }
+    }
+    
+    #---
+    $backup_script = "${root_dir}/bin/cfdb_backup"
+    $backup_script_auto ="${backup_script}_auto"
+    $backup_dir = "${cfdb::backup_dir}/${user}"
+    
+    file { $backup_dir:
+        ensure => directory,
+        owner => $user,
+        group => $user,
+        mode => '0750',
+    }
+    
+    file { $backup_script:
+        mode => '0755',
+        content => epp("cfdb/cfdb_backup_${type}.epp", merge({
+            backup_dir => $backup_dir,
+            root_dir => $root_dir,
+            user => $user,
+        }, $backup_tune)),
+        require => File[$backup_dir],
+    }
+    
+    if $backup == false {
+        file { $backup_script_auto:
+            ensure => absent,
+        }
+    } else {
+        file { $backup_script_auto:
+            ensure => link,
+            target => $backup_script,
+            require => File[$backup_script],
         }
     }
 }

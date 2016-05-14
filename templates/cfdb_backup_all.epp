@@ -1,0 +1,12 @@
+#!/bin/bash
+#--------------------------------------
+# This script is designed to minimize stress on system
+# and run all scripts sequentially
+#--------------------------------------
+for f in <%= $cfdb::root_dir %>/*/bin/cfdb_backup_auto; do
+    $f
+    
+    if test "$?" != 0; then
+        echo "!!! Backup failed: $f"
+    fi
+done

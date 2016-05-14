@@ -381,7 +381,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'table_open_cache' => table_open_cache,
                 'transaction_isolation' => 'READ-COMMITTED',
             },
-            'client' => client_settings,
+            'client' => client_settings['client'],
         }
         
         mysqld_settings = conf_settings['mysqld']

@@ -1,0 +1,47 @@
+<%- | String $backup_dir,
+      String $root_dir,
+      String $user,
+      String $base_date='month' |
+-%>
+#!/bin/bash
+
+backup_dir=<%= $backup_dir %>
+root_dir=<%= $root_dir %>
+user=<%= $user %>
+base_date=<%= $base_date %>
+
+# Make sure to run under instance user
+if test "$(id -u)" = 0; then
+    exec /usr/bin/sudo -u <%= $user %> $0 "$@"
+    # should not reach here
+    exit -1
+fi
+
+case $base_date in
+    'year') base_date='%Y' ;;
+    'quarter') base_date="%Y-Q$(( $(/bin/date +%m) / 4 + 1 ))" ;;
+    'month') base_date='%Y-%m' ;;
+    'week') base_date='%Y-W%W' ;;
+    'day') base_date='%Y-%m-%d' ;;
+esac
+
+backup_dir="$backup_dir/$(/bin/date --utc +$base_date)"
+
+if test -d $backup_dir; then
+    # NOTE: there is a bug with auto-detection of --incremental-basedir in tested version
+    incremental="--incremental --incremental-basedir=$backup_dir/$(/bin/ls $backup_dir | /usr/bin/head -n1)"
+else
+    incremental=
+fi
+
+/usr/bin/innobackupex \
+        --defaults-file=$root_dir/conf/mysql.cnf \
+        $incremental \
+        --compact \
+        --compress \
+        --slave-info \
+        --galera-info \
+        --rsync \
+        $backup_dir
+    
+
