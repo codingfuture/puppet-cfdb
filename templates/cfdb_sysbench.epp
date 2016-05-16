@@ -1,0 +1,27 @@
+<%- | String $user |
+-%>
+#!/bin/bash
+
+# This is a handy wrapper around sysbench
+
+# Make sure to run under instance user
+if test "$(/usr/bin/id -u)" = 0; then
+    exec /usr/bin/sudo -u <%= $user %> $0 "$@"
+    # should not reach here
+    exit -1
+fi
+
+mysql -e 'CREATE DATABASE IF NOT EXISTS sysbenchtest;'
+
+threads=$(cat ~/conf/mysql.cnf | grep 'max_connections' | sed 's/^.*=//' )
+
+# TODO: dynamically tune settings
+/usr/bin/sysbench \
+    --num-threads=$threads \
+    --max-requests=$(( $threads * 10 )) \
+    --oltp-table-size=500000 \
+    --db-driver=mysql \
+    --test=oltp \
+    $(cat ~/.my.cnf | grep -v '\[client\]' | sed 's/^/--mysql-/g' ) \
+    --mysql-db=sysbenchtest \
+    $@

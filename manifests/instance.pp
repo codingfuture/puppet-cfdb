@@ -158,6 +158,7 @@ define cfdb::instance (
     
     #---
     $backup_script = "${root_dir}/bin/cfdb_backup"
+    $restore_script = "${root_dir}/bin/cfdb_restore"
     $backup_script_auto ="${backup_script}_auto"
     $backup_dir = "${cfdb::backup_dir}/${user}"
     
@@ -176,6 +177,19 @@ define cfdb::instance (
             user => $user,
         }, $backup_tune)),
         require => File[$backup_dir],
+        notify => Cfdb_instance[$cluster],
+    }
+    
+    file { $restore_script:
+        mode => '0755',
+        content => epp("cfdb/cfdb_restore_${type}.epp", {
+            backup_dir => $backup_dir,
+            root_dir => $root_dir,
+            user => $user,
+            service_name => $service_name,
+        }),
+        require => File[$backup_dir],
+        notify => Cfdb_instance[$cluster],
     }
     
     if $backup == false {
@@ -187,6 +201,18 @@ define cfdb::instance (
             ensure => link,
             target => $backup_script,
             require => File[$backup_script],
+        }
+    }
+    
+    #---
+    case $type {
+        'mysql': {
+            file { "${root_dir}/bin/cfdb_sysbench":
+                mode => '0755',
+                content => epp("cfdb/cfdb_sysbench.epp", {
+                    user => $user,
+                }),
+            }
         }
     }
 }

@@ -194,6 +194,11 @@ Puppet::Type.type(:cfdb_instance).provide(
             raise Puppet::DevError, "TODO: implement MySQL is_cluster"
         end
         
+        #---
+        ver_parts = sudo('-u', user, MYSQLD, '--version').split()[2].split('.')
+        is_56 = (ver_parts[0] == '5' and ver_parts[1] == '6')
+        is_57 = (ver_parts[0] == '5' and ver_parts[1] == '7')
+        
         # calculate based on user access list x limit
         #---
         max_connections = 0
@@ -225,8 +230,8 @@ Puppet::Type.type(:cfdb_instance).provide(
 
         # Auto-tune to have enough open table cache        
         #---
-        inodes_min = cfdb_settings.fetch('inodes_min', 10000).to_i
-        inodex_max = cfdb_settings.fetch('inodex_max', 100000).to_i
+        inodes_min = cfdb_settings.fetch('inodes_min', 1000).to_i
+        inodex_max = cfdb_settings.fetch('inodex_max', 10000).to_i
         
         if data_exists
             inodes_used = du('--inodes', '--summarize', data_dir).to_i
@@ -358,7 +363,6 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'expire_logs_days' => 7,
                 'gtid_mode' => 'ON',
                 'init_file' => init_file,
-                'innodb_buffer_pool_chunk_size' => innodb_buffer_pool_chunk_size,
                 'innodb_buffer_pool_instances' => innodb_buffer_pool_instances,
                 'innodb_buffer_pool_size' => innodb_buffer_pool_size,
                 'innodb_file_format' => 'Barracuda',
@@ -380,9 +384,17 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'table_definition_cache' => table_definition_cache,
                 'table_open_cache' => table_open_cache,
                 'transaction_isolation' => 'READ-COMMITTED',
+                'performance_schema' => 'OFF',
             },
             'client' => client_settings['client'],
+            'xtrabackup' => {
+                'use-memory' => avail_mem,
+            }
         }
+        
+        if is_57
+            conf_settings['mysqld']['innodb_buffer_pool_chunk_size'] = innodb_buffer_pool_chunk_size
+        end
         
         mysqld_settings = conf_settings['mysqld']
         
@@ -434,7 +446,12 @@ Puppet::Type.type(:cfdb_instance).provide(
         # Prepare data dir
         #---
         upgrade_file = "#{conf_dir}/upgrade_stamp"
-        upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--version')
+
+        if is_57
+            upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--version')
+        else
+            upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--help').split("\n")[0]
+        end
         
         if data_exists
             if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
@@ -487,17 +504,17 @@ Puppet::Type.type(:cfdb_instance).provide(
                 warning('> running mysql install db')
                 sudo('-u', user, MYSQL_INSTALL_DB,
                     "--defaults-file=#{conf_file}",
-                    "--datadir=#{data_dir}",
-                    "--mysqld-file=" + MYSQLD)
+                    "--datadir=#{data_dir}")
                 systemctl('start', "#{service_name}.service")
             end
             
-            for i in 0..300
+            for i in 1..30
                 break if File.exists? sock_file
+                warning("Waiting #{service_name} startup (#{i})!")
                 sleep 1
             end
             
-            if not File.exists? data_dir
+            if not File.exists? data_dir or not File.exists? sock_file
                 raise Puppet::DevError, "Failed to initialize #{data_dir}"
             end
             

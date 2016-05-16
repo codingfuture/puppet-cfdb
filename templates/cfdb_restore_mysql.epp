@@ -1,0 +1,104 @@
+<%- | String $backup_dir,
+      String $root_dir,
+      String $user,
+      String $service_name |
+-%>
+#!/bin/bash
+
+backup_dir=<%= $backup_dir %>
+root_dir=<%= $root_dir %>
+user=<%= $user %>
+service_name=<%= $service_name %>
+
+# Make sure to run under instance user
+if test "$(/usr/bin/id -u)" != 0; then
+    echo "Error: this script must run under root"
+    # should not reach here
+    exit 1
+fi
+
+data_dir="${root_dir}/data"
+last_backup="${backup_dir}/last_backup"
+last_backup="${backup_dir}/$(/bin/readlink -ns $last_backup)"
+incremental_dir="${data_dir}.incremental"
+
+echo "Last backup location: $last_backup"
+
+if ! test -d "$last_backup"; then
+    echo "Last backup is not a directory"
+    exit 1
+fi
+
+confirm1='Yes, I am sure'
+confirm2='Yes, I am REALLY sure'
+
+echo ""
+echo "Are you sure you want to restore the last backup?"
+echo -n "Print '$confirm1': "
+read check
+test "$check" = "$confirm1" || exit 1
+
+echo ""
+echo "Are you really, really sure?"
+echo -n "Print '$confirm2': "
+read check
+test "$check" = "$confirm2" || exit 1
+
+# make sure service is not running
+/bin/systemctl stop ${service_name}.service
+
+# backup old data, if any
+test -e "${data_dir}" && /bin/mv -f "${data_dir}" "${data_dir}.bak$(/bin/date '+%s')"
+
+APPLY_OPTS="--defaults-file=$root_dir/conf/mysql.cnf --apply-log"
+
+last_sub_dir=$(/bin/ls $last_backup | /usr/bin/tail -n1)
+
+# fail on error & be verbose
+set -ex
+
+/bin/ls $last_backup | while read sub_dir; do
+    echo "Processing $sub_dir"
+    
+    if test -e "${data_dir}"; then
+        # incremental
+        /usr/bin/rsync -a --delete "${last_backup}/${sub_dir}/" "${incremental_dir}"
+        
+        if test -e "${incremental_dir}/xtrabackup_logfile.qp"; then
+            /usr/bin/innobackupex --decompress "${incremental_dir}"
+        fi
+        
+        if test "$sub_dir" = "$last_sub_dir"; then
+            /usr/bin/innobackupex $APPLY_OPTS "${data_dir}" --incremental-dir=${incremental_dir}
+        else
+            /usr/bin/innobackupex $APPLY_OPTS --redo-only "${data_dir}" --incremental-dir=${incremental_dir}
+        fi
+    else
+        # base
+        /usr/bin/rsync -a --delete "${last_backup}/${sub_dir}/" "${data_dir}"
+        
+        if test -e "${data_dir}"; then
+            /usr/bin/innobackupex --decompress "${data_dir}"
+            /usr/bin/find "${data_dir}" -type f -name "*.qp" -exec /bin/rm -v {} \;
+        fi
+        
+        /usr/bin/innobackupex $APPLY_OPTS --redo-only "${data_dir}"
+    fi
+done
+
+# cleanup
+/bin/chown -R $user:$user "${data_dir}"
+# DO NOT use ${simply_var} here for safety reasons
+/bin/rm "${data_dir}.incremental" -rf
+
+# restart service
+/bin/systemctl start ${service_name}.service
+
+# make sure we do not make incremental backups with invalid base
+/bin/mv "$last_backup" "$last_backup.restored$(/bin/date '+%s')"
+
+set +ex
+echo "---------"
+echo "All done!"
+echo "---------"
+

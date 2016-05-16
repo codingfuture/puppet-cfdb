@@ -121,9 +121,15 @@ Puppet::Type.type(:cfdb_role).provide(
             atomic_sql = []
             user_host = "'#{user}'@'#{host}'"
             atomic_sql << "CREATE USER #{user_host};" if not cache.fetch(user, {}).has_key? host
-            atomic_sql << "ALTER USER #{user_host}
-                    IDENTIFIED BY '#{pass}'
-                    WITH MAX_USER_CONNECTIONS #{maxconn};"
+            
+            # only in 5.7
+            #atomic_sql << "ALTER USER #{user_host}
+            #        IDENTIFIED BY '#{pass}'
+            #        WITH MAX_USER_CONNECTIONS #{maxconn};"
+            
+            # for 5.6 compatibility
+            atomic_sql << "SET PASSWORD FOR #{user_host} = PASSWORD('#{pass}');"
+            atomic_sql << "GRANT USAGE ON #{database}.* TO #{user_host} WITH MAX_USER_CONNECTIONS #{maxconn};"
 
             if grant_mismatch or database_mismatch
                 atomic_sql << "REVOKE ALL PRIVILEGES, GRANT OPTION FROM #{user_host};"
@@ -139,7 +145,7 @@ Puppet::Type.type(:cfdb_role).provide(
         end
         
         to_remove.each do |host|
-            sql << "DROP USER #{user}@#{host};"
+            sql << "DROP USER '#{user}'@'#{host}';"
         end
         
         sql << 'FLUSH PRIVILEGES;'

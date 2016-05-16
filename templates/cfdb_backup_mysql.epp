@@ -5,13 +5,13 @@
 -%>
 #!/bin/bash
 
-backup_dir=<%= $backup_dir %>
+backup_root_dir=<%= $backup_dir %>
 root_dir=<%= $root_dir %>
 user=<%= $user %>
 base_date=<%= $base_date %>
 
 # Make sure to run under instance user
-if test "$(id -u)" = 0; then
+if test "$(/usr/bin/id -u)" = 0; then
     exec /usr/bin/sudo -u <%= $user %> $0 "$@"
     # should not reach here
     exit -1
@@ -25,23 +25,30 @@ case $base_date in
     'day') base_date='%Y-%m-%d' ;;
 esac
 
-backup_dir="$backup_dir/$(/bin/date --utc +$base_date)"
+sub_dir="$(/bin/date --utc +$base_date)"
+backup_dir="${backup_root_dir}/${sub_dir}"
 
 if test -d $backup_dir; then
     # NOTE: there is a bug with auto-detection of --incremental-basedir in tested version
-    incremental="--incremental --incremental-basedir=$backup_dir/$(/bin/ls $backup_dir | /usr/bin/head -n1)"
+    incremental="--incremental --incremental-basedir=$backup_dir/$(/bin/ls $backup_dir | /usr/bin/tail -n1)"
 else
     incremental=
 fi
 
+set -ex
+
+# required for XB 2.2
+/bin/mkdir -p ${backup_dir}
+
 /usr/bin/innobackupex \
         --defaults-file=$root_dir/conf/mysql.cnf \
         $incremental \
-        --compact \
         --compress \
         --slave-info \
         --galera-info \
         --rsync \
-        $backup_dir
+        "$backup_dir"
+        
+/bin/ln -sfn "${sub_dir}" "${backup_root_dir}/last_backup"
     
 
