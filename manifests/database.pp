@@ -7,13 +7,13 @@ define cfdb::database (
     $database = $title_split[1]
     
     cfdb_database { $title:
-        ensure => present,
-        cluster => $cluster,
+        ensure   => present,
+        cluster  => $cluster,
         database => $database,
     }
     
     cfdb::role { $title:
-        cluster => $cluster,
+        cluster  => $cluster,
         database => $database,
     }
     

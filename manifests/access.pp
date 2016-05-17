@@ -22,11 +22,11 @@ define cfdb::access(
     }
     
     cfdb_access { $title:
-        ensure => present,
-        cluster => $cluster,
-        role => $role,
+        ensure          => present,
+        cluster         => $cluster,
+        role            => $role,
         max_connections => $max_connections,
-        client_host => $client_host,
+        client_host     => $client_host,
     }
     
     #---
@@ -44,7 +44,7 @@ define cfdb::access(
     } elsif $use_proxy_detected == false {
         $cluster_facts_all = query_facts(
             "cfdb.${cluster}.is_secondary=false and cfdb.${cluster}.roles.${role}.present=true",
-            ["cfdb"]
+            ['cfdb']
         )
         
         if empty($cluster_facts_all) {
@@ -61,7 +61,7 @@ define cfdb::access(
                     'pass' => 'INVALID_PASSWORD',
                 }
             } else {
-                fail("Unknown cluster ${cluster} or associated role ${role}: $cluster_facts_all")
+                fail("Unknown cluster ${cluster} or associated role ${role}: ${cluster_facts_all}")
             }
         } else {
             $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
@@ -94,10 +94,10 @@ define cfdb::access(
     }
     #---
     $cfg.each |$var, $val| {
-        cfsystem::dotenv { "$title/${var}":
-            user => $local_user,
+        cfsystem::dotenv { "${title}/${var}":
+            user     => $local_user,
             variable => upcase("${config_prefix}${var}"),
-            value => $val,
+            value    => $val,
             env_file => $env_file,
         }
     }
@@ -112,7 +112,7 @@ define cfdb::access(
         }
         if !defined(Cfnetwork::Client_port["any:cfdb_${cluster}:${local_user}"]) {
             cfnetwork::client_port { "any:cfdb_${cluster}:${local_user}":
-                dst => $cfg['host'],
+                dst  => $cfg['host'],
                 user => $local_user,
             }
         }

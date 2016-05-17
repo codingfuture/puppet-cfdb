@@ -14,7 +14,7 @@ class cfdb (
     
     file { [$root_dir, $backup_dir]:
         ensure => directory,
-        mode => '0555',
+        mode   => '0555',
     }
     
     create_resources(cfdb::instance, $instances)
@@ -24,7 +24,7 @@ class cfdb (
     $backup_all_script = "${cfsystem::custombin::bin_dir}/cfdb_backup_all"
     
     file {$backup_all_script:
-        mode => '0700',
+        mode    => '0700',
         content => epp('cfdb/cfdb_backup_all.epp'),
     }
     

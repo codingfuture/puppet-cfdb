@@ -96,7 +96,7 @@ IIP9up4xwgje9LB7fMxsSkCDTHOk
     
 
     # default instance must not run
-    service { "postgresql":
+    service { 'postgresql':
         ensure => disabled
     }
 }

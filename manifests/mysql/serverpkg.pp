@@ -22,7 +22,7 @@ class cfdb::mysql::serverpkg {
     }
     
     package { "percona-xtrabackup-${xtrabackup_ver}": }
-    package { "qpress": }
+    package { 'qpress': }
 
     # default instance must not run
     service { 'mysql':

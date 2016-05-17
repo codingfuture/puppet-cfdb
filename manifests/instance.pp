@@ -48,17 +48,17 @@ define cfdb::instance (
     }
     
     user { $user:
-        ensure => present,
-        gid => $user,
-        home => $root_dir,
-        system => true,
-        shell => '/bin/bash',
+        ensure  => present,
+        gid     => $user,
+        home    => $root_dir,
+        system  => true,
+        shell   => '/bin/bash',
         require => Group[$user],
     }
     
     #---
     $user_dirs = [
-        "${root_dir}",
+        $root_dir,
         "${root_dir}/bin",
         "${root_dir}/conf",
         "${root_dir}/var",
@@ -66,9 +66,9 @@ define cfdb::instance (
     ]
     file { $user_dirs:
         ensure => directory,
-        owner => $user,
-        group => $user,
-        mode => '0750',
+        owner  => $user,
+        group  => $user,
+        mode   => '0750',
     }
     
     #---
@@ -83,30 +83,30 @@ define cfdb::instance (
     include "cfdb::${type}::serverpkg"
     
     cfdb_instance { $cluster:
-        ensure => present,
-        type => $type,
-        cluster => $cluster,
-        user => $user,
-        is_cluster => getvar("cfdb::${type}::is_cluster"),
-        is_secondary => $is_secondary,
+        ensure        => present,
+        type          => $type,
+        cluster       => $cluster,
+        user          => $user,
+        is_cluster    => getvar("cfdb::${type}::is_cluster"),
+        is_secondary  => $is_secondary,
         
         memory_weight => $memory_weight,
-        cpu_weight => $cpu_weight,
-        io_weight => $io_weight,
-        target_size => $target_size,
+        cpu_weight    => $cpu_weight,
+        io_weight     => $io_weight,
+        target_size   => $target_size,
         
-        root_dir => $root_dir,
+        root_dir      => $root_dir,
         
         settings_tune => merge(
             $settings_tune,
-            { cfdb => merge({
+            { cfdb            => merge({
                     'listen' => $listen,
-                    'port' => $port,
+                    'port'   => $port,
                 }, pick($settings_tune['cfdb'], {}))
             }),
-        service_name => $service_name,
+        service_name  => $service_name,
         
-        require => [
+        require       => [
             User[$user],
             File[$user_dirs],
             Class["cfdb::${type}::serverpkg"],
@@ -115,7 +115,7 @@ define cfdb::instance (
     }
     
     service { $service_name:
-        enable => true,
+        enable  => true,
         require => [
             Cfdb_instance[$cluster],
             Cfsystem_flush_config['commit'],
@@ -164,32 +164,32 @@ define cfdb::instance (
     
     file { $backup_dir:
         ensure => directory,
-        owner => $user,
-        group => $user,
-        mode => '0750',
+        owner  => $user,
+        group  => $user,
+        mode   => '0750',
     }
     
     file { $backup_script:
-        mode => '0755',
+        mode    => '0755',
         content => epp("cfdb/cfdb_backup_${type}.epp", merge({
             backup_dir => $backup_dir,
-            root_dir => $root_dir,
-            user => $user,
+            root_dir   => $root_dir,
+            user       => $user,
         }, $backup_tune)),
         require => File[$backup_dir],
-        notify => Cfdb_instance[$cluster],
+        notify  => Cfdb_instance[$cluster],
     }
     
     file { $restore_script:
-        mode => '0755',
+        mode    => '0755',
         content => epp("cfdb/cfdb_restore_${type}.epp", {
-            backup_dir => $backup_dir,
-            root_dir => $root_dir,
-            user => $user,
+            backup_dir   => $backup_dir,
+            root_dir     => $root_dir,
+            user         => $user,
             service_name => $service_name,
         }),
         require => File[$backup_dir],
-        notify => Cfdb_instance[$cluster],
+        notify  => Cfdb_instance[$cluster],
     }
     
     if $backup == false {
@@ -198,8 +198,8 @@ define cfdb::instance (
         }
     } else {
         file { $backup_script_auto:
-            ensure => link,
-            target => $backup_script,
+            ensure  => link,
+            target  => $backup_script,
             require => File[$backup_script],
         }
     }
@@ -208,8 +208,8 @@ define cfdb::instance (
     case $type {
         'mysql': {
             file { "${root_dir}/bin/cfdb_sysbench":
-                mode => '0755',
-                content => epp("cfdb/cfdb_sysbench.epp", {
+                mode    => '0755',
+                content => epp('cfdb/cfdb_sysbench.epp', {
                     user => $user,
                 }),
             }

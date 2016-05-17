@@ -51,12 +51,12 @@ define cfdb::role(
     
     #---
     cfdb_role { $title:
-        ensure => present,
-        cluster => $cluster,
-        database => $database,
-        user => "${database}${subname}",
-        password => $q_password,
-        custom_grant => $custom_grant,
+        ensure        => present,
+        cluster       => $cluster,
+        database      => $database,
+        user          => "${database}${subname}",
+        password      => $q_password,
+        custom_grant  => $custom_grant,
         allowed_hosts => $allowed_hosts,
     }
     
