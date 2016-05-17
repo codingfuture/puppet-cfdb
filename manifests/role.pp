@@ -24,6 +24,7 @@ define cfdb::role(
     # Note: there is a limitation of PuppetDB query: filter by single parameter only
     $access = query_facts("cfdbaccess.${cluster}.${role}.present=true", ['cfdbaccess'])
     
+    #---
     $allowed_hosts = merge({
         localhost => $cfdb::max_connections_default,
     }, $access.reduce({}) |$memo, $val| {
@@ -48,6 +49,7 @@ define cfdb::role(
         merge($memo, $allowed_result)
     })
     
+    #---
     cfdb_role { $title:
         ensure => present,
         cluster => $cluster,
@@ -56,5 +58,19 @@ define cfdb::role(
         password => $q_password,
         custom_grant => $custom_grant,
         allowed_hosts => $allowed_hosts,
+    }
+    
+    #---
+    $port = try_get_value($::facts, "cf_persistent/ports/${cluster}")
+    
+    if $port {
+        if !defined(Cfnetwork::Describe_service["cfdb_${cluster}"]) {
+            cfnetwork::describe_service { "cfdb_${cluster}":
+                server => "tcp/${port}",
+            }
+        }
+        cfnetwork::service_port { "any:cfdb_${cluster}:${role}":
+            src    => keys($allowed_hosts),
+        }
     }
 }

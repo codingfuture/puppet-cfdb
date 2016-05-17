@@ -33,6 +33,7 @@ Facter.add('cfdb') do
             sections['cf10db1_instance'].each do |k, info|
                 cluster = info['cluster']
                 ret[cluster] = {
+                    'type' => info['type'],
                     'roles' => roles[cluster],
                     'socket' => "/run/#{info['service_name']}/service.sock",
                     'host' => info['settings_tune'].fetch('cfdb', {}).fetch('listen', nil),

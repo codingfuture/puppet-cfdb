@@ -85,18 +85,36 @@ define cfdb::access(
                     'pass' => $role_fact['password'],
                 }
             }
+            
+            $type = $cluster_fact['type']
+            include "cfdb::${type}::clientpkg"
         }
     } else {
         fail('Invalid value for $use_proxy')
     }
     #---
-    
     $cfg.each |$var, $val| {
         cfsystem::dotenv { "$title/${var}":
             user => $local_user,
-            variable => "${config_prefix}${var}",
+            variable => upcase("${config_prefix}${var}"),
             value => $val,
             env_file => $env_file,
+        }
+    }
+    
+    #---
+    if $cfg['port'] != '' {
+        if !defined(Cfnetwork::Describe_service["cfdb_${cluster}"]) {
+            $port = $cfg['port']
+            cfnetwork::describe_service { "cfdb_${cluster}":
+                server => "tcp/${port}",
+            }
+        }
+        if !defined(Cfnetwork::Client_port["any:cfdb_${cluster}:${local_user}"]) {
+            cfnetwork::client_port { "any:cfdb_${cluster}:${local_user}":
+                dst => $cfg['host'],
+                user => $local_user,
+            }
         }
     }
 }

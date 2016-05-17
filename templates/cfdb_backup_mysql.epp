@@ -23,9 +23,10 @@ case $base_date in
     'month') base_date='%Y-%m' ;;
     'week') base_date='%Y-W%W' ;;
     'day') base_date='%Y-%m-%d' ;;
+    'daytime') base_date='%Y-%m-%d %H:%M:%S' ;;
 esac
 
-sub_dir="$(/bin/date --utc +$base_date)"
+sub_dir=$(/bin/date --utc "+${base_date}")
 backup_dir="${backup_root_dir}/${sub_dir}"
 
 if test -d $backup_dir; then
