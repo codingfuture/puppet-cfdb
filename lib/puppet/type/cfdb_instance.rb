@@ -104,4 +104,30 @@ Puppet::Type.newtype(:cfdb_instance) do
             end
         end
     end
+    
+    newproperty(:cluster_addr, :array_matching => :all) do
+        desc "Known cluster addresses"
+        
+        validate do |value|
+            value = munge value
+            res = value.split(':')
+            ip = IPAddr.new(res[0]) # may raise ArgumentError
+
+            unless ip.ipv4? or ip.ipv6?
+                raise ArgumentError, "%s is not a valid IPv4 or IPv6 address" % value
+            end
+        end
+        
+        munge do |value|
+            res = value.split(':')
+            
+            begin
+                ip = IPAddr.new(res[0])
+                "#{ip}:#{res[1]}"
+            rescue
+                ip = Resolv.getaddress res[0]
+                "#{ip}:#{res[1]}"
+            end
+        end
+    end
 end

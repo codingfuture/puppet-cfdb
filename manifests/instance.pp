@@ -82,6 +82,110 @@ define cfdb::instance (
     include "cfdb::${type}"
     include "cfdb::${type}::serverpkg"
     
+    #---
+    if getvar("cfdb::${type}::is_cluster") {
+        $cluster_facts_all = query_facts(
+            "cfdb.${cluster}.present=true",
+            ['cfdb']
+        )
+        
+        if empty($cluster_facts_all) {
+            $cluster_addr = []
+        } else {
+            $cluster_addr = ($cluster_facts_all.map |$host, $cfdb_facts| {
+                $cluster_fact = $cfdb_facts['cfdb'][$cluster]
+                
+                if $type != $cluster_fact['type'] {
+                    fail("Type of ${cluster} on ${host} mismatch ${type}: ${cluster_fact}")
+                }
+                
+                $addr = pick($cluster_fact['host'], $host)
+                $port = $cluster_fact['port']
+                
+                # TODO: wrap into some functions
+                $galera_port = $port + 100
+                $sst_port = $port + 200
+                $ist_port = $port + 300
+                
+                if $host == $::trusted['certname'] {
+                    undef
+                } else {
+                    if !$addr or !$port {
+                        fail("Invalid host/port for ${host}: ${cluster_fact}")
+                    }
+                    
+                    $host_under = regsubst($host, '\.', '_', 'G')
+                
+                    cfnetwork::describe_service { "cfdb_${cluster}_galera_${host_under}":
+                        server => "tcp/${galera_port}",
+                    }
+                    cfnetwork::describe_service { "cfdb_${cluster}_sst_${host_under}":
+                        server => "tcp/${sst_port}",
+                    }
+                    cfnetwork::describe_service { "cfdb_${cluster}_ist_${host_under}":
+                        server => "tcp/${ist_port}",
+                    }
+                    
+                    cfnetwork::client_port { "any:cfdb_${cluster}_galera_${host_under}":
+                        dst => $addr,
+                        user => $user,
+                    }
+                    cfnetwork::client_port { "any:cfdb_${cluster}_sst_${host_under}":
+                        dst => $addr,
+                        user => $user,
+                    }
+                    cfnetwork::client_port { "any:cfdb_${cluster}_ist_${host_under}":
+                        dst => $addr,
+                        user => $user,
+                    }
+                    
+                    
+                    "${addr}:${port}"
+                }
+            }).filter |$v| { $v != undef }
+        }
+        
+        if $type == 'mysql' {
+            if !$port {
+                fail("Cluster requires excplicit port")
+            }
+            
+            # TODO: wrap into some functions
+            $galera_port = $port + 100
+            $sst_port = $port + 200
+            $ist_port = $port + 300
+            
+            $peer_addr = $cluster_addr.map |$v| {
+                $v.split(':')[0]
+            }
+            
+            cfnetwork::describe_service { "cfdb_${cluster}_galera":
+                server => "tcp/${galera_port}",
+            }
+            cfnetwork::describe_service { "cfdb_${cluster}_sst":
+                server => "tcp/${sst_port}",
+            }
+            cfnetwork::describe_service { "cfdb_${cluster}_ist":
+                server => "tcp/${ist_port}",
+            }
+            
+            if size($peer_addr) {
+                cfnetwork::service_port { "any:cfdb_${cluster}_galera":
+                    src => $peer_addr,
+                }
+                cfnetwork::service_port { "any:cfdb_${cluster}_sst":
+                    src => $peer_addr,
+                }
+                cfnetwork::service_port { "any:cfdb_${cluster}_ist":
+                    src => $peer_addr,
+                }
+            }
+        }
+    } else {
+        $cluster_addr = undef
+    }
+    #---
+    
     cfdb_instance { $cluster:
         ensure        => present,
         type          => $type,
@@ -105,6 +209,7 @@ define cfdb::instance (
                 }, pick($settings_tune['cfdb'], {}))
             }),
         service_name  => $service_name,
+        cluster_addr  => $cluster_addr,
         
         require       => [
             User[$user],
@@ -123,6 +228,10 @@ define cfdb::instance (
     }
     
     if $databases {
+        if $is_secondary {
+            fail("It's not allowed to defined databases on secondary server")
+        }
+        
         if is_array($databases) {
             $databases.each |$db| {
                 create_resources(

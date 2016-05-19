@@ -42,6 +42,9 @@ Facter.add('cfdb') do
                     'is_cluster' => info['is_cluster'],
                     'present' => true,
                 }
+
+                # a quick workaround
+                ret[cluster]['host'] = nil if ret[cluster]['host'] == 'undef'
             end
             
             ret

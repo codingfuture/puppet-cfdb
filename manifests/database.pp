@@ -42,4 +42,11 @@ define cfdb::database (
         }
     }
     
+    /*if !defined(Cfdb::Cfdb_instance[$cluster]) {
+        fail("Cfdb::Cfdb_instance[$cluster] must be defined")
+    }
+    
+    if getparam(Cfdb::Cfdb_instance[$cluster], 'is_secondary') {
+        fail("Cfdb::Cfdb_instance[$cluster] is defined as secondary - it's not allowed to add DB")
+    }*/
 }
