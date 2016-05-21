@@ -2,7 +2,8 @@
 define cfdb::instance (
     $type,
     $is_secondary = false,
-    $bootstrap_node = false,
+    $is_bootstrap = false,
+    $is_arbitrator = false,
     
     $memory_weight = 100,
     $memory_max = undef,
@@ -26,8 +27,13 @@ define cfdb::instance (
     
     #---
     $cluster = $title
-    $service_name = "cf${type}-${cluster}"
-    $user = "${type}_${cluster}"
+    if $is_arbitrator {
+        $service_name = "cf${type}-${cluster}-arb"
+        $user = "${type}_${cluster}_arb"
+    } else {
+        $service_name = "cf${type}-${cluster}"
+        $user = "${type}_${cluster}"
+    }
     $root_dir = "${cfdb::root_dir}/${user}"
     
     if $iface == 'any' {
@@ -74,18 +80,31 @@ define cfdb::instance (
     }
     
     #---
+    if $memory_max {
+        $def_memory_max = $memory_max
+    } elsif $is_arbitrator {
+        $def_memory_max = 128
+    } else {
+        $def_memory_max = undef
+    }
+    
     cfsystem_memory_weight { $cluster:
         ensure => present,
         weight => $memory_weight,
         min_mb => 128,
-        max_mb => $memory_max,
+        max_mb => $def_memory_max,
+    }
+
+    #---
+    include "cfdb::${type}"
+    if $is_arbitrator {
+        include "cfdb::${type}::arbitratorpkg"
+    } else {
+        include "cfdb::${type}::serverpkg"
     }
     
-    include "cfdb::${type}"
-    include "cfdb::${type}::serverpkg"
-    
     #---
-    if getvar("cfdb::${type}::is_cluster") {
+    if getvar("cfdb::${type}::is_cluster") or $is_arbitrator {
         $cluster_facts_all = query_facts(
             "cfdb.${cluster}.present=true",
             ['cfdb']
@@ -123,7 +142,10 @@ define cfdb::instance (
                             server => "tcp/${peer_port}",
                         }
                         cfnetwork::describe_service { "cfdb_${cluster}_galera_${host_under}":
-                            server => "tcp/${galera_port}",
+                            server => [
+                                "tcp/${galera_port}",
+                                "udp/${galera_port}"
+                            ],
                         }
                         cfnetwork::describe_service { "cfdb_${cluster}_sst_${host_under}":
                             server => "tcp/${sst_port}",
@@ -151,9 +173,9 @@ define cfdb::instance (
                     }
                     
                     
-                    "${peer_addr}:${port}"
+                    "${peer_addr}:${peer_port}"
                 }
-            }).filter |$v| { $v != undef }
+            }).filter |$v| { $v != undef }.sort()
         }
         
         if $type == 'mysql' {
@@ -174,7 +196,10 @@ define cfdb::instance (
                 server => "tcp/${port}",
             }
             cfnetwork::describe_service { "cfdb_${cluster}_galera":
-                server => "tcp/${galera_port}",
+                server => [
+                    "tcp/${galera_port}",
+                    "udp/${galera_port}"
+                ],
             }
             cfnetwork::describe_service { "cfdb_${cluster}_sst":
                 server => "tcp/${sst_port}",
@@ -208,9 +233,10 @@ define cfdb::instance (
         type           => $type,
         cluster        => $cluster,
         user           => $user,
-        is_cluster     => getvar("cfdb::${type}::is_cluster"),
-        is_secondary   => $is_secondary,
-        bootstrap_node => $bootstrap_node,
+        is_cluster     => getvar("cfdb::${type}::is_cluster") or $is_arbitrator,
+        is_secondary   => $is_secondary or $is_arbitrator,
+        is_bootstrap   => $is_bootstrap and !$is_arbitrator,
+        is_arbitrator  => $is_arbitrator,
         
         memory_weight  => $memory_weight,
         cpu_weight     => $cpu_weight,
@@ -251,7 +277,7 @@ define cfdb::instance (
     }
     
     if $databases {
-        if $is_secondary {
+        if $is_secondary or $is_arbitrator {
             fail("It's not allowed to defined databases on secondary server")
         }
         
@@ -289,61 +315,63 @@ define cfdb::instance (
     }
     
     #---
-    $backup_script = "${root_dir}/bin/cfdb_backup"
-    $restore_script = "${root_dir}/bin/cfdb_restore"
-    $backup_script_auto ="${backup_script}_auto"
-    $backup_dir = "${cfdb::backup_dir}/${user}"
-    
-    file { $backup_dir:
-        ensure => directory,
-        owner  => $user,
-        group  => $user,
-        mode   => '0750',
-    }
-    
-    file { $backup_script:
-        mode    => '0755',
-        content => epp("cfdb/cfdb_backup_${type}.epp", merge({
-            backup_dir => $backup_dir,
-            root_dir   => $root_dir,
-            user       => $user,
-        }, $backup_tune)),
-        require => File[$backup_dir],
-        notify  => Cfdb_instance[$cluster],
-    }
-    
-    file { $restore_script:
-        mode    => '0755',
-        content => epp("cfdb/cfdb_restore_${type}.epp", {
-            backup_dir   => $backup_dir,
-            root_dir     => $root_dir,
-            user         => $user,
-            service_name => $service_name,
-        }),
-        require => File[$backup_dir],
-        notify  => Cfdb_instance[$cluster],
-    }
-    
-    if $backup == false {
-        file { $backup_script_auto:
-            ensure => absent,
+    if !$is_arbitrator {
+        $backup_script = "${root_dir}/bin/cfdb_backup"
+        $restore_script = "${root_dir}/bin/cfdb_restore"
+        $backup_script_auto ="${backup_script}_auto"
+        $backup_dir = "${cfdb::backup_dir}/${user}"
+        
+        file { $backup_dir:
+            ensure => directory,
+            owner  => $user,
+            group  => $user,
+            mode   => '0750',
         }
-    } else {
-        file { $backup_script_auto:
-            ensure  => link,
-            target  => $backup_script,
-            require => File[$backup_script],
+        
+        file { $backup_script:
+            mode    => '0755',
+            content => epp("cfdb/cfdb_backup_${type}.epp", merge({
+                backup_dir => $backup_dir,
+                root_dir   => $root_dir,
+                user       => $user,
+            }, $backup_tune)),
+            require => File[$backup_dir],
+            notify  => Cfdb_instance[$cluster],
         }
-    }
-    
-    #---
-    case $type {
-        'mysql': {
-            file { "${root_dir}/bin/cfdb_sysbench":
-                mode    => '0755',
-                content => epp('cfdb/cfdb_sysbench.epp', {
-                    user => $user,
-                }),
+        
+        file { $restore_script:
+            mode    => '0755',
+            content => epp("cfdb/cfdb_restore_${type}.epp", {
+                backup_dir   => $backup_dir,
+                root_dir     => $root_dir,
+                user         => $user,
+                service_name => $service_name,
+            }),
+            require => File[$backup_dir],
+            notify  => Cfdb_instance[$cluster],
+        }
+        
+        if $backup == false {
+            file { $backup_script_auto:
+                ensure => absent,
+            }
+        } else {
+            file { $backup_script_auto:
+                ensure  => link,
+                target  => $backup_script,
+                require => File[$backup_script],
+            }
+        }
+        
+        #---
+        case $type {
+            'mysql': {
+                file { "${root_dir}/bin/cfdb_sysbench":
+                    mode    => '0755',
+                    content => epp('cfdb/cfdb_sysbench.epp', {
+                        user => $user,
+                    }),
+                }
             }
         }
     }

@@ -25,6 +25,7 @@ Puppet::Type.type(:cfdb_instance).provide(
     MYSQLADMIN = '/usr/bin/mysqladmin' unless defined? MYSQLADMIN
     MYSQL_INSTALL_DB = '/usr/bin/mysql_install_db' unless defined? MYSQL_INSTALL_DB
     MYSQL_UPGRADE = '/usr/bin/mysql_upgrade' unless defined? MYSQL_UPGRADE
+    GARBD = '/usr/bin/garbd' unless defined? GARBD
     
     GALERA_PORT_OFFSET = 100 unless defined? GALERA_PORT_OFFSET
     SST_PORT_OFFSET = 200 unless defined? SST_PORT_OFFSET
@@ -169,20 +170,24 @@ Puppet::Type.type(:cfdb_instance).provide(
         service_name = conf[:service_name]
         is_secondary = conf[:is_secondary]
         is_cluster = conf[:is_cluster]
+        is_arbitrator = conf[:is_arbitrator]
         cluster_addr = conf[:cluster_addr]
         server_id = 1 # TODO
         type = conf[:type]
         conf_file = "#{conf_dir}/mysql.cnf"
+        garbd_conf_file = "#{conf_dir}/garbd.config"
         client_conf_file = "#{root_dir}/.my.cnf"
         init_file = "#{conf_dir}/setup.sql"
         
         run_dir = "/run/#{service_name}"
         sock_file = "#{run_dir}/service.sock"
         pid_file = "#{run_dir}/service.pid"
+        restart_required_file = "#{conf_dir}/restart_required"
+        upgrade_file = "#{conf_dir}/upgrade_stamp"
 
         user = conf[:user]
         settings_tune = conf[:settings_tune]
-        bootstrap_node = conf[:bootstrap_node]
+        is_bootstrap = conf[:is_bootstrap]
         cfdb_settings = settings_tune.fetch('cfdb', {})
         mysqld_tune = settings_tune.fetch('mysqld', {})
         
@@ -197,9 +202,21 @@ Puppet::Type.type(:cfdb_instance).provide(
         end
         
         #---
-        ver_parts = sudo('-u', user, MYSQLD, '--version').split()[2].split('.')
-        is_56 = (ver_parts[0] == '5' and ver_parts[1] == '6')
-        is_57 = (ver_parts[0] == '5' and ver_parts[1] == '7')
+        if is_arbitrator
+            is_56 = true
+            is_57 = false
+            upgrade_ver = 'NONE'
+        else
+            ver_parts = sudo('-u', user, MYSQLD, '--version').split()[2].split('.')
+            is_56 = (ver_parts[0] == '5' and ver_parts[1] == '6')
+            is_57 = (ver_parts[0] == '5' and ver_parts[1] == '7')
+            
+            if is_57
+                upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--version')
+            else
+                upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--help').split("\n")[0]
+            end
+        end
         
         # calculate based on user access list x limit
         #---
@@ -423,7 +440,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         if is_cluster
             mysqld_settings['wsrep_provider'] = '/usr/lib/libgalera_smm.so'
-            if (data_exists or is_secondary) and !bootstrap_node
+            if (data_exists or is_secondary) and !is_bootstrap
                 cluster_addr_mapped = cluster_addr.map do |v|
                     v = v.split(':')
                     peer_addr = v[0]
@@ -501,7 +518,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             wsrep_provider_options.merge! cfdb_settings.fetch('wsrep_provider_options', {})
             wsrep_provider_options['ist.recv_addr'] = "#{bind_address}:#{ist_port}"
             
-            if bootstrap_node
+            if is_bootstrap
                 wsrep_provider_options['pc.bootstrap'] = 'YES'
             else
                 wsrep_provider_options['pc.bootstrap'] = 'NO'
@@ -514,36 +531,78 @@ Puppet::Type.type(:cfdb_instance).provide(
             forced_settings['wsrep_node_incoming_address'] = "#{bind_address}:#{port}"
             forced_settings['wsrep_sst_receive_address'] = "#{bind_address}:#{sst_port}"
             forced_settings['wsrep_provider_options'] = wsrep_provider_options.map{|k,v| "#{k}=#{v}"}.join('; ')
+            
+            if is_arbitrator
+                wsrep_provider_options['gmcast.listen_addr'] = "tcp://#{bind_address}:#{galera_port}"
+                
+                wsrep_provider_options.keys().each do |k|
+                    if /^(repl|gcache|ist)\./.match k
+                        wsrep_provider_options.delete k
+                    end
+                end
+                
+                garbd_settings = {
+                    'group' => cluster,
+                    'address' => mysqld_settings['wsrep_cluster_address'],
+                    'options' => wsrep_provider_options.map{|k,v| "#{k}=#{v}"}.join(';')
+                }
+                
+            end
         end
         
         mysqld_settings.merge! forced_settings
-        config_changed = cf_system.atomicWriteIni(conf_file, conf_settings, { :user => user})
+        
+        if is_arbitrator
+            config_changed = cf_system.atomicWriteEnv(garbd_conf_file, garbd_settings, { :user => user})
+        else
+            config_changed = cf_system.atomicWriteIni(conf_file, conf_settings, { :user => user})
+        end
         
         # Prepare service file
         #---
-        restart_required_file = "#{conf_dir}/restart_required"
-        
-        service_ini = {
-            'LimitNOFILE' => open_file_limit * 2,
-            'ExecStart' => "/usr/sbin/mysqld --defaults-file=#{conf_dir}/mysql.cnf $MYSQLD_OPTS",
-            'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
-        }
-        service_env = {
-            'MYSQLD_OPTS' => '',
-        }
-        create_service(conf, service_ini, service_env)
+        if is_arbitrator
+            service_ini = {
+                'LimitNOFILE' => 1024,
+                'ExecStart' => "#{GARBD} --cfg #{garbd_conf_file}",
+                'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
+            }
+            service_env = {}
+            create_service(conf, service_ini, service_env)
+        else
+            service_ini = {
+                'LimitNOFILE' => open_file_limit * 2,
+                'ExecStart' => "#{MYSQLD} --defaults-file=#{conf_dir}/mysql.cnf $MYSQLD_OPTS",
+                'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
+            }
+            service_env = {
+                'MYSQLD_OPTS' => '',
+            }
+            create_service(conf, service_ini, service_env)
+        end
         
         # Prepare data dir
         #---
-        upgrade_file = "#{conf_dir}/upgrade_stamp"
-
-        if is_57
-            upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--version')
-        else
-            upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--help').split("\n")[0]
-        end
         
-        if data_exists
+        if is_arbitrator
+            if config_changed
+                FileUtils.touch(restart_required_file)
+                FileUtils.chown(user, user, restart_required_file)
+            end
+            
+            if !data_exists
+                FileUtils.mkdir(data_dir, :mode => 0750)
+                FileUtils.chown(user, user, data_dir)
+                
+                FileUtils.touch(restart_required_file)
+                FileUtils.chown(user, user, restart_required_file)
+                
+                warning("JOINER arbitrator must be started manually AFTER firewall is configured on active nodes")
+                warning("Please run when safe: /bin/systemctl start #{service_name}.service")
+            elsif File.exists?(restart_required_file)
+                warning("#{user} configuration update. Service restart is required!")
+                warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
+            end
+        elsif data_exists
             if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
                 systemctl('start', "#{service_name}.service")
                 if not is_secondary
@@ -583,7 +642,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 FileUtils.chown(user, user, restart_required_file)
                 
                 warning("JOINER node must be started manually AFTER firewall is configured on active nodes")
-                #systemctl('start', "#{service_name}.service")
+                warning("Please run when safe: /bin/systemctl start #{service_name}.service")
             else
                 # need to manually initialize data_dir from master
                 raise Puppet::DevError, "MySQL slave is not supported.\nPlease use more reliable is_cluster setup."

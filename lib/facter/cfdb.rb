@@ -40,6 +40,7 @@ Facter.add('cfdb') do
                     'port' => persistent[cluster],
                     'is_secondary' => info['is_secondary'],
                     'is_cluster' => info['is_cluster'],
+                    'is_arbitrator' => info.fetch('is_arbitrator', false),
                     'present' => true,
                 }
 

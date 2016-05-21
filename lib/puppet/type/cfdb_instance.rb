@@ -53,7 +53,8 @@ Puppet::Type.newtype(:cfdb_instance) do
     
     newproperty(:is_cluster, :boolean => true, :parent => Puppet::Property::Boolean)
     newproperty(:is_secondary, :boolean => true, :parent => Puppet::Property::Boolean)
-    newproperty(:bootstrap_node, :boolean => true, :parent => Puppet::Property::Boolean)
+    newproperty(:is_bootstrap, :boolean => true, :parent => Puppet::Property::Boolean)
+    newproperty(:is_arbitrator, :boolean => true, :parent => Puppet::Property::Boolean)
     
     newproperty(:memory_weight) do
         validate do |value|
