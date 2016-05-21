@@ -27,7 +27,7 @@ Puppet::Type.type(:cfdb_database).provide(
             self.send("check_#{db_type}", inst_conf['user'], params[:database])
         rescue => e
             warning(e)
-            warning(e.backtrace)
+            #warning(e.backtrace)
             false
         end
     end
@@ -47,7 +47,13 @@ Puppet::Type.type(:cfdb_database).provide(
         newconf.each do |k, conf|
             inst_conf = inst_conf_all[conf[:cluster]]
             db_type = inst_conf[:type]
-            self.send("create_#{db_type}", inst_conf[:user], conf[:database])
+            begin
+                self.send("create_#{db_type}", inst_conf[:user], conf[:database])
+            rescue => e
+                warning(e)
+                #warning(e.backtrace)
+                err("Transition error in setup")
+            end
         end
     end
     

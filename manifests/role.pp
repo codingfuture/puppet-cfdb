@@ -5,6 +5,7 @@ define cfdb::role(
     $password = undef,
     $subname = '',
     $custom_grant = undef,
+    $iface = $cfdb::iface,
 ) {
     if $password {
         $q_password = $password
@@ -63,14 +64,14 @@ define cfdb::role(
     #---
     $port = try_get_value($::facts, "cf_persistent/ports/${cluster}")
     
-    if $port {
+    if $port and (size($allowed_hosts) > 0) {
         if !defined(Cfnetwork::Describe_service["cfdb_${cluster}"]) {
             cfnetwork::describe_service { "cfdb_${cluster}":
                 server => "tcp/${port}",
             }
         }
-        cfnetwork::service_port { "any:cfdb_${cluster}:${role}":
-            src    => keys($allowed_hosts),
+        cfnetwork::service_port { "${iface}:cfdb_${cluster}:${role}":
+            src => keys($allowed_hosts),
         }
     }
 }

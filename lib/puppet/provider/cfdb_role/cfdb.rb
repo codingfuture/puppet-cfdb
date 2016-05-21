@@ -47,7 +47,14 @@ Puppet::Type.type(:cfdb_role).provide(
             
             self.role_old[cluster_user] = {} if not self.role_old.has_key? cluster_user
             self.role_old[cluster_user][params[:user]] = params
-            self.send("check_#{db_type}", cluster_user, params)
+            
+            begin
+                self.send("check_#{db_type}", cluster_user, params)
+            rescue => e
+                warning(e)
+                #warning(e.backtrace)
+                err("Transition error in setup")
+            end
         rescue => e
             warning(e)
             warning(e.backtrace)
@@ -78,7 +85,13 @@ Puppet::Type.type(:cfdb_role).provide(
             cluster_user = inst_conf[:user]
             db_type = inst_conf[:type]
             
-            self.send("create_#{db_type}", cluster_user, conf)
+            begin
+                self.send("create_#{db_type}", cluster_user, conf)
+            rescue => e
+                warning(e)
+                #warning(e.backtrace)
+                err("Transition error in setup")
+            end
             
             if to_delete.has_key? cluster_user
                 to_delete[cluster_user].delete conf[:user]

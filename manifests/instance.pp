@@ -2,8 +2,10 @@
 define cfdb::instance (
     $type,
     $is_secondary = false,
+    $bootstrap_node = false,
     
     $memory_weight = 100,
+    $memory_max = undef,
     $cpu_weight = 100,
     $io_weight = 100,
     $target_size = 'auto',
@@ -33,13 +35,13 @@ define cfdb::instance (
     } elsif defined(Cfnetwork::Iface[$iface]) {
         $iface_addr = pick_default(getparam(Cfnetwork::Iface[$iface], 'address'), undef)
         
-        if is_string($iface_addr) {
+        if $iface_addr and is_string($iface_addr) {
             $listen = $iface_addr.split('/')[0]
         } else {
             $listen = undef
         }
     } else {
-        $listen = $iface
+        $listen = undef
     }
     
     #---
@@ -99,48 +101,57 @@ define cfdb::instance (
                     fail("Type of ${cluster} on ${host} mismatch ${type}: ${cluster_fact}")
                 }
                 
-                $addr = pick($cluster_fact['host'], $host)
-                $port = $cluster_fact['port']
-                
-                # TODO: wrap into some functions
-                $galera_port = $port + 100
-                $sst_port = $port + 200
-                $ist_port = $port + 300
+                $peer_addr = pick($cluster_fact['host'], $host)
+                $peer_port = $cluster_fact['port']
                 
                 if $host == $::trusted['certname'] {
                     undef
                 } else {
-                    if !$addr or !$port {
-                        fail("Invalid host/port for ${host}: ${cluster_fact}")
+                    if $type == 'mysql' {
+                        # TODO: wrap into some functions
+                        $galera_port = $peer_port + 100
+                        $sst_port = $peer_port + 200
+                        $ist_port = $peer_port + 300
+                        
+                        if !$peer_addr or !$peer_port {
+                            fail("Invalid host/port for ${host}: ${cluster_fact}")
+                        }
+                        
+                        $host_under = regsubst($host, '\.', '_', 'G')
+                    
+                        cfnetwork::describe_service { "cfdb_${cluster}_peer_${host_under}":
+                            server => "tcp/${peer_port}",
+                        }
+                        cfnetwork::describe_service { "cfdb_${cluster}_galera_${host_under}":
+                            server => "tcp/${galera_port}",
+                        }
+                        cfnetwork::describe_service { "cfdb_${cluster}_sst_${host_under}":
+                            server => "tcp/${sst_port}",
+                        }
+                        cfnetwork::describe_service { "cfdb_${cluster}_ist_${host_under}":
+                            server => "tcp/${ist_port}",
+                        }
+                        
+                        cfnetwork::client_port { "${iface}:cfdb_${cluster}_peer_${host_under}":
+                            dst => $peer_addr,
+                            user => $user,
+                        }
+                        cfnetwork::client_port { "${iface}:cfdb_${cluster}_galera_${host_under}":
+                            dst => $peer_addr,
+                            user => $user,
+                        }
+                        cfnetwork::client_port { "${iface}:cfdb_${cluster}_sst_${host_under}":
+                            dst => $peer_addr,
+                            user => $user,
+                        }
+                        cfnetwork::client_port { "${iface}:cfdb_${cluster}_ist_${host_under}":
+                            dst => $peer_addr,
+                            user => $user,
+                        }
                     }
                     
-                    $host_under = regsubst($host, '\.', '_', 'G')
-                
-                    cfnetwork::describe_service { "cfdb_${cluster}_galera_${host_under}":
-                        server => "tcp/${galera_port}",
-                    }
-                    cfnetwork::describe_service { "cfdb_${cluster}_sst_${host_under}":
-                        server => "tcp/${sst_port}",
-                    }
-                    cfnetwork::describe_service { "cfdb_${cluster}_ist_${host_under}":
-                        server => "tcp/${ist_port}",
-                    }
                     
-                    cfnetwork::client_port { "any:cfdb_${cluster}_galera_${host_under}":
-                        dst => $addr,
-                        user => $user,
-                    }
-                    cfnetwork::client_port { "any:cfdb_${cluster}_sst_${host_under}":
-                        dst => $addr,
-                        user => $user,
-                    }
-                    cfnetwork::client_port { "any:cfdb_${cluster}_ist_${host_under}":
-                        dst => $addr,
-                        user => $user,
-                    }
-                    
-                    
-                    "${addr}:${port}"
+                    "${peer_addr}:${port}"
                 }
             }).filter |$v| { $v != undef }
         }
@@ -159,6 +170,9 @@ define cfdb::instance (
                 $v.split(':')[0]
             }
             
+            cfnetwork::describe_service { "cfdb_${cluster}_peer":
+                server => "tcp/${port}",
+            }
             cfnetwork::describe_service { "cfdb_${cluster}_galera":
                 server => "tcp/${galera_port}",
             }
@@ -169,14 +183,17 @@ define cfdb::instance (
                 server => "tcp/${ist_port}",
             }
             
-            if size($peer_addr) {
-                cfnetwork::service_port { "any:cfdb_${cluster}_galera":
+            if size($peer_addr) > 0 {
+                cfnetwork::service_port { "${iface}:cfdb_${cluster}_peer":
                     src => $peer_addr,
                 }
-                cfnetwork::service_port { "any:cfdb_${cluster}_sst":
+                cfnetwork::service_port { "${iface}:cfdb_${cluster}_galera":
                     src => $peer_addr,
                 }
-                cfnetwork::service_port { "any:cfdb_${cluster}_ist":
+                cfnetwork::service_port { "${iface}:cfdb_${cluster}_sst":
+                    src => $peer_addr,
+                }
+                cfnetwork::service_port { "${iface}:cfdb_${cluster}_ist":
                     src => $peer_addr,
                 }
             }
@@ -187,31 +204,32 @@ define cfdb::instance (
     #---
     
     cfdb_instance { $cluster:
-        ensure        => present,
-        type          => $type,
-        cluster       => $cluster,
-        user          => $user,
-        is_cluster    => getvar("cfdb::${type}::is_cluster"),
-        is_secondary  => $is_secondary,
+        ensure         => present,
+        type           => $type,
+        cluster        => $cluster,
+        user           => $user,
+        is_cluster     => getvar("cfdb::${type}::is_cluster"),
+        is_secondary   => $is_secondary,
+        bootstrap_node => $bootstrap_node,
         
-        memory_weight => $memory_weight,
-        cpu_weight    => $cpu_weight,
-        io_weight     => $io_weight,
-        target_size   => $target_size,
+        memory_weight  => $memory_weight,
+        cpu_weight     => $cpu_weight,
+        io_weight      => $io_weight,
+        target_size    => $target_size,
         
-        root_dir      => $root_dir,
+        root_dir       => $root_dir,
         
-        settings_tune => merge(
+        settings_tune  => merge(
             $settings_tune,
             { cfdb            => merge({
                     'listen' => $listen,
                     'port'   => $port,
                 }, pick($settings_tune['cfdb'], {}))
             }),
-        service_name  => $service_name,
-        cluster_addr  => $cluster_addr,
+        service_name   => $service_name,
+        cluster_addr   => $cluster_addr,
         
-        require       => [
+        require        => [
             User[$user],
             File[$user_dirs],
             Class["cfdb::${type}::serverpkg"],

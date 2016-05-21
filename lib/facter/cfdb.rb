@@ -19,7 +19,7 @@ Facter.add('cfdb') do
             ret = {}
             roles = {}
             
-            sections['cf10db3_role'].each do |k, info|
+            sections.fetch('cf10db3_role', {}).each do |k, info|
                 cluster = info['cluster']
                 user = info['user']
                 roles[cluster] = {} if not roles.has_key? cluster
@@ -30,11 +30,11 @@ Facter.add('cfdb') do
                 }
             end
             
-            sections['cf10db1_instance'].each do |k, info|
+            sections.fetch('cf10db1_instance', {}).each do |k, info|
                 cluster = info['cluster']
                 ret[cluster] = {
                     'type' => info['type'],
-                    'roles' => roles[cluster],
+                    'roles' => roles.fetch(cluster, {}),
                     'socket' => "/run/#{info['service_name']}/service.sock",
                     'host' => info['settings_tune'].fetch('cfdb', {}).fetch('listen', nil),
                     'port' => persistent[cluster],

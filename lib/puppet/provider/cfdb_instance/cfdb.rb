@@ -182,6 +182,7 @@ Puppet::Type.type(:cfdb_instance).provide(
 
         user = conf[:user]
         settings_tune = conf[:settings_tune]
+        bootstrap_node = conf[:bootstrap_node]
         cfdb_settings = settings_tune.fetch('cfdb', {})
         mysqld_tune = settings_tune.fetch('mysqld', {})
         
@@ -422,7 +423,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         if is_cluster
             mysqld_settings['wsrep_provider'] = '/usr/lib/libgalera_smm.so'
-            if data_exists or is_secondary
+            if (data_exists or is_secondary) and !bootstrap_node
                 cluster_addr_mapped = cluster_addr.map do |v|
                     v = v.split(':')
                     peer_addr = v[0]
@@ -437,7 +438,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             mysqld_settings['wsrep_replicate_myisam'] = 'ON'
             mysqld_settings['wsrep_retry_autocommit'] = 1
             mysqld_settings['wsrep_slave_threads'] = innodb_thread_concurrency
-            mysqld_settings['wsrep_sst_auth'] = "#{cluster}:#{galera_port}"
+            mysqld_settings['wsrep_sst_auth'] = "root:#{root_pass}"
             mysqld_settings['wsrep_sst_donor_rejects_queries'] = 'OFF'
             mysqld_settings['wsrep_sst_method'] = 'xtrabackup-v2'
             
@@ -500,6 +501,12 @@ Puppet::Type.type(:cfdb_instance).provide(
             wsrep_provider_options.merge! cfdb_settings.fetch('wsrep_provider_options', {})
             wsrep_provider_options['ist.recv_addr'] = "#{bind_address}:#{ist_port}"
             
+            if bootstrap_node
+                wsrep_provider_options['pc.bootstrap'] = 'YES'
+            else
+                wsrep_provider_options['pc.bootstrap'] = 'NO'
+            end
+            
             forced_settings['innodb_autoinc_lock_mode'] = 2
             
             forced_settings['wsrep_cluster_name'] = cluster
@@ -551,8 +558,12 @@ Puppet::Type.type(:cfdb_instance).provide(
             
             if config_changed
                 debug('Updating max_connections in runtime')
-                sudo('-u', user, MYSQL, '--wait', '-e',
-                     "SET GLOBAL max_connections = #{max_connections};")
+                begin
+                    sudo('-u', user, MYSQL, '--wait', '-e',
+                        "SET GLOBAL max_connections = #{max_connections};")
+                rescue
+                    warning('Failed to update max_connections in runtime')
+                end
                 
                 FileUtils.touch(restart_required_file)
                 FileUtils.chown(user, user, restart_required_file)
@@ -567,7 +578,12 @@ Puppet::Type.type(:cfdb_instance).provide(
                 # do nothing, to be copied on startup
                 FileUtils.mkdir(data_dir, :mode => 0750)
                 FileUtils.chown(user, user, data_dir)
-                systemctl('start', "#{service_name}.service")
+                
+                FileUtils.touch(restart_required_file)
+                FileUtils.chown(user, user, restart_required_file)
+                
+                warning("JOINER node must be started manually AFTER firewall is configured on active nodes")
+                #systemctl('start', "#{service_name}.service")
             else
                 # need to manually initialize data_dir from master
                 raise Puppet::DevError, "MySQL slave is not supported.\nPlease use more reliable is_cluster setup."
