@@ -8,6 +8,6 @@ class cfdb::postgresql (
     include cfdb::postgresql::aptrepo
     
     if $is_cluster {
-        fail("is_cluster is not supported")
+        fail('is_cluster is not supported')
     }
 }

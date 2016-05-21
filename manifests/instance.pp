@@ -133,19 +133,19 @@ define cfdb::instance (
                         }
                         
                         cfnetwork::client_port { "${iface}:cfdb_${cluster}_peer_${host_under}":
-                            dst => $peer_addr,
+                            dst  => $peer_addr,
                             user => $user,
                         }
                         cfnetwork::client_port { "${iface}:cfdb_${cluster}_galera_${host_under}":
-                            dst => $peer_addr,
+                            dst  => $peer_addr,
                             user => $user,
                         }
                         cfnetwork::client_port { "${iface}:cfdb_${cluster}_sst_${host_under}":
-                            dst => $peer_addr,
+                            dst  => $peer_addr,
                             user => $user,
                         }
                         cfnetwork::client_port { "${iface}:cfdb_${cluster}_ist_${host_under}":
-                            dst => $peer_addr,
+                            dst  => $peer_addr,
                             user => $user,
                         }
                     }
@@ -158,7 +158,7 @@ define cfdb::instance (
         
         if $type == 'mysql' {
             if !$port {
-                fail("Cluster requires excplicit port")
+                fail('Cluster requires excplicit port')
             }
             
             # TODO: wrap into some functions
@@ -221,11 +221,16 @@ define cfdb::instance (
         
         settings_tune  => merge(
             $settings_tune,
-            { cfdb            => merge({
-                    'listen' => $listen,
-                    'port'   => $port,
-                }, pick($settings_tune['cfdb'], {}))
-            }),
+            {
+                cfdb => merge(
+                    {
+                        'listen' => $listen,
+                        'port'   => $port,
+                    },
+                    pick($settings_tune['cfdb'], {})
+                )
+            }
+        ),
         service_name   => $service_name,
         cluster_addr   => $cluster_addr,
         
