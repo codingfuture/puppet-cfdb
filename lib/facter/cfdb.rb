@@ -26,6 +26,7 @@ Facter.add('cfdb') do
                 roles[cluster][user] = {
                     'database' => info['database'],
                     'password' => info['password'],
+                    'readonly' => info.fetch('readonly', false),
                     'present' => true,
                 }
             end

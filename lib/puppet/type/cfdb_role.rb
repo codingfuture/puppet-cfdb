@@ -53,6 +53,8 @@ Puppet::Type.newtype(:cfdb_role) do
         end
     end
     
+    newproperty(:readonly, :boolean => true, :parent => Puppet::Property::Boolean)
+    
     newproperty(:custom_grant) do
     end
     

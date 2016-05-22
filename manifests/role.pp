@@ -4,6 +4,7 @@ define cfdb::role(
     $database,
     $password = undef,
     $subname = '',
+    $readonly = false,
     $custom_grant = undef,
     $iface = $cfdb::iface,
 ) {
@@ -57,6 +58,7 @@ define cfdb::role(
         database      => $database,
         user          => "${database}${subname}",
         password      => $q_password,
+        readonly      => $readonly,
         custom_grant  => $custom_grant,
         allowed_hosts => $allowed_hosts,
     }

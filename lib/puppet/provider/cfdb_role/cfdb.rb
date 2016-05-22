@@ -120,6 +120,7 @@ Puppet::Type.type(:cfdb_role).provide(
         user = conf[:user]
         pass = conf[:password]
         database = conf[:database]
+        readonly = conf[:readonly]
         custom_grant = conf[:custom_grant]
         allowed_hosts = conf[:allowed_hosts]
         
@@ -150,6 +151,8 @@ Puppet::Type.type(:cfdb_role).provide(
                     
             if custom_grant
                 atomic_sql << custom_grant.gsub('$database', database).gsub('$user', user_host)
+            elsif readonly
+                atomic_sql << "GRANT EXECUTE, SELECT ON #{database}.* TO #{user_host};"
             else
                 atomic_sql << "GRANT ALL PRIVILEGES ON #{database}.* TO #{user_host};"
             end

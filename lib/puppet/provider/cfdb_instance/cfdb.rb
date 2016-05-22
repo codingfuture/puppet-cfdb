@@ -488,6 +488,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             'port' => port,
             'safe_user_create' => 'TRUE',
             'secure_auth' => 'ON',
+            'secure_file_priv' => tmp_dir,
             'skip_name_resolve' => 'ON',
             'socket' => sock_file,
             'tmpdir' => tmp_dir,

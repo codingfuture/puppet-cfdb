@@ -4,7 +4,6 @@ define cfdb::access(
     $role,
     $local_user,
     $use_proxy = 'auto',
-    $readonly = false,
     $max_connections = $cfdb::max_connections_default,
     $config_prefix = 'DB_',
     $env_file = '.env',
@@ -31,14 +30,24 @@ define cfdb::access(
     
     #---
     if $use_proxy == 'auto' {
-        $use_proxy_detected = false
-        # TODO: setup HAProxy, if cluster with more than 1 instance
+        $use_proxy_detected = (size(query_facts(
+            "cfdb.${cluster}.present=true",
+            ['cfdb']
+        )) > 1)
     } else {
         $use_proxy_detected = $use_proxy
     }
     
     #---
     if $use_proxy_detected == true {
+        if !defined(Package['haproxy']) {
+            package { 'haproxy': }
+            service { 'haproxy':
+                ensure  => stopped,
+                enabled => false,
+            }
+        }
+        
         # TODO: setup load balancing, if $readonly
         fail('TODO: $use_proxy is not implemented yet')
     } elsif $use_proxy_detected == false {
