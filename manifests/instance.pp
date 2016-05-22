@@ -316,10 +316,12 @@ define cfdb::instance (
     
     #---
     if !$is_arbitrator {
+        include cfdb::backup
+        
         $backup_script = "${root_dir}/bin/cfdb_backup"
         $restore_script = "${root_dir}/bin/cfdb_restore"
         $backup_script_auto ="${backup_script}_auto"
-        $backup_dir = "${cfdb::backup_dir}/${user}"
+        $backup_dir = "${cfdb::backup::root_dir}/${user}"
         
         file { $backup_dir:
             ensure => directory,
@@ -372,6 +374,9 @@ define cfdb::instance (
                         user => $user,
                     }),
                 }
+            }
+            default: {
+                fail("$type - benchmark is not implemented")
             }
         }
     }

@@ -39,65 +39,78 @@ define cfdb::access(
     }
     
     #---
-    if $use_proxy_detected == true {
-        if !defined(Package['haproxy']) {
-            package { 'haproxy': }
-            service { 'haproxy':
-                ensure  => stopped,
-                enabled => false,
-            }
-        }
-        
-        # TODO: setup load balancing, if $readonly
-        fail('TODO: $use_proxy is not implemented yet')
-    } elsif $use_proxy_detected == false {
-        $cluster_facts_all = query_facts(
-            "cfdb.${cluster}.is_secondary=false and cfdb.${cluster}.roles.${role}.present=true",
-            ['cfdb']
-        )
-        
-        if empty($cluster_facts_all) {
-            if defined(Cfdb::Instance[$cluster]) {
-                # the only known instance is local
-                # give it a chance
-                $skip_run = true
-                
-                $cfg = {
-                    'host' => 'localhost',
-                    'port' => '',
-                    'socket' => '',
-                    'user' => $role,
-                    'pass' => 'INVALID_PASSWORD',
-                }
-            } else {
-                fail("Unknown cluster ${cluster} or associated role ${role}: ${cluster_facts_all}")
+    $cluster_facts_all = query_facts(
+        "cfdb.${cluster}.is_secondary=false and cfdb.${cluster}.roles.${role}.present=true",
+        ['cfdb']
+    )
+    
+    if empty($cluster_facts_all) {
+        if defined(Cfdb::Instance[$cluster]) {
+            # the only known instance is local
+            # give it a chance
+            $cfg = {
+                'host' => 'localhost',
+                'port' => '',
+                'socket' => '',
+                'user' => $role,
+                'pass' => 'INVALID_PASSWORD',
+                'type' => 'UNKNOWN',
             }
         } else {
-            $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
-            $role_fact = $cluster_fact['roles'][$role]
-            $host = keys($cluster_facts_all)[0]
-            
-            if $host == $::trusted['certname'] {
-                $cfg = {
-                    'host' => 'localhost',
-                    'port' => $cluster_fact['port'],
-                    'socket' => $cluster_fact['socket'],
-                    'user' => $role,
-                    'pass' => $role_fact['password'],
-                }
-            } else {
-                $cfg = {
-                    'host' => pick($cluster_fact['host'], $host),
-                    'port' => $cluster_fact['port'],
-                    'socket' => '',
-                    'user' => $role,
-                    'pass' => $role_fact['password'],
-                }
-            }
-            
-            $type = $cluster_fact['type']
-            include "cfdb::${type}::clientpkg"
+            fail("Unknown cluster ${cluster} or associated role ${role}: ${cluster_facts_all}")
         }
+    } elsif $use_proxy_detected == true or $use_proxy_detected == 'secure' {
+        $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
+        $role_fact = $cluster_fact['roles'][$role]
+        $type = $cluster_fact['type']
+        $socket = "/run/cfhaproxy/${type}_${cluster}.sock"
+        
+        cfdb::haproxy::backend{ "${cluster}/${role}":
+            type => $type,
+            cluster => $cluster,
+            max_connections => $max_connections,
+            role => $role,
+            password => $role_fact['password'],
+            socket => $socket,
+            is_secure => ($use_proxy_detected == 'secure'),
+            distribute_load => $role_fact['readonly'],
+        }
+        
+        $cfg = {
+            'host' => 'localhost',
+            'port' => '',
+            'socket' => $socket,
+            'user' => $role,
+            'pass' => $role_fact['password'],
+            'type' => $type,
+        }
+    } elsif $use_proxy_detected == false {
+        $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
+        $role_fact = $cluster_fact['roles'][$role]
+        $host = keys($cluster_facts_all)[0]
+        
+        if $host == $::trusted['certname'] {
+            $cfg = {
+                'host' => 'localhost',
+                'port' => $cluster_fact['port'],
+                'socket' => $cluster_fact['socket'],
+                'user' => $role,
+                'pass' => $role_fact['password'],
+                'type' => $cluster_fact['type'],
+            }
+        } else {
+            $cfg = {
+                'host' => pick($cluster_fact['host'], $host),
+                'port' => $cluster_fact['port'],
+                'socket' => '',
+                'user' => $role,
+                'pass' => $role_fact['password'],
+                'type' => $cluster_fact['type'],
+            }
+        }
+        
+        $type = $cluster_fact['type']
+        include "cfdb::${type}::clientpkg"
     } else {
         fail('Invalid value for $use_proxy')
     }

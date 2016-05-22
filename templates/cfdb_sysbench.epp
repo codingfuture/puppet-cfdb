@@ -18,8 +18,8 @@ threads=$(cat ~/conf/mysql.cnf | grep 'max_connections' | sed 's/^.*=//' )
 # TODO: dynamically tune settings
 /usr/bin/sysbench \
     --num-threads=$threads \
-    --max-requests=$(( $threads * 10 )) \
-    --oltp-table-size=500000 \
+    --max-requests=${MAX_REQUESTS:-$(( $threads * 100 ))} \
+    --oltp-table-size=${OLTP_TABLE_SIZE:-1000000} \
     --db-driver=mysql \
     --test=oltp \
     $(cat ~/.my.cnf | grep -v '\[client\]' | sed 's/^/--mysql-/g' ) \

@@ -43,8 +43,9 @@ define cfdb::role(
                 $host_index = $host
             }
 
+            # make sure to add +1 per every role for possible health checks, etc.
             merge($imemo, {
-                $host_index => pick($imemo[$host_index], 0) + $maxconn
+                $host_index => pick($imemo[$host_index], 0) + $maxconn + 1
             })
         }
         

@@ -97,6 +97,9 @@ Puppet::Type.newtype(:cfdb_instance) do
     end
     
     newproperty(:settings_tune) do
+        validate do |value|
+            value.is_a? Hash
+        end
     end
     
     newproperty(:service_name) do
