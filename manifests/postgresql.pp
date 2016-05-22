@@ -2,6 +2,8 @@
 class cfdb::postgresql (
     $is_cluster = false,
     $version = '9.5',
+    $default_extensions = true,
+    $extensions = [],
 ) {
     include stdlib
     include cfdb
