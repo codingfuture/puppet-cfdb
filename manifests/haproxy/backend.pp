@@ -60,14 +60,17 @@ define cfdb::haproxy::backend(
             }
             
             $host_under = regsubst($host, '\.', '_', 'G')
-            $fw_service = "cfdbha_${cluster}_${host_under}"
+            $fw_service = "cfdbha_${cluster}_${port}"
+            $fw_port = "any:${fw_service}:${host_under}"
 
             if !defined(Cfnetwork::Describe_service[$fw_service]) {
                 cfnetwork::describe_service { $fw_service:
                     server => "tcp/${port}",
                 }
-                
-                cfnetwork::client_port { "any:${fw_service}":
+            }
+            
+            if !defined(Cfnetwork::Client_port[$fw_port]) {
+                cfnetwork::client_port { $fw_port:
                     dst  => $addr,
                     user => $cfdb::haproxy::user,
                 }

@@ -22,16 +22,22 @@ Facter.add('cfdbaccess') do
                 cluster = info['cluster']
                 role = info['role']
                 
-                ret[cluster] = {} if not ret.has_key? cluster
-                clusters = ret[cluster]
+                if not ret.has_key? cluster
+                    ret[cluster] = {
+                        'roles' => {},
+                        'present' => true,
+                    } 
+                end
                 
-                if not clusters.has_key? role
-                    clusters[role] = {
+                roles = ret[cluster]['roles']
+                
+                if not roles.has_key? role
+                    roles[role] = {
                         'client' => [],
                         'present' => true,
                     }
                 end
-                clusters[role]['client'] << {
+                roles[role]['client'] << {
                     'max_connections' => info['max_connections'],
                     'host' => info['client_host'],
                 }

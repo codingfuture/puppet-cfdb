@@ -280,6 +280,7 @@ define cfdb::instance (
         ]
     }
     
+    #---
     if $databases {
         if $is_secondary or $is_arbitrator {
             fail("It's not allowed to defined databases on secondary server")
@@ -318,6 +319,27 @@ define cfdb::instance (
         }
     }
     
+    # Open firewall for clients on secondary nodes
+    #---
+    $access = query_facts("cfdbaccess.${cluster}.present=true", ['cfdbaccess'])
+    if $access {
+        $allowed_hosts = keys($access)
+        $fact_port = pick_default($port, try_get_value($::facts, "cf_persistent/ports/${cluster}"))
+        
+        if $fact_port and (size($allowed_hosts) > 0) {
+            if !defined(Cfnetwork::Describe_service["cfdb_${cluster}"]) {
+                cfnetwork::describe_service { "cfdb_${cluster}":
+                    server => "tcp/${fact_port}",
+                }
+            }
+            cfnetwork::service_port { "${iface}:cfdb_${cluster}":
+                src => $allowed_hosts.sort(),
+            }
+        }
+    }
+    
+    
+    # setup backup & misc.
     #---
     if !$is_arbitrator {
         include cfdb::backup

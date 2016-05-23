@@ -95,6 +95,12 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     'retries' => 1,
                 }
                 
+                if distribute_load
+                    backend_conf['balance'] = 'leastconn'
+                else
+                    backend_conf['balance'] = 'first'
+                end
+                
                 case type
                 when 'postgresql' then
                     backend_conf['option pgsql-check'] = role
@@ -107,8 +113,18 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 if is_secure
                     fail('TLS upstream is not supported yet')
                 end
-                
+
                 conf["backend #{backend_name}"] = backend_conf
+            end
+            
+            cluster_addr.sort! do |a, b|
+                if a['backup'] && !b['backup']
+                    1
+                elsif !a['backup'] && b['backup']
+                    -1
+                else
+                    a['server'] <=> b['server']
+                end
             end
             
             # normally, each "cluster_addr" parameter must be identical per cluster
@@ -122,7 +138,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     ip = "#{ip}"
                 end
 
-                server_config = "#{ip}:#{sinfo['port']} check fall 2 rise 1 fastinter 500ms"
+                server_config = "#{ip}:#{sinfo['port']} fall 2 rise 1 fastinter 500ms"
                 
                 if !distribute_load and sinfo['backup']
                     server_config += " backup"
@@ -164,6 +180,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 "    #{ki} #{vi}" unless vi.nil?
             }.join("\n")
         end
+        conf << ""
         
         config_changed = cf_system.atomicWrite(conf_file, conf, {:user => user})
         
@@ -197,6 +214,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
         #==================================================
         
         if config_changed or service_changed
+            warning(">> reloading #{service_name}")
             systemctl('reload', "#{service_name}.service")
         end
     end

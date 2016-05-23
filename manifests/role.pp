@@ -24,18 +24,18 @@ define cfdb::role(
     
     $role = "${database}${subname}"
     # Note: there is a limitation of PuppetDB query: filter by single parameter only
-    $access = query_facts("cfdbaccess.${cluster}.${role}.present=true", ['cfdbaccess'])
+    $access = query_facts("cfdbaccess.${cluster}.roles.${role}.present=true", ['cfdbaccess'])
     
     #---
     $allowed_hosts = merge({
         localhost => $cfdb::max_connections_default,
     }, $access.reduce({}) |$memo, $val| {
         $certname = $val[0]
-        $allowed =  $val[1]['cfdbaccess'][$cluster][$role]['client']
+        $allowed =  $val[1]['cfdbaccess'][$cluster]['roles'][$role]['client']
         
         $allowed_result = $allowed.reduce({}) |$imemo, $ival| {
             $maxconn = pick($ival['max_connections'], $cfdb::max_connections_default)
-            $host = pick($ival['host'], $certname)
+            $host = pick($ival['host'], $certname).split('/')[0]
             
             if $certname == $::trusted['certname'] {
                 $host_index = 'localhost'
@@ -62,19 +62,5 @@ define cfdb::role(
         readonly      => $readonly,
         custom_grant  => $custom_grant,
         allowed_hosts => $allowed_hosts,
-    }
-    
-    #---
-    $port = try_get_value($::facts, "cf_persistent/ports/${cluster}")
-    
-    if $port and (size($allowed_hosts) > 0) {
-        if !defined(Cfnetwork::Describe_service["cfdb_${cluster}"]) {
-            cfnetwork::describe_service { "cfdb_${cluster}":
-                server => "tcp/${port}",
-            }
-        }
-        cfnetwork::service_port { "${iface}:cfdb_${cluster}:${role}":
-            src => keys($allowed_hosts),
-        }
     }
 }
