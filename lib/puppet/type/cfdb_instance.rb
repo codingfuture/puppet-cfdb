@@ -115,8 +115,7 @@ Puppet::Type.newtype(:cfdb_instance) do
         
         validate do |value|
             value = munge value
-            res = value.split(':')
-            ip = IPAddr.new(res[0]) # may raise ArgumentError
+            ip = IPAddr.new(value['addr']) # may raise ArgumentError
 
             unless ip.ipv4? or ip.ipv6?
                 raise ArgumentError, "%s is not a valid IPv4 or IPv6 address" % value
@@ -124,15 +123,14 @@ Puppet::Type.newtype(:cfdb_instance) do
         end
         
         munge do |value|
-            res = value.split(':')
-            
             begin
-                ip = IPAddr.new(res[0])
-                "#{ip}:#{res[1]}"
+                ip = IPAddr.new(value['addr'])
             rescue
-                ip = Resolv.getaddress res[0]
-                "#{ip}:#{res[1]}"
+                ip = Resolv.getaddress value['addr']
             end
+            
+            value['addr'] = "#{ip}"
+            value
         end
     end
 end

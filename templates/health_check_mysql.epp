@@ -1,0 +1,12 @@
+<% |String $role, String $password | -%>
+#!/bin/dash
+
+# For PXC we need to make sure 
+# This file should be called heavily
+/usr/bin/mysql \
+    --user='<%= $role %>' \
+    --password='<%= $password %>' \
+    --host="$3" \
+    --port="$4" \
+    --batch \
+    -e 'SELECT 1;' >/dev/null

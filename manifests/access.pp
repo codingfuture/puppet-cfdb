@@ -63,14 +63,15 @@ define cfdb::access(
         $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
         $role_fact = $cluster_fact['roles'][$role]
         $type = $cluster_fact['type']
-        $socket = "/run/cfhaproxy/${type}_${cluster}.sock"
+        $socket = "/run/cfhaproxy/${type}_${cluster}_${role}_${local_user}.sock"
         
-        cfdb::haproxy::backend{ "${cluster}/${role}":
+        cfdb::haproxy::backend{ "${cluster}:${role}:${local_user}":
             type => $type,
             cluster => $cluster,
             max_connections => $max_connections,
             role => $role,
             password => $role_fact['password'],
+            access_user => $local_user,
             socket => $socket,
             is_secure => ($use_proxy_detected == 'secure'),
             distribute_load => $role_fact['readonly'],

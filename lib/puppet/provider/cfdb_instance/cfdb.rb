@@ -65,13 +65,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         env_file = "/etc/default/#{service_name}.conf"
         user = conf[:user]
         
-        cpu_shares = (1024 * conf[:cpu_weight].to_i / 100).to_i
-        
         mem_limit = cf_system.getMemory(conf[:cluster])
-        memlock = mem_limit * 1024 * 1024
-        
-        io_weight = (1000 * conf[:io_weight].to_i / 100).to_i
-        io_weight = fit_range(1, 1000, io_weight)
         
         #---
         content_env = {
@@ -79,46 +73,31 @@ Puppet::Type.type(:cfdb_instance).provide(
         }
         
         content_env.merge! service_env
-       
-        cf_system().atomicWriteEnv(env_file, content_env, {:mode => 0644})
         
         #---
         content_ini = {
             'Unit' => {
                 'Description' => "CFDB instance: #{service_name}",
-                'After' => [
-                    'syslog.target',
-                    'network.target',
-                ],
             },
             'Service' => {
-                'EnvironmentFile' => env_file,
-                'Type' => 'simple',
-                'Restart' => 'always',
-                'RestartSec' => 5,
-                'User' => user,
-                'Group' => user,
-                'CPUShares' => cpu_shares,
-                'BlockIOWeight' => io_weight,
-                'MemoryLimit' => "#{mem_limit}M",
-                'LimitMEMLOCK' => "#{memlock}",
                 'LimitNOFILE' => 100000,
-                'UMask' => '0027',
                 'WorkingDirectory' => conf[:root_dir],
-                'RuntimeDirectory' => service_name,
-            },
-            'Install' => {
-                'WantedBy' => 'multi-user.target',
             },
         }
         
         content_ini['Service'].merge! service_ini
         
-        reload = cf_system().atomicWriteIni(service_file, content_ini, {:mode => 0644})
-       
-        if reload
-            systemctl('daemon-reload')
-        end
+        #---
+        self.cf_system().createService({
+            :service_name => service_name,
+            :user => user,
+            :content_ini => content_ini,
+            :content_env => content_env,
+            :cpu_weight => conf[:cpu_weight],
+            :io_weight => conf[:io_weight],
+            :mem_limit => mem_limit,
+            :mem_lock => true,
+        })
     end
     
     def self.disk_size(dir)
@@ -442,12 +421,16 @@ Puppet::Type.type(:cfdb_instance).provide(
             mysqld_settings['wsrep_provider'] = '/usr/lib/libgalera_smm.so'
             if (data_exists or is_secondary) and !is_bootstrap
                 cluster_addr_mapped = cluster_addr.map do |v|
-                    v = v.split(':')
-                    peer_addr = v[0]
-                    peer_port = v[1].to_i + GALERA_PORT_OFFSET
-                    "#{peer_addr}:#{peer_port}"
+                    peer_addr = v['addr']
+                    peer_port = v['port'].to_i + GALERA_PORT_OFFSET
+                    
+                    if IPAddr.new(peer_addr).ipv6?
+                        "[#{peer_addr}]:#{peer_port}"
+                    else
+                        "#{peer_addr}:#{peer_port}"
+                    end
                 end
-                mysqld_settings['wsrep_cluster_address'] = 'gcomm://' + cluster_addr_mapped.join(',')
+                mysqld_settings['wsrep_cluster_address'] = 'gcomm://' + cluster_addr_mapped.sort().join(',')
             else
                 mysqld_settings['wsrep_cluster_address'] = 'gcomm://'
             end
@@ -568,7 +551,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
             }
             service_env = {}
-            create_service(conf, service_ini, service_env)
+            service_changed = create_service(conf, service_ini, service_env)
         else
             service_ini = {
                 'LimitNOFILE' => open_file_limit * 2,
@@ -578,8 +561,10 @@ Puppet::Type.type(:cfdb_instance).provide(
             service_env = {
                 'MYSQLD_OPTS' => '',
             }
-            create_service(conf, service_ini, service_env)
+            service_changed = create_service(conf, service_ini, service_env)
         end
+        
+        config_changed ||= service_changed
         
         # Prepare data dir
         #---

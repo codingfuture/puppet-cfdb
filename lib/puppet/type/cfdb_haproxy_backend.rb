@@ -49,6 +49,9 @@ Puppet::Type.newtype(:cfdb_haproxy_backend) do
     newproperty(:password) do
     end
     
+    newproperty(:access_user) do
+    end
+    
     newproperty(:max_connections) do
         validate do |value|
             unless value.is_a? Integer and value > 0
@@ -64,9 +67,14 @@ Puppet::Type.newtype(:cfdb_haproxy_backend) do
         desc "Known cluster addresses"
         
         validate do |value|
+            (value.is_a? Hash and
+                value.has_key? 'server' and
+                value.has_key? 'addr' and
+                value.has_key? 'port' and
+                value.has_key? 'backup')
+            
             value = munge value
-            res = value.split(':')
-            ip = IPAddr.new(res[0]) # may raise ArgumentError
+            ip = IPAddr.new(value['addr']) # may raise ArgumentError
 
             unless ip.ipv4? or ip.ipv6?
                 raise ArgumentError, "%s is not a valid IPv4 or IPv6 address" % value
@@ -74,15 +82,14 @@ Puppet::Type.newtype(:cfdb_haproxy_backend) do
         end
         
         munge do |value|
-            res = value.split(':')
-            
             begin
-                ip = IPAddr.new(res[0])
-                "#{ip}:#{res[1]}"
+                ip = IPAddr.new(value['addr'])
             rescue
                 ip = Resolv.getaddress res[0]
-                "#{ip}:#{res[1]}"
             end
+            
+            value['addr'] = "#{ip}"
+            value
         end
     end
 end

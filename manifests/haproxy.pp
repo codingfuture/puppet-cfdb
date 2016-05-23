@@ -1,6 +1,6 @@
 
 class cfdb::haproxy(
-    $memory_weight = 100,
+    $memory_weight = 1,
     $memory_max = undef,
     $cpu_weight = 100,
     $io_weight = 100,
@@ -19,6 +19,7 @@ class cfdb::haproxy(
     $service_name = 'cfhaproxy'
     $user = $service_name
     $root_dir = "${cfdb::root_dir}/${user}"
+    $bin_dir = "${root_dir}/bin"
     
     group { $user:
         ensure => present,
@@ -33,6 +34,13 @@ class cfdb::haproxy(
         require => Group[$user],
     }
     
+    file { [$root_dir, $bin_dir, "${root_dir}/conf"]:
+        ensure => directory,
+        owner  => $user,
+        group  => $user,
+        mode   => '0750',
+    }
+    
     cfsystem_memory_weight { $service_name:
         ensure => present,
         weight => $memory_weight,
@@ -40,13 +48,17 @@ class cfdb::haproxy(
         max_mb => $memory_max,
     }
     
-    cfdb_haproxy { $title:
+    cfdb_haproxy { $service_name:
         ensure         => present,
         memory_weight  => $memory_weight,
         cpu_weight     => $cpu_weight,
         io_weight      => $io_weight,
         root_dir       => $root_dir,
-        settings_tune  => $settings_tune,
+        settings_tune  => pick($settings_tune, {}),
         service_name   => $service_name,
+        require => [
+            File[$root_dir],
+            User[$user],
+        ],
     }
 }

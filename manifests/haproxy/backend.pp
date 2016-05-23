@@ -4,6 +4,7 @@ define cfdb::haproxy::backend(
     $cluster,
     $role,
     $password,
+    $access_user,
     $max_connections,
     $socket,
     $is_secure,
@@ -11,11 +12,12 @@ define cfdb::haproxy::backend(
 ) {
     assert_private()
     
+    include cfnetwork
     include cfdb::haproxy
     
     #---
     $settings_tune = $cfdb::haproxy::settings_tune
-    $tune_bufsize = pick($settings_tune['tune.bufsize'], 16384)
+    $tune_bufsize = pick(try_get_value($settings_tune, 'global/tune.bufsize'), 16384)
     
     # That's a guess so far. Need more precise calculation
     $mem_per_conn_kb = ceiling($tune_bufsize / 1024.0)
@@ -58,8 +60,8 @@ define cfdb::haproxy::backend(
             }
             
             $host_under = regsubst($host, '\.', '_', 'G')
-            $fw_service = "cfdb_${cluster}_haproxy_${host_under}"
-            
+            $fw_service = "cfdbha_${cluster}_${host_under}"
+
             if !defined(Cfnetwork::Describe_service[$fw_service]) {
                 cfnetwork::describe_service { $fw_service:
                     server => "tcp/${port}",
@@ -67,25 +69,47 @@ define cfdb::haproxy::backend(
                 
                 cfnetwork::client_port { "any:${fw_service}":
                     dst  => $addr,
-                    user => 'cfhaproxy',
+                    user => $cfdb::haproxy::user,
                 }
             }
             
-            "${addr}:${port}"
-        }).filter |$v| { $v != undef }.sort()    
+            $ret = {
+                server => $host_under,
+                addr => $addr,
+                port => $port,
+                backup => $cluster_fact['is_secondary']
+            }
+            $ret
+        })
     }
     
     #---
     cfdb_haproxy_backend { $title:
-        ensure => present,
-        type => $type,
-        cluster => $cluster,
-        role => $role,
-        password => $password,
+        ensure          => present,
+        type            => $type,
+        cluster         => $cluster,
+        role            => $role,
+        password        => $password,
+        access_user     => $access_user,
         max_connections => $max_connections,
-        socket => $socket,
-        is_secure => $is_secure,
+        socket          => $socket,
+        is_secure       => $is_secure,
         distribute_load => $distribute_load,
-        cluster_addr => $cluster_addr,
+        cluster_addr    => $cluster_addr,
+        require         => Cfdb_haproxy[$cfdb::haproxy::service_name],
+    }
+    
+    #---
+    if $type == 'mysql' {
+        file { "${cfdb::haproxy::bin_dir}/check_${cluster}_${role}":
+            ensure  => present,
+            owner   => $cfdb::haproxy::user,
+            group   => $cfdb::haproxy::user,
+            mode    => '0750',
+            content => epp("cfdb/health_check_${type}", {
+                role     => $role,
+                password => $password,
+            }),
+        }
     }
 }

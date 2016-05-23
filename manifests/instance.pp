@@ -173,9 +173,13 @@ define cfdb::instance (
                     }
                     
                     
-                    "${peer_addr}:${peer_port}"
+                    $ret = {
+                        addr => $peer_addr,
+                        port => $peer_port
+                    }
+                    $ret
                 }
-            }).filter |$v| { $v != undef }.sort()
+            }).filter |$v| { $v != undef }
         }
         
         if $type == 'mysql' {
@@ -189,7 +193,7 @@ define cfdb::instance (
             $ist_port = $port + 300
             
             $peer_addr = $cluster_addr.map |$v| {
-                $v.split(':')[0]
+                $v['addr']
             }
             
             cfnetwork::describe_service { "cfdb_${cluster}_peer":
