@@ -9,4 +9,4 @@
     --host="$3" \
     --port="$4" \
     --batch \
-    -e 'SELECT 1;' >/dev/null
+    -e 'SELECT 1;' >/dev/null 2>&1

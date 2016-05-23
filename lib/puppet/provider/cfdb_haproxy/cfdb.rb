@@ -30,7 +30,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
         cf_system = self.cf_system()
         
         root_dir = newconf[:root_dir]
-        bin_dir = "#{bin_dir}/conf"
+        bin_dir = "#{root_dir}/bin"
         conf_dir = "#{root_dir}/conf"
         conf_file = "#{conf_dir}/haproxy.conf"
         
@@ -138,7 +138,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     ip = "#{ip}"
                 end
 
-                server_config = "#{ip}:#{sinfo['port']} fall 2 rise 1 fastinter 500ms"
+                server_config = "#{ip}:#{sinfo['port']} check fall 2 rise 1 fastinter 500ms"
                 
                 if !distribute_load and sinfo['backup']
                     server_config += " backup"
