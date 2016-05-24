@@ -77,7 +77,8 @@ define cfdb::instance (
         owner  => $user,
         group  => $user,
         mode   => '0750',
-    }
+    } ->
+    cfsystem::puppetpki{ $user: }
     
     #---
     if $memory_max {
@@ -113,6 +114,8 @@ define cfdb::instance (
         if empty($cluster_facts_all) {
             $cluster_addr = []
         } else {
+            $secure_cluster = try_get_value($settings_tune, 'cfdb/secure_cluster')
+            
             $cluster_addr = ($cluster_facts_all.map |$host, $cfdb_facts| {
                 $cluster_fact = $cfdb_facts['cfdb'][$cluster]
                 
@@ -120,7 +123,12 @@ define cfdb::instance (
                     fail("Type of ${cluster} on ${host} mismatch ${type}: ${cluster_fact}")
                 }
                 
-                $peer_addr = pick($cluster_fact['host'], $host)
+                if $secure_cluster {
+                    # we need hostname for commonName checking
+                    $peer_addr = $host
+                } else {
+                    $peer_addr = pick($cluster_fact['host'], $host)
+                }
                 $peer_port = $cluster_fact['port']
                 
                 if $host == $::trusted['certname'] {

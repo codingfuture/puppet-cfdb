@@ -144,6 +144,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         conf_dir = "#{root_dir}/conf"
         data_dir = "#{root_dir}/data"
         tmp_dir = "#{root_dir}/tmp"
+        pki_dir = "#{root_dir}/pki/puppet"
         
         cluster = conf[:cluster]
         service_name = conf[:service_name]
@@ -179,6 +180,8 @@ Puppet::Type.type(:cfdb_instance).provide(
         else
             optimize_ssd = !is_hdd(root_dir)
         end
+        
+        secure_cluster = cfdb_settings.fetch('secure_cluster', false)
         
         #---
         if is_arbitrator
@@ -398,11 +401,17 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'max_connections' => max_connections,
                 'performance_schema' => 'OFF',
                 'server_id' => server_id,
+                'ssl_ca' => "#{pki_dir}/ca.crt",
+                'ssl_cert' => "#{pki_dir}/local.crt",
+                #'ssl_cipher' => '',
+                'ssl_crl' => "#{pki_dir}/crl.crt",
+                'ssl_key' => "#{pki_dir}/local.key",
                 'table_definition_cache' => table_definition_cache,
                 'table_open_cache' => table_open_cache,
                 'thread_handling' => 'pool-of-threads',
                 'thread_pool_size' => innodb_thread_concurrency,
                 'thread_pool_max_threads' => max_connections,
+                #'tls_version' => 'TLSv1.2',
                 'transaction_isolation' => 'READ-COMMITTED',
             },
             'client' => client_settings['client'],
@@ -424,7 +433,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                     peer_addr = v['addr']
                     peer_port = v['port'].to_i + GALERA_PORT_OFFSET
                     
-                    if IPAddr.new(peer_addr).ipv6?
+                    if !secure_cluster and IPAddr.new(peer_addr).ipv6?
                         "[#{peer_addr}]:#{peer_port}"
                     else
                         "#{peer_addr}:#{peer_port}"
@@ -448,13 +457,33 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'transferfmt' => 'socat',
                 'encrypt' => 0,
             }
+            
+            if secure_cluster
+                socat_pem_file = "#{pki_dir}/socat.pem"
+                
+                conf_settings['sst'].merge!({
+                    # use openssl encryption
+                    'encrypt' => 2,
+                    'tca' => mysqld_settings['ssl_ca'],
+                    'tcert' => socat_pem_file,
+                })
+                    
+                local_pem = File.read("#{pki_dir}/local.key") + File.read("#{pki_dir}/local.crt")
+                
+                if !File.exists?(socat_pem_file) or (File.read(socat_pem_file) != local_pem)
+                    File.open(socat_pem_file, 'w+', 0600) do |f|
+                        f.write(local_pem)
+                    end
+                    FileUtils.chown(user, user, socat_pem_file)
+                end
+            end
         end
         
         # tunes
         settings_tune.each do |k, v|
             next if k == 'cfdb'
-            mysqld_settings[k] = {} if not mysqld_settings.has_key? k
-            mysqld_settings[k].merge! v
+            conf_settings[k] = {} if not conf_settings.has_key? k
+            conf_settings[k].merge! v
         end
 
         
@@ -500,7 +529,22 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'socket.checksum' => 2,
             }
             wsrep_provider_options.merge! cfdb_settings.fetch('wsrep_provider_options', {})
-            wsrep_provider_options['ist.recv_addr'] = "#{bind_address}:#{ist_port}"
+            
+            # Forced settings
+            #--
+            if secure_cluster
+                wsrep_provider_options['socket.ssl'] = 'YES'
+                wsrep_provider_options['socket.ssl_ca'] = mysqld_settings['ssl_ca']
+                wsrep_provider_options['socket.ssl_cert'] = mysqld_settings['ssl_cert']
+                wsrep_provider_options['socket.ssl_key'] = mysqld_settings['ssl_key']
+                # known bug https://github.com/codership/galera/issues/399
+                wsrep_provider_options['socket.ssl_cipher'] = 'AES128-SHA'
+                wsrep_addr = Puppet[:certname]
+            else
+                wsrep_addr = bind_address
+            end
+            
+            wsrep_provider_options['ist.recv_addr'] = "#{wsrep_addr}:#{ist_port}"
             
             if is_bootstrap
                 wsrep_provider_options['pc.bootstrap'] = 'YES'
@@ -508,16 +552,17 @@ Puppet::Type.type(:cfdb_instance).provide(
                 wsrep_provider_options['pc.bootstrap'] = 'NO'
             end
             
+            #--
             forced_settings['innodb_autoinc_lock_mode'] = 2
             
             forced_settings['wsrep_cluster_name'] = cluster
-            forced_settings['wsrep_node_address'] = "#{bind_address}:#{galera_port}"
+            forced_settings['wsrep_node_address'] = "#{wsrep_addr}:#{galera_port}"
             forced_settings['wsrep_node_incoming_address'] = "#{bind_address}:#{port}"
-            forced_settings['wsrep_sst_receive_address'] = "#{bind_address}:#{sst_port}"
+            forced_settings['wsrep_sst_receive_address'] = "#{wsrep_addr}:#{sst_port}"
             forced_settings['wsrep_provider_options'] = wsrep_provider_options.map{|k,v| "#{k}=#{v}"}.join('; ')
             
             if is_arbitrator
-                wsrep_provider_options['gmcast.listen_addr'] = "tcp://#{bind_address}:#{galera_port}"
+                wsrep_provider_options['gmcast.listen_addr'] = "tcp://#{wsrep_addr}:#{galera_port}"
                 
                 wsrep_provider_options.keys().each do |k|
                     if /^(repl|gcache|ist)\./.match k

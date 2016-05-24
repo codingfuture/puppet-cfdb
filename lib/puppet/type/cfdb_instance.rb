@@ -6,7 +6,7 @@ Puppet::Type.newtype(:cfdb_instance) do
     VALID_DB_TYPES = [
         'mysql',
         'postgresql',
-    ]
+    ] unless defined? VALID_DB_TYPES
     
     autorequire(:cfsystem_flush_config) do
         ['begin']
@@ -114,6 +114,9 @@ Puppet::Type.newtype(:cfdb_instance) do
         desc "Known cluster addresses"
         
         validate do |value|
+            # we need proper commonName
+            return if resource.should(:settings_tune).fetch('cfdb', {}).fetch('secure_cluster', false)
+            
             value = munge value
             ip = IPAddr.new(value['addr']) # may raise ArgumentError
 
@@ -123,6 +126,9 @@ Puppet::Type.newtype(:cfdb_instance) do
         end
         
         munge do |value|
+            # we need proper commonName
+            return value if resource.should(:settings_tune).fetch('cfdb', {}).fetch('secure_cluster', false)
+            
             begin
                 ip = IPAddr.new(value['addr'])
             rescue

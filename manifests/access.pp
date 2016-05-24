@@ -30,10 +30,16 @@ define cfdb::access(
     
     #---
     if $use_proxy == 'auto' {
+        $cf_location = $::facts['cf_location']
+        
         $use_proxy_detected = (size(query_facts(
-            "cfdb.${cluster}.present=true",
+            "cfdb.${cluster}.present=true and cf_location='${cf_location}'",
             ['cfdb']
         )) > 1)
+        
+        # note, if only some servers have location mismatch - it does not mean we should
+        # use secure connection for all nodes
+        #$use_proxy_detected = $secure_detected or $cluster_detected
     } else {
         $use_proxy_detected = $use_proxy
     }

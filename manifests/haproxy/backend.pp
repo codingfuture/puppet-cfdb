@@ -37,22 +37,51 @@ define cfdb::haproxy::backend(
     }
     
     #---
-    $cluster_facts_all = query_facts(
-        "cfdb.${cluster}.present=true and cfdb.${cluster}.is_arbitrator=false",
-        ['cfdb']
+    if $is_secure {
+        fail('Unfortunately, DB protocols do not support pure TLS tunnel.
+        An advanced [client -> HAProxy -> internet -> Haproxy -> server] solution may be implemented later.
+        ')
+    }
+    
+    # connect only to DB nodes in same DC
+    $cluster_facts_try = query_facts(
+        "cfdb.${cluster}.present=true and cfdb.${cluster}.is_arbitrator=false and cf_location='${cf_location}'",
+        ['cfdb', 'cf_location']
     )
+    
+    if size($cluster_facts_try) {
+        $cluster_facts_all = $cluster_facts_try
+    } else {
+        # fallback to connect to any possible DC
+        $cluster_facts_all = query_facts(
+            "cfdb.${cluster}.present=true and cfdb.${cluster}.is_arbitrator=false",
+            ['cfdb', 'cf_location']
+        )
+    }
     
     if empty($cluster_facts_all) {
         $cluster_addr = []
     } else {
-        $cluster_addr = ($cluster_facts_all.map |$host, $cfdb_facts| {
+        $cf_location = $::facts['cf_location']
+        
+        $cluster_addr = (keys($cluster_facts_all).sort.map |$host| {
+            $cfdb_facts = $cluster_facts_all[$host]
             $cluster_fact = $cfdb_facts['cfdb'][$cluster]
             
             if $type != $cluster_fact['type'] {
                 fail("Type of ${cluster} on ${host} mismatch ${type}: ${cluster_fact}")
             }
             
-            $addr = pick($cluster_fact['host'], $host)
+            # it does not really work with database protocols :(
+            #$secure_host = ($cf_location != $cfdb_facts['cf_location'])
+            $secure_host = false
+            
+            if $is_secure or $secure_host {
+                # required for cname matching
+                $addr = $host
+            } else {
+                $addr = pick($cluster_fact['host'], $host)
+            }
             $port = $cluster_fact['port']
 
             if !$addr or !$port {
@@ -80,7 +109,8 @@ define cfdb::haproxy::backend(
                 server => $host_under,
                 addr => $addr,
                 port => $port,
-                backup => $cluster_fact['is_secondary']
+                backup => $cluster_fact['is_secondary'],
+                secure => $secure_host,
             }
             $ret
         })

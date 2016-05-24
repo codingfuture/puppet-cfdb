@@ -33,6 +33,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
         bin_dir = "#{root_dir}/bin"
         conf_dir = "#{root_dir}/conf"
         conf_file = "#{conf_dir}/haproxy.conf"
+        ssl_dir = "#{root_dir}/pki/puppet"
         
         service_name = newconf[:service_name]
         run_dir = "/run/#{service_name}"
@@ -54,6 +55,14 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 'group' => user,
                 'user' => user,
                 'stats socket'  => "#{run_dir}/stats.sock mode 660 level admin",
+                'ssl-server-verify' => 'required',
+                'ssl-default-server-options' => [
+                    # not working here
+                    #"ca-file #{ssl_dir}/ca.crt",
+                    #"crl-file #{ssl_dir}/crl.crt",
+                    'no-sslv3',
+                    #'verify required',
+                ].join(' '),
             },
             'defaults' => {
                 'timeout connect' => '5s',
@@ -84,6 +93,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                        
             backend_name = "#{type}:#{cluster}"
             backend_name += ":lb" if distribute_load
+            backend_name += ":secure" if is_secure
                        
                        
             if conf.has_key? "backend #{backend_name}"
@@ -109,19 +119,23 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 else
                     backend_conf['external-check command'] = "#{bin_dir}/check_#{cluster}_#{role}"
                 end
-                
-                if is_secure
-                    fail('TLS upstream is not supported yet')
-                end
 
                 conf["backend #{backend_name}"] = backend_conf
             end
             
-            cluster_addr.sort! do |a, b|
+            # do not sort in place
+            cluster_addr = cluster_addr.sort do |a, b|
+                # first sort based on backup property
                 if a['backup'] && !b['backup']
                     1
                 elsif !a['backup'] && b['backup']
                     -1
+                # then sort based on secure property
+                elsif a['secure'] && !b['secure']
+                    1
+                elsif !a['secure'] && b['secure']
+                    -1
+                # finally, sort based on server name
                 else
                     a['server'] <=> b['server']
                 end
@@ -130,22 +144,37 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             # normally, each "cluster_addr" parameter must be identical per cluster
             # so, the items will get overrided in place
             cluster_addr.each do |sinfo|
-                ip = IPAddr.new(sinfo['addr'])
+                ip = sinfo['addr']
                 
-                if ip.ipv6?
-                    ip = "[#{ip}]"
-                else
-                    ip = "#{ip}"
+                begin
+                    ip = IPAddr.new(ip)
+                    
+                    if ip.ipv6?
+                        ip = "[#{ip}]"
+                    end
+                rescue
                 end
 
-                server_config = "#{ip}:#{sinfo['port']} check fall 2 rise 1 fastinter 500ms"
+                server_config = ["#{ip}:#{sinfo['port']} check fall 2 rise 1 fastinter 500ms"]
                 
-                if !distribute_load and sinfo['backup']
-                    server_config += " backup"
+                if is_secure or sinfo['secure']
+                    server_config << 'weight 10'
+                    server_config << 'ssl'
+                    server_config << "ca-file #{ssl_dir}/ca.crt"
+                    server_config << "crl-file #{ssl_dir}/crl.crt"
+                    server_config << 'no-sslv3'
+                    server_config << 'verify required'
+                    server_config << "verifyhost #{ip}"
+                else
+                    server_config << 'weight 100'
                 end
                 
-                server_config += sinfo.fetch('extra', ' ')
-                backend_conf["server #{sinfo['server']}"] = server_config
+                if !distribute_load and sinfo['backup']
+                    server_config << "backup"
+                end
+                
+                server_config << sinfo['extra'] if sinfo.has_key? 'extra'
+                backend_conf["server #{sinfo['server']}"] = server_config.join(' ')
             end
                        
             conf["frontend #{title}"] = {

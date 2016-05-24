@@ -9,7 +9,17 @@ class cfdb::haproxy(
     include cfdb
 
     if !defined(Package['haproxy']) {
-        package { 'haproxy': }
+        # make sure to use backports version
+        if $::facts['lsbdistcodename'] == 'jessie' {
+            apt::pin { 'haproxy':
+                release  => 'jessie-backports',
+                packages => ['haproxy'],
+                priority => $cfsystem::apt_pin + 1,
+            }
+        }
+        package { 'haproxy':
+            #ensure   => latest,
+        }
         service { 'haproxy':
             ensure => stopped,
             enable => false,
@@ -39,6 +49,9 @@ class cfdb::haproxy(
         owner  => $user,
         group  => $user,
         mode   => '0750',
+    } ->
+    cfsystem::puppetpki { $user:
+        copy_key => false,
     }
     
     cfsystem_memory_weight { $service_name:

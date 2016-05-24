@@ -71,7 +71,10 @@ Puppet::Type.newtype(:cfdb_haproxy_backend) do
                 value.has_key? 'server' and
                 value.has_key? 'addr' and
                 value.has_key? 'port' and
-                value.has_key? 'backup')
+                value.has_key? 'backup' and
+                value.has_key? 'secure')
+            
+            return if resource.should(:is_secure) or value['secure']
             
             value = munge value
             ip = IPAddr.new(value['addr']) # may raise ArgumentError
@@ -82,6 +85,7 @@ Puppet::Type.newtype(:cfdb_haproxy_backend) do
         end
         
         munge do |value|
+            return value if resource.should(:is_secure) or value['secure']
             begin
                 ip = IPAddr.new(value['addr'])
             rescue
