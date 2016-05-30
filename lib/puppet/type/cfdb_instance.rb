@@ -110,6 +110,12 @@ Puppet::Type.newtype(:cfdb_instance) do
         end
     end
     
+    newproperty(:version) do
+        validate do |value|
+            value.is_a? String
+        end
+    end
+    
     newproperty(:cluster_addr, :array_matching => :all) do
         desc "Known cluster addresses"
         

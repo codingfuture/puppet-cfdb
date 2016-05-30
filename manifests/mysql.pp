@@ -8,6 +8,12 @@ class cfdb::mysql (
     include stdlib
     include cfdb
     
+    if  $is_cluster {
+        $actual_version = $cluster_version
+    } else {
+        $actual_version = $version
+    }
+    
     class { 'cfdb::mysql::perconaapt':
         stage => setup
     }

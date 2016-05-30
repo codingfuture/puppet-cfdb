@@ -148,6 +148,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         cluster = conf[:cluster]
         service_name = conf[:service_name]
+        version = conf[:version]
         is_secondary = conf[:is_secondary]
         is_cluster = conf[:is_cluster]
         is_arbitrator = conf[:is_arbitrator]
@@ -189,7 +190,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             is_57 = false
             upgrade_ver = 'NONE'
         else
-            ver_parts = sudo('-u', user, MYSQLD, '--version').split()[2].split('.')
+            ver_parts = version.split('.')
             is_56 = (ver_parts[0] == '5' and ver_parts[1] == '6')
             is_57 = (ver_parts[0] == '5' and ver_parts[1] == '7')
             
@@ -471,10 +472,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 local_pem = File.read("#{pki_dir}/local.key") + File.read("#{pki_dir}/local.crt")
                 
                 if !File.exists?(socat_pem_file) or (File.read(socat_pem_file) != local_pem)
-                    File.open(socat_pem_file, 'w+', 0600) do |f|
-                        f.write(local_pem)
-                    end
-                    FileUtils.chown(user, user, socat_pem_file)
+                    cf_system.atomicWrite(socat_pem_file, local_pem, {:user => user})
                 end
             end
         end
@@ -640,10 +638,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                     warning('> running mysql upgrade')
                     sudo('-u', user, MYSQL_UPGRADE, '--force')
                 end
-                File.open(upgrade_file, 'w+', 0600) do |f|
-                    f.write(upgrade_ver)
-                end
-                FileUtils.chown(user, user, upgrade_file)
+                cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
             end
             
             if config_changed
@@ -713,15 +708,410 @@ Puppet::Type.type(:cfdb_instance).provide(
             end
             
             # no need to upgrade just initialized instance
-            File.open(upgrade_file, 'w+', 0600) do |f|
-                f.write(upgrade_ver)
-            end
-            FileUtils.chown(user, user, upgrade_file)
+            cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
         end
     end
     
     #==================================
     def self.create_postgresql(conf)
         debug('create_postgresql')
+        cf_system = self.cf_system()
+        
+        root_dir = conf[:root_dir]
+        conf_dir = "#{root_dir}/conf"
+        root_data_dir = "#{root_dir}/data"
+        tmp_dir = "#{root_dir}/tmp"
+        pki_dir = "#{root_dir}/pki/puppet"
+        
+        cluster = conf[:cluster]
+        service_name = conf[:service_name]
+        version = conf[:version]
+        is_secondary = conf[:is_secondary]
+        is_cluster = conf[:is_cluster]
+        is_arbitrator = conf[:is_arbitrator]
+        cluster_addr = conf[:cluster_addr]
+        type = conf[:type]
+        conf_file = "#{conf_dir}/postgresql.conf"
+        hba_file = "#{conf_dir}/pg_hba.conf"
+        ident_file = "#{conf_dir}/pg_ident.conf"
+        client_conf_file = "#{root_dir}/.pg_service.conf"
+        pgpass_file = "#{root_dir}/.pgpass"
+        
+        data_dir = "#{root_data_dir}/#{version}"
+        active_version_file = "#{conf_dir}/active_version"
+        unclean_state_file = "#{conf_dir}/unclean_state"
+        pg_bin_dir = "/usr/lib/postgresql/#{version}/bin"
+        run_dir = "/run/#{service_name}"
+        sock_file = "#{run_dir}/service.sock"
+        pid_file = "#{run_dir}/service.pid"
+        restart_required_file = "#{conf_dir}/restart_required"
+
+        user = conf[:user]
+        settings_tune = conf[:settings_tune]
+        is_bootstrap = conf[:is_bootstrap]
+        cfdb_settings = settings_tune.fetch('cfdb', {})
+        postgresql_tune = settings_tune.fetch('postgresql', {})
+        
+        root_pass = cf_system.genSecret(cluster)
+        
+        data_exists = (
+            File.exists?(root_data_dir) and
+            File.exists?(data_dir) and
+            File.exists?(active_version_file) and
+            (File.read(active_version_file) == version)
+        )
+        
+        if cfdb_settings.has_key? 'optimize_ssd'
+            optimize_ssd = cfdb_settings['optimize_ssd']
+        else
+            optimize_ssd = !is_hdd(root_dir)
+        end
+        
+        secure_cluster = cfdb_settings.fetch('secure_cluster', false)
+        
+        ver_parts = version.split('.')
+        is_94 = (ver_parts[0] == '9' and ver_parts[1] == '4')
+        is_95 = (ver_parts[0] == '9' and ver_parts[1] == '5')
+        
+        
+        # calculate based on user access list x limit
+        #---
+        superuser_reserved_connections = 10
+        max_connections = superuser_reserved_connections
+        have_external_conn = false
+        role_index = Puppet::Type.type(:cfdb_role).provider(:cfdb).get_config_index
+        roles = cf_system().config.get_new(role_index)
+        hba_content = []
+        hba_content << ['local', 'all', 'all', 'md5']
+        hba_content << ['local', 'all', user, 'ident']
+        hba_host_roles = {}
+        
+        if roles
+            roles.each do |k, v|
+                if v[:cluster] == cluster
+                    v.each do |host, max_conn|
+                        max_connections += max_conn
+                        
+                        if host != 'localhost'
+                            have_external_conn = true
+                            hba_host_roles[host] ||= []
+                            hba_host_roles[host] << v[:role]
+                        end
+                    end
+                end
+            end
+            
+            if cfdb_settings.fetch('strict_hba_roles', false)
+                hba_host_roles.each do |host, host_roles|
+                    hba_content << ['local', 'all', host_roles.join(','), host, 'md5']
+                end
+            else
+                 hba_host_roles.keys.each do |host|
+                    hba_content << ['local', 'all', 'all', host, 'md5']
+                end
+            end
+        end
+        
+        max_connections_roundto = cfdb_settings.fetch('max_connections_roundto', 100).to_i
+        max_connections = round_to(max_connections_roundto, max_connections)
+        #---
+        
+        #---
+        if have_external_conn or is_cluster
+            bind_address = cfdb_settings.fetch('listen', '0.0.0.0')
+        else
+            bind_address = '127.0.0.1'
+        end
+        
+        port = cf_system.genPort(cluster, cfdb_settings.fetch('port', nil))
+        
+        #---
+
+        # Auto-tune to have enough open table cache        
+        #---
+        inodes_min = cfdb_settings.fetch('inodes_min', 1000).to_i
+        inodex_max = cfdb_settings.fetch('inodex_max', 10000).to_i
+        
+        if data_exists
+            inodes_used = du('--inodes', '--summarize', data_dir).to_i
+            inodes_used = round_to(inodes_min, inodes_used)
+        else
+            inodes_used = inodes_min
+        end
+           
+        inodes_used = fit_range(inodes_min, inodex_max, inodes_used)
+        #---
+        
+        # with safe limit
+        open_file_limit_roundto = cfdb_settings.fetch('open_file_limit_roundto', 10000).to_i
+        open_file_limit = 3 * (max_connections + inodes_used)
+        open_file_limit = round_to(open_file_limit_roundto, open_file_limit)
+        
+        
+        # Complex tuning based on target DB size and available RAM
+        #==================================================
+        
+        # target database size
+        target_size = conf[:target_size]
+        
+        if target_size == 'auto'
+            # we ignore other possible instances
+            target_size = disk_size(root_dir)
+        end
+        
+        mb = 1024 * 1024
+        gb = mb * 1024
+        
+        avail_mem = cf_system.getMemory(cluster)
+        
+        #
+
+        shared_buffers_percent = cfdb_settings.fetch('shared_buffers_percent', 20).to_i
+        temp_buffers_percent = cfdb_settings.fetch('temp_buffers_percent', 40).to_i
+        temp_buffers_overcommit = cfdb_settings.fetch('temp_buffers_overcommit', 8).to_i
+        shared_buffers = (avail_mem * shared_buffers_percent / 100).to_i
+        
+        
+        temp_buffers = (avail_mem * temp_buffers_overcommit * temp_buffers_percent / 100.0 / max_connections).to_i
+
+        if temp_buffers < 1
+            temp_buffers = "1MB"
+        else
+            temp_buffers = "#{temp_buffers}MB"
+        end
+        
+        if avail_mem > 8192
+            work_mem = '16MB'
+            maintenance_work_mem = '512MB'
+            wal_buffers = '256MB'
+        elsif avail_mem > 2048
+            work_mem = '4MB'
+            maintenance_work_mem = '256MB'
+            wal_buffers = '64MB'
+        elsif avail_mem > 512
+            work_mem = '2MB'
+            maintenance_work_mem = '64MB'
+            wal_buffers = '16MB'
+        else
+            work_mem = '2MB'
+            maintenance_work_mem = '16MB'
+            wal_buffers = '8MB'
+        end
+        
+        if optimize_ssd
+            effective_io_concurrency = (10000 / max_connections).to_i
+        else
+            effective_io_concurrency = (1000 / max_connections).to_i
+        end
+        
+        max_wal_size = (target_size / 10 / mb).to_i
+        min_wal_size = (target_size / 20 / mb).to_i
+        
+        #==================================================
+        pgsettings = {
+            # Resources
+            #---
+            'shared_buffers' => "#{shared_buffers}MB",
+            'huge_pages' => 'off',
+            'temp_buffers' => temp_buffers,
+            'max_prepared_transactions' => max_connections,
+            'work_mem' => work_mem,
+            'maintenance_work_mem' => maintenance_work_mem,
+            'dynamic_shared_memory_type' => 'posix',
+            'temp_file_limit' => -1,
+            'bgwriter_delay' => 50,
+            'effective_io_concurrency' => effective_io_concurrency,
+            'max_worker_processes' => Facter['processors'].value['count'],
+            
+            # Write Ahead Log
+            #---
+            'wal_level' => 'hot_standby',
+            'fsync' => 'on',
+            'synchronous_commit' => 'off',
+            'wal_sync_method' => 'fdatasync',
+            'full_page_writes' => 'on',
+            'wal_compression' => 'on',
+            'wal_buffers' => wal_buffers,
+            'commit_delay' => 1000,
+            'commit_siblings' => 1,
+            'checkpoint_timeout' => '10min',
+            'max_wal_size' => "#{max_wal_size}MB",
+            'min_wal_size' => "#{min_wal_size}MB",
+            
+            # Autovacuum,
+            'autovacuum' => 'on',
+        }
+            
+        pgsettings.merge! postgresql_tune
+        
+        # forced settigns
+        pgsettings.merge!({
+            # Files
+            #---
+            'data_directory' => data_dir,
+            'hba_file' => hba_file,
+            'ident_file' => ident_file,
+            'external_pid_file' => pid_file,
+            # Connections & Auth
+            #---
+            'listen_addresses' => bind_address,
+            'port' => port,
+            'max_connections' => max_connections,
+            'superuser_reserved_connections' => superuser_reserved_connections,
+            'unix_socket_directories' => run_dir,
+            'unix_socket_group' => user,
+            'unix_socket_permissions' => '0777',
+            'bonjour' => 'off',
+            'ssl' => 'on',
+            'ssl_ca_file' => "#{pki_dir}/ca.crt",
+            'ssl_cert_file' => "#{pki_dir}/local.crt",
+            'ssl_crl_file' => "#{pki_dir}/crl.crt",
+            'ssl_key_file' => "#{pki_dir}/local.key",
+            #'ssl_ciphers' =>
+            'ssl_prefer_server_ciphers' => 'on',
+            'db_user_namespace' => 'off',         
+            # Resources
+            #---
+            'max_files_per_process' => open_file_limit,
+                           
+            # Logging
+            #---
+            'log_destination' => 'syslog',
+            'syslog_ident' => service_name,
+            'cluster_name' => service_name,
+            'update_process_title' => 'off',
+            # mantained by cluster or systemd (default)
+            'restart_after_crash' => 'off',
+        })
+            
+        if !is_95
+            ['cluster_name',
+             'min_wal_size',
+             'max_wal_size',
+             'wal_compression'].each do |v|
+                pgsettings.delete v
+            end
+        end
+        
+        # Prepare client conf
+        #---
+        client_settings = {
+            "#{service_name}" => {
+                'host' => run_dir,
+                'port' => port,
+                'user' => user,
+                'password' => root_pass,
+                'dbname' => 'postgres',
+            }
+        }
+        cf_system.atomicWriteIni(client_conf_file, client_settings, {:user => user})
+        
+        pgpass_content = "localhost:*:*:#{user}:#{root_pass}"
+        cf_system.atomicWrite(pgpass_file, root_pass, {:user => user})
+
+        #==================================================
+        # config
+        config_changed = self.atomicWritePG(conf_file, pgsettings, {:user => user})
+        # hba
+        hba_content = (hba_content.map{ |v| v.join(' ') }).join("\n")
+        hba_changed = cf_system.atomicWrite(hba_file, hba_content, {:user => user})
+        config_changed ||= hba_changed
+        
+        #service
+        service_ini = {
+            'LimitNOFILE' => open_file_limit * 2,
+            'ExecStart' => "#{pg_bin_dir}/postgres --config_file=#{conf_file} $PGSQL_OPTS",
+            'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
+            'ExecReload' => "#{pg_bin_dir}/pg_ctl -D #{data_dir} reload",
+            'ExecStop' => "#{pg_bin_dir}/pg_ctl -D #{data_dir} stop -m fast",
+        }
+        service_env = {
+            'PGSQL_OPTS' => '',
+        }
+        service_changed = create_service(conf, service_ini, service_env)
+
+        config_changed ||= service_changed
+      
+        #---
+        if File.exists?(unclean_state_file)
+            warning("Something has gone wrong in previous runs!")
+            warning("Please manually fix issues in #{root_dir} and then remove #{unclean_state_file}.")
+        elsif data_exists
+            if config_changed
+                FileUtils.touch(restart_required_file)
+                FileUtils.chown(user, user, restart_required_file)
+                
+                begin
+                    systemctl('reload', "#{service_name}.service")
+                rescue => e
+                    warning("Failed to reload instance: #{e}")
+                end
+            end
+            
+            if File.exists?(restart_required_file)
+                warning("#{user} configuration update. Service restart is required!")
+                warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
+            end
+            
+        else
+            warning('> running initdb')
+            FileUtils.touch(unclean_state_file)
+            #--
+            
+            FileUtils.mkdir_p(root_data_dir, :mode => 0750)
+            FileUtils.chown(user, user, root_data_dir)
+            FileUtils.rm_rf(data_dir)
+
+            sudo('-u', user,
+                 "#{pg_bin_dir}/initdb",
+                 '--locale', cfdb_settings.fetch('locale', 'en_US.UTF-8'),
+                 '--pwfile', pgpass_file,
+                 '-D', data_dir)
+            
+            if File.exists?(active_version_file)
+                warning('> migrating old data')
+                old_version = File.read(active_version_file)
+                old_data = "#{root_data_dir}/#{old_version}"
+                old_pg_bin_dir = "/usr/lib/postgresql/#{version}/bin"
+                
+                sudo('-u', user,
+                    "#{old_pg_bin_dir}/pg_ctl",
+                    '-D', old_data,
+                    'stop')
+                sudo('-u', user,
+                    "#{pg_bin_dir}/pg_ctl",
+                    '-D', data_dir,
+                    'stop')
+                sudo('-u', user,
+                    "#{pg_bin_dir}/pg_upgrade",
+                    '-d', old_data,
+                    '-D', data_dir,
+                    '-b', old_pg_bin_dir,
+                    '-B', pg_bin_dir)
+                FileUtils.mv(old_data, "#{old_data}.bak")
+            end
+            
+            cf_system.atomicWrite(active_version_file, version)
+            #--
+            FileUtils.rm_f(unclean_state_file)
+            
+            systemctl('start', "#{service_name}.service")
+        end
     end
+    
+    def self.atomicWritePG(file, settings, opts={})
+        content = []
+        settings.each do |k, v|
+            if v.is_a? String
+                v = v.gsub("'", "''")
+                content << "#{k} = '#{v}'"
+            else
+                content << "#{k} = #{v}"
+            end
+        end
+        
+        content = content.join("\n")
+        
+        self.cf_system.atomicWrite(file, content, opts)
+    end    
 end

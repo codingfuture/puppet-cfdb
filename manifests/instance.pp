@@ -270,6 +270,7 @@ define cfdb::instance (
             }
         ),
         service_name   => $service_name,
+        version        => getvar("cfdb::${type}::actual_version"),
         cluster_addr   => $cluster_addr,
         
         require        => [
@@ -406,6 +407,15 @@ define cfdb::instance (
                     mode    => '0755',
                     content => epp('cfdb/cfdb_sysbench.epp', {
                         user => $user,
+                    }),
+                }
+            }
+            'postgresql': {
+                file { "${root_dir}/bin/cfdb_psql":
+                    mode    => '0755',
+                    content => epp('cfdb/cfdb_psql.epp', {
+                        user => $user,
+                        service_name => $service_name,
                     }),
                 }
             }

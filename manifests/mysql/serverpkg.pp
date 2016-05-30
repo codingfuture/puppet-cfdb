@@ -4,13 +4,13 @@ class cfdb::mysql::serverpkg {
     
     include cfdb
     include cfdb::mysql
+    
+    $ver = $cfdb::mysql::actual_version
         
     if $cfdb::mysql::is_cluster {
-        $ver = $cfdb::mysql::cluster_version
         $ver_nodot = regsubst($ver, '\.', '', 'G')
         package { "percona-xtradb-cluster-${ver_nodot}": }
     } else {
-        $ver = $cfdb::mysql::version
         $xtrabackup_ver = '24'
         package { "percona-server-server-${ver}": }
         package { "percona-xtrabackup-${xtrabackup_ver}": }

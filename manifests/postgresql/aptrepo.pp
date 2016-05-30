@@ -93,10 +93,4 @@ IIP9up4xwgje9LB7fMxsSkCDTHOk
         require  => Apt::Key['postgresql'],
         notify   => Class['apt::update'],
     }
-    
-
-    # default instance must not run
-    service { 'postgresql':
-        ensure => disabled
-    }
 }

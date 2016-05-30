@@ -9,7 +9,7 @@ class cfdb::postgresql::serverpkg {
 
     package { "postgresql-${ver}": }
     
-    $cfdb::postgresql::extensions.each |ext| {
+    $cfdb::postgresql::extensions.each |$ext| {
         package { "postgresql-${ver}-${ext}": }
     }
     
@@ -33,14 +33,14 @@ class cfdb::postgresql::serverpkg {
             'plproxy',
             'plr',
             'plv8',
-            "postgis-${$postgis_ver}"
+            "postgis-${postgis_ver}",
             'postgis-scripts',
             'powa',
             'prefix',
             'preprepare',
             'repack',
             'repmgr',
-        ].each |ext| {
+        ].each |$ext| {
             package { "postgresql-${ver}-${ext}": }
         }
         
@@ -49,7 +49,7 @@ class cfdb::postgresql::serverpkg {
             'plperl',
             'plpython',
             'pltcl',
-        ].each |ext| {
+        ].each |$ext| {
             package { "postgresql-${ext}-${ver}": }
         }
     }
