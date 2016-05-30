@@ -51,11 +51,11 @@ Puppet::Type.type(:cfdb_instance).provide(
     end
     
     def self.fit_range(min, max, val)
-        return [min, [max, val].min].max
+        return cf_system.fitRange(min, max, val)
     end
     
     def self.round_to(to, val)
-        return (((val + to) / to).to_i * to).to_i
+        return cf_system.roundTo(to, val)
     end
     
     def self.create_service(conf, service_ini, service_env)
@@ -327,12 +327,12 @@ Puppet::Type.type(:cfdb_instance).provide(
         if (target_size > (100 * gb)) and (avail_mem > (4*gb))
             innodb_log_file_size = '1G'
             innodb_log_buffer_size = '64M'
-            gcache_size = fit_range( 1, 100, target_size / 20 / gb )
+            gcache_size = fit_range( 1, 100, target_size / 20 / 1024 )
             gcache_size = "#{gcache_size}G"
         elsif (target_size > (10 * gb)) and (avail_mem > (gb))
             innodb_log_file_size = '128M'
             innodb_log_buffer_size = '32M'
-            gcache_size = fit_range( 128, 5120, target_size / 20 / mb )
+            gcache_size = fit_range( 128, 5120, target_size / 20 )
             gcache_size = "#{gcache_size}M"
         else
             innodb_log_file_size = '16M'
@@ -859,9 +859,6 @@ Puppet::Type.type(:cfdb_instance).provide(
             target_size = disk_size(root_dir)
         end
         
-        mb = 1024 * 1024
-        gb = mb * 1024
-        
         avail_mem = cf_system.getMemory(cluster)
         
         #
@@ -904,8 +901,8 @@ Puppet::Type.type(:cfdb_instance).provide(
             effective_io_concurrency = (1000 / max_connections).to_i
         end
         
-        max_wal_size = (target_size / 10 / mb).to_i
-        min_wal_size = (target_size / 20 / mb).to_i
+        max_wal_size = (target_size / 10).to_i
+        min_wal_size = (target_size / 20).to_i
         
         #==================================================
         pgsettings = {
@@ -1070,24 +1067,24 @@ Puppet::Type.type(:cfdb_instance).provide(
             
             if File.exists?(active_version_file)
                 warning('> migrating old data')
-                old_version = File.read(active_version_file)
+                old_version = File.read(active_version_file).strip()
                 old_data = "#{root_data_dir}/#{old_version}"
-                old_pg_bin_dir = "/usr/lib/postgresql/#{version}/bin"
+                old_pg_bin_dir = "/usr/lib/postgresql/#{old_version}/bin"
+
+                begin
+                    sudo('-u', user,
+                        "#{old_pg_bin_dir}/pg_ctl",
+                        '-D', old_data,
+                        'stop')
+                rescue
+                end
                 
-                sudo('-u', user,
-                    "#{old_pg_bin_dir}/pg_ctl",
-                    '-D', old_data,
-                    'stop')
-                sudo('-u', user,
-                    "#{pg_bin_dir}/pg_ctl",
-                    '-D', data_dir,
-                    'stop')
-                sudo('-u', user,
-                    "#{pg_bin_dir}/pg_upgrade",
-                    '-d', old_data,
-                    '-D', data_dir,
-                    '-b', old_pg_bin_dir,
-                    '-B', pg_bin_dir)
+                systemctl('stop', "#{service_name}.service")
+
+                sudo('-u', user, '/bin/sh', '-c',
+                    "cd /tmp && #{pg_bin_dir}/pg_upgrade " +
+                        "-d #{old_data} -D #{data_dir} " +
+                        "-b #{old_pg_bin_dir} -B #{pg_bin_dir}")
                 FileUtils.mv(old_data, "#{old_data}.bak")
             end
             
