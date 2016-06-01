@@ -96,6 +96,14 @@ Puppet::Type.newtype(:cfdb_instance) do
         end
     end
     
+    newproperty(:backup_dir) do
+        validate do |value|
+            unless value =~ /^(\/[a-z0-9_]+)+$/i
+                raise ArgumentError, "%s is not a valid path" % value
+            end
+        end
+    end
+    
     newproperty(:settings_tune) do
         validate do |value|
             value.is_a? Hash

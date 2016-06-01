@@ -54,14 +54,15 @@ class cfdb::postgresql::serverpkg {
         }
     }
     
-    package { 'barman': }
+    #package { 'barman': }
     package { 'postgresql-filedump': }
-    package { 'ptop': }
+    package { 'pgtop': }
     package { 'repmgr': }
+    package { 'pg-backup-ctl': }
     
 
     # default instance must not run
-    service { "postgresql-${ver}":
+    service { ["postgresql", "postgresql@${ver}-main"]:
         ensure => stopped,
         enable => false,
     }

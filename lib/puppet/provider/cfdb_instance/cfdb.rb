@@ -723,6 +723,8 @@ Puppet::Type.type(:cfdb_instance).provide(
         root_data_dir = "#{root_dir}/data"
         tmp_dir = "#{root_dir}/tmp"
         pki_dir = "#{root_dir}/pki/puppet"
+        backup_dir = conf[:backup_dir]
+        backup_wal_dir = "#{backup_dir}/log"
         
         cluster = conf[:cluster]
         service_name = conf[:service_name]
@@ -743,7 +745,6 @@ Puppet::Type.type(:cfdb_instance).provide(
         unclean_state_file = "#{conf_dir}/unclean_state"
         pg_bin_dir = "/usr/lib/postgresql/#{version}/bin"
         run_dir = "/run/#{service_name}"
-        sock_file = "#{run_dir}/service.sock"
         pid_file = "#{run_dir}/service.pid"
         restart_required_file = "#{conf_dir}/restart_required"
 
@@ -783,8 +784,8 @@ Puppet::Type.type(:cfdb_instance).provide(
         role_index = Puppet::Type.type(:cfdb_role).provider(:cfdb).get_config_index
         roles = cf_system().config.get_new(role_index)
         hba_content = []
-        hba_content << ['local', 'all', 'all', 'md5']
         hba_content << ['local', 'all', user, 'ident']
+        hba_content << ['local', 'all', 'all', 'md5']
         hba_host_roles = {}
         
         if roles
@@ -946,6 +947,10 @@ Puppet::Type.type(:cfdb_instance).provide(
             'checkpoint_timeout' => '10min',
             'max_wal_size' => "#{max_wal_size}MB",
             'min_wal_size' => "#{min_wal_size}MB",
+            # Archiving
+            'archive_mode' => 'on',
+            'archive_command' => "mkdir -p \"#{backup_wal_dir}\" && test ! -f \"#{backup_wal_dir}/%f\" && cp \"%p\" \"#{backup_wal_dir}/%f\"",
+            #'restore_command' => "cp \"#{backup_wal_dir}/%f\" \"%p\"",
             
             # Autovacuum,
             'autovacuum' => 'on',
@@ -1043,7 +1048,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         service_changed = create_service(conf, service_ini, service_env)
 
         config_changed ||= service_changed
-      
+        
         #---
         if File.exists?(unclean_state_file)
             warning("Something has gone wrong in previous runs!")
@@ -1108,6 +1113,17 @@ Puppet::Type.type(:cfdb_instance).provide(
             FileUtils.rm_f(unclean_state_file)
             
             systemctl('start', "#{service_name}.service")
+        end
+        
+        #---
+        backup_init_stamp = "#{backup_wal_dir}/.init"
+        if !File.exists?(backup_init_stamp)
+            sudo('-H', '-u', user, '/usr/bin/pg_backup_ctl',
+                 '-h', run_dir,
+                 '-p', port,
+                 '-U', user,
+                 '-A', backup_dir, 'setup')
+            FileUtils.touch(backup_init_stamp)
         end
     end
     

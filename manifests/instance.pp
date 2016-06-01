@@ -25,6 +25,13 @@ define cfdb::instance (
     include cfsystem
     include cfdb
     
+    $backup_support = !$is_arbitrator
+    
+    #---
+    if $backup_support {
+        include cfdb::backup
+    }
+    
     #---
     $cluster = $title
     if $is_arbitrator {
@@ -35,6 +42,7 @@ define cfdb::instance (
         $user = "${type}_${cluster}"
     }
     $root_dir = "${cfdb::root_dir}/${user}"
+    $backup_dir = "${cfdb::backup::root_dir}/${user}"
     
     if $iface == 'any' {
         $listen = undef
@@ -256,6 +264,7 @@ define cfdb::instance (
         target_size    => $target_size,
         
         root_dir       => $root_dir,
+        backup_dir     => $backup_dir,
         
         settings_tune  => merge(
             $settings_tune,
@@ -350,13 +359,10 @@ define cfdb::instance (
     
     # setup backup & misc.
     #---
-    if !$is_arbitrator {
-        include cfdb::backup
-        
+    if $backup_support {
         $backup_script = "${root_dir}/bin/cfdb_backup"
         $restore_script = "${root_dir}/bin/cfdb_restore"
         $backup_script_auto ="${backup_script}_auto"
-        $backup_dir = "${cfdb::backup::root_dir}/${user}"
         
         file { $backup_dir:
             ensure => directory,

@@ -1,0 +1,60 @@
+<%- | String $backup_dir,
+      String $root_dir,
+      String $user,
+      String $base_date='month' |
+-%>
+#!/bin/bash
+
+backup_root_dir=<%= $backup_dir %>
+root_dir=<%= $root_dir %>
+user=<%= $user %>
+base_date=<%= $base_date %>
+
+# Make sure to run under instance user
+if test "$(/usr/bin/id -u)" = 0; then
+    exec /usr/bin/sudo -u <%= $user %> $0 "$@"
+    # should not reach here
+    exit -1
+fi
+
+case $base_date in
+    'year') base_date='%Y' ;;
+    'quarter') base_date="%Y-Q$(( $(/bin/date +%m) / 4 + 1 ))" ;;
+    'month') base_date='%Y-%m' ;;
+    'week') base_date='%Y-W%W' ;;
+    'day') base_date='%Y-%m-%d' ;;
+    'daytime') base_date='%Y-%m-%d_%H%M%S' ;;
+esac
+
+stamp_dir="${backup_root_dir}/base_stamps"
+base_stamp=$(/bin/date --utc "+${base_date}")
+base_stamp_file="${stamp_dir}/${base_stamp}.stamp"
+
+set -ex
+
+data_dir=$(ls -d ${root_dir}/data/?.?)
+eval "$(/bin/egrep '^(host|user|port)' ${root_dir}/.pg_service.conf)"
+
+if test ! -e $base_stamp_file; then
+    /usr/bin/pg_backup_ctl \
+        -A "${backup_root_dir}" \
+        -D "${data_dir}" \
+        -z \
+        -h $host -p $port -U $user \
+        rsyncbackup
+    /bin/mkdir -p $stamp_dir
+    /bin/rm -f $stamp_dir/*.stamp
+    /bin/touch $base_stamp_file
+else
+    /usr/bin/pg_backup_ctl \
+        -A "${backup_root_dir}" \
+        -D "${data_dir}" \
+        -z \
+        -h $host -p $port -U $user \
+        currentbackup
+fi
+
+/usr/bin/pg_backup_ctl \
+        -A "${backup_root_dir}" \
+        cleanup
+
