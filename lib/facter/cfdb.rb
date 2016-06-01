@@ -33,10 +33,17 @@ Facter.add('cfdb') do
             
             sections.fetch('cf10db1_instance', {}).each do |k, info|
                 cluster = info['cluster']
+                
+                if info['type'] == 'postgresql'
+                    socket = "/run/#{info['service_name']}"
+                else
+                    socket = "/run/#{info['service_name']}/service.sock"
+                end
+                
                 ret[cluster] = {
                     'type' => info['type'],
                     'roles' => roles.fetch(cluster, {}),
-                    'socket' => "/run/#{info['service_name']}/service.sock",
+                    'socket' => socket,
                     'host' => info['settings_tune'].fetch('cfdb', {}).fetch('listen', nil),
                     'port' => persistent[cluster],
                     'is_secondary' => info['is_secondary'],
