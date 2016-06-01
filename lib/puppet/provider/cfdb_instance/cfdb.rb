@@ -600,6 +600,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'LimitNOFILE' => open_file_limit * 2,
                 'ExecStart' => "#{MYSQLD} --defaults-file=#{conf_dir}/mysql.cnf $MYSQLD_OPTS",
                 'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
+                'OOMScoreAdjust' => -200,
             }
             service_env = {
                 'MYSQLD_OPTS' => '',
@@ -787,15 +788,15 @@ Puppet::Type.type(:cfdb_instance).provide(
         hba_host_roles = {}
         
         if roles
-            roles.each do |k, v|
-                if v[:cluster] == cluster
-                    v.each do |host, max_conn|
+            roles.each do |role_id, rinfo|
+                if rinfo[:cluster] == cluster
+                    rinfo[:allowed_hosts].each do |host, max_conn|
                         max_connections += max_conn
                         
                         if host != 'localhost'
                             have_external_conn = true
                             hba_host_roles[host] ||= []
-                            hba_host_roles[host] << v[:role]
+                            hba_host_roles[host] << rinfo[:role]
                         end
                     end
                 end
@@ -803,14 +804,25 @@ Puppet::Type.type(:cfdb_instance).provide(
             
             if cfdb_settings.fetch('strict_hba_roles', false)
                 hba_host_roles.each do |host, host_roles|
-                    hba_content << ['local', 'all', host_roles.join(','), host, 'md5']
+                    if IPAddr.new(host).ipv6?
+                        host = "#{host}/128"
+                    else
+                        host = "#{host}/32"
+                    end
+                    hba_content << ['host', 'all', host_roles.join(','), host, 'md5']
                 end
             else
                  hba_host_roles.keys.each do |host|
-                    hba_content << ['local', 'all', 'all', host, 'md5']
+                    if IPAddr.new(host).ipv6?
+                        host = "#{host}/128"
+                    else
+                        host = "#{host}/32"
+                    end
+                    hba_content << ['host', 'all', 'all', host, 'md5']
                 end
             end
         end
+        hba_content << []
         
         max_connections_roundto = cfdb_settings.fetch('max_connections_roundto', 100).to_i
         max_connections = round_to(max_connections_roundto, max_connections)
@@ -1016,11 +1028,14 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         #service
         service_ini = {
+            #'Type' => 'forking',
+            #'TimeoutSec' => 120,
             'LimitNOFILE' => open_file_limit * 2,
             'ExecStart' => "#{pg_bin_dir}/postgres --config_file=#{conf_file} $PGSQL_OPTS",
             'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
-            'ExecReload' => "#{pg_bin_dir}/pg_ctl -D #{data_dir} reload",
-            'ExecStop' => "#{pg_bin_dir}/pg_ctl -D #{data_dir} stop -m fast",
+            'ExecReload' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} reload",
+            'ExecStop' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} stop -m fast",
+            'OOMScoreAdjust' => -200,
         }
         service_env = {
             'PGSQL_OPTS' => '',

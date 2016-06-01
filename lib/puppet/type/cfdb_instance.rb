@@ -100,6 +100,17 @@ Puppet::Type.newtype(:cfdb_instance) do
         validate do |value|
             value.is_a? Hash
         end
+        
+        munge do |value|
+            value.each do |section, info|
+                # a workaround for seems to be buggy Puppet merge()
+                info.each do |k, v|
+                    if v == 'undef'
+                        info.delete k
+                    end
+                end
+            end
+        end
     end
     
     newproperty(:service_name) do

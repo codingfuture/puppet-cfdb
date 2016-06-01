@@ -24,7 +24,7 @@ Puppet::Type.type(:cfdb_database).provide(
             inst_conf = cf_system().config.get_old(instance_index)
             inst_conf = inst_conf[params[:cluster]]
             db_type = inst_conf['type']
-            self.send("check_#{db_type}", inst_conf['user'], params[:database])
+            self.send("check_#{db_type}", inst_conf['user'], params[:database], inst_conf['root_dir'])
         rescue => e
             warning(e)
             #warning(e.backtrace)
@@ -48,7 +48,7 @@ Puppet::Type.type(:cfdb_database).provide(
             inst_conf = inst_conf_all[conf[:cluster]]
             db_type = inst_conf[:type]
             begin
-                self.send("create_#{db_type}", inst_conf[:user], conf[:database])
+                self.send("create_#{db_type}", inst_conf[:user], conf[:database], inst_conf[:root_dir])
             rescue => e
                 warning(e)
                 #warning(e.backtrace)
@@ -58,21 +58,30 @@ Puppet::Type.type(:cfdb_database).provide(
     end
     
     #==================================
-    def self.create_mysql(user, database)
-        return if check_mysql(user, database)
+    def self.create_mysql(user, database, root_dir)
+        return if check_mysql(user, database, root_dir)
         sudo('-u', user, MYSQLADMIN, 'create', database)
     end
     
-    def self.check_mysql(user, database)
+    def self.check_mysql(user, database, root_dir)
         ret = sudo('-u', user, MYSQL, '--wait', '-e', "SHOW DATABASES LIKE '#{database}';")
         not ret.empty?
     end
 
     #==================================
-    def self.create_postgresql(user, database)
-        return if check_postgresql(user, database)
+    def self.create_postgresql(user, database, root_dir)
+        return if check_postgresql(user, database, root_dir)
+        sudo("#{root_dir}/bin/cfdb_psql",
+             '--tuples-only', '--no-align', '--quiet',
+             '-c', "CREATE DATABASE #{database} TEMPLATE template0;")
     end
     
-    def self.check_postgresql(user, database)
+    def self.check_postgresql(user, database, root_dir)
+        ret = sudo(
+            "#{root_dir}/bin/cfdb_psql",
+            '--tuples-only', '--no-align', '--quiet',
+            '-c', "SELECT datname FROM pg_database WHERE datname = '#{database}';"
+        )
+        not ret.empty?
     end
 end
