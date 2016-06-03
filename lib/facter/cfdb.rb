@@ -54,6 +54,23 @@ Facter.add('cfdb') do
 
                 # a quick workaround
                 ret[cluster]['host'] = nil if ret[cluster]['host'] == 'undef'
+                
+                ssh_dir = "#{info['root_dir']}/.ssh"
+                
+                if File.exists? ssh_dir
+                    ret[cluster]['ssh_keys'] = Dir.glob("#{ssh_dir}/id_*.pub").reduce({}) do |ret, f|
+                        keycomp = File.read(f).split(/\s+/)
+                        
+                        if keycomp.size >= 2
+                            s = File.basename(f)
+                            ret[s] = {
+                                'type' => keycomp[0],
+                                'key' => keycomp[1],
+                            }
+                        end
+                        ret
+                    end
+                end
             end
             
             ret

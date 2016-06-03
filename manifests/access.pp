@@ -133,17 +133,13 @@ define cfdb::access(
     
     #---
     if $cfg['port'] != '' {
-        if !defined(Cfnetwork::Describe_service["cfdb_${cluster}"]) {
-            $port = $cfg['port']
-            cfnetwork::describe_service { "cfdb_${cluster}":
-                server => "tcp/${port}",
-            }
-        }
-        if !defined(Cfnetwork::Client_port["any:cfdb_${cluster}:${local_user}"]) {
-            cfnetwork::client_port { "any:cfdb_${cluster}:${local_user}":
-                dst  => $cfg['host'],
-                user => $local_user,
-            }
-        }
+        $port = $cfg['port']
+        ensure_resource('cfnetwork::describe_service', "cfdb_${cluster}", {
+            server => "tcp/${port}",
+        })
+        ensure_resource('cfnetwork::client_port', "any:cfdb_${cluster}:${local_user}", {
+            dst  => $cfg['host'],
+            user => $local_user,
+        })
     }
 }

@@ -935,7 +935,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             
             # Write Ahead Log
             #---
-            'wal_level' => 'hot_standby',
+            'wal_level' => 'archive',
             'fsync' => 'on',
             'synchronous_commit' => 'off',
             'wal_sync_method' => 'fdatasync',
@@ -997,6 +997,17 @@ Puppet::Type.type(:cfdb_instance).provide(
             # mantained by cluster or systemd (default)
             'restart_after_crash' => 'off',
         })
+        
+        if is_cluster
+            pgsettings.merge!({
+                'wal_level' => 'hot_standby',
+                'archive_mode' => 'on',
+            })
+            
+            if is_secondary
+                pgsettings['hot_standby'] = 'on'
+            end
+        end
             
         if !is_95
             ['cluster_name',
@@ -1053,6 +1064,12 @@ Puppet::Type.type(:cfdb_instance).provide(
         if File.exists?(unclean_state_file)
             warning("Something has gone wrong in previous runs!")
             warning("Please manually fix issues in #{root_dir} and then remove #{unclean_state_file}.")
+        elsif is_secondary
+            if !File.exists? root_data_dir
+                warning('> create root data dir for secondary server')
+                FileUtils.mkdir_p(root_data_dir, :mode => 0750)
+                FileUtils.chown(user, user, root_data_dir)
+            end
         elsif data_exists
             if config_changed
                 FileUtils.touch(restart_required_file)

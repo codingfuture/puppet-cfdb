@@ -19,18 +19,47 @@ define cfdb::instance (
     
     $backup = $cfdb::backup,
     $backup_tune = {},
+    
+    $ssh_key_type = 'ed25519',
+    $ssh_key_bits = 2048, # for rsa
 ) {
     include stdlib
     include cfnetwork
     include cfsystem
     include cfdb
     
-    $backup_support = !$is_arbitrator
+    include "cfdb::${type}"
+    if $is_arbitrator {
+        include "cfdb::${type}::arbitratorpkg"
+    } else {
+        include "cfdb::${type}::serverpkg"
+    }
     
     #---
+    $backup_support = !$is_arbitrator
+    $is_cluster = getvar("cfdb::${type}::is_cluster") or $is_arbitrator
+    
     if $backup_support {
         include cfdb::backup
     }
+    
+    #---
+    case $type {
+        'postgresql': {
+            $ssh_access = $is_cluster
+        }
+        default: {
+            $ssh_access = false
+        }
+    }
+    
+    if $ssh_access {
+        include cfauth
+        $groups = 'ssh_access'
+    } else {
+        $groups = undef
+    }
+    
     
     #---
     $cluster = $title
@@ -69,6 +98,7 @@ define cfdb::instance (
         home    => $root_dir,
         system  => true,
         shell   => '/bin/bash',
+        groups  => $groups,
         require => Group[$user],
     }
     
@@ -105,15 +135,11 @@ define cfdb::instance (
     }
 
     #---
-    include "cfdb::${type}"
-    if $is_arbitrator {
-        include "cfdb::${type}::arbitratorpkg"
-    } else {
-        include "cfdb::${type}::serverpkg"
-    }
-    
-    #---
-    if getvar("cfdb::${type}::is_cluster") or $is_arbitrator {
+    if $is_cluster {
+        if !$port {
+            fail('Cluster requires excplicit port')
+        }
+        
         $cluster_facts_all = query_facts(
             "cfdb.${cluster}.present=true",
             ['cfdb']
@@ -142,17 +168,36 @@ define cfdb::instance (
                 if $host == $::trusted['certname'] {
                     undef
                 } else {
+                    if !$peer_addr or !$peer_port {
+                        fail("Invalid host/port for ${host}: ${cluster_fact}")
+                    }
+                    
+                    $host_under = regsubst($host, '\.', '_', 'G')
+                    
+                    if $ssh_access {
+                        cfnetwork::client_port { "${iface}:cfssh:cfdb_${host_under}":
+                            dst  => $peer_addr,
+                            user => $user,
+                        }
+                        cfnetwork::service_port { "${iface}:cfssh:cfdb_${host_under}":
+                            src => $peer_addr,
+                        }
+                        
+                        $cluster_fact['ssh_keys'].each |$kn, $kv| {
+                            ssh_authorized_key { "${user}:${kn}@${host_under}":
+                                user    => $user,
+                                type    => $kv['type'],
+                                key     => $kv['key'],
+                                require => User[$user],
+                            }
+                        }
+                    }
+                    
                     if $type == 'mysql' {
                         # TODO: wrap into some functions
                         $galera_port = $peer_port + 100
                         $sst_port = $peer_port + 200
                         $ist_port = $peer_port + 300
-                        
-                        if !$peer_addr or !$peer_port {
-                            fail("Invalid host/port for ${host}: ${cluster_fact}")
-                        }
-                        
-                        $host_under = regsubst($host, '\.', '_', 'G')
                     
                         cfnetwork::describe_service { "cfdb_${cluster}_peer_${host_under}":
                             server => "tcp/${peer_port}",
@@ -186,6 +231,15 @@ define cfdb::instance (
                             dst  => $peer_addr,
                             user => $user,
                         }
+                    } elsif $type == 'postgresql' {
+                        cfnetwork::describe_service { "cfdb_${cluster}_peer_${host_under}":
+                            server => "tcp/${peer_port}",
+                        }
+                        
+                        cfnetwork::client_port { "${iface}:cfdb_${cluster}_peer_${host_under}":
+                            dst  => $peer_addr,
+                            user => $user,
+                        }
                     }
                     
                     
@@ -198,19 +252,15 @@ define cfdb::instance (
             }).filter |$v| { $v != undef }
         }
         
+        $peer_addr_list = $cluster_addr.map |$v| {
+            $v['addr']
+        }
+        
         if $type == 'mysql' {
-            if !$port {
-                fail('Cluster requires excplicit port')
-            }
-            
             # TODO: wrap into some functions
             $galera_port = $port + 100
             $sst_port = $port + 200
             $ist_port = $port + 300
-            
-            $peer_addr = $cluster_addr.map |$v| {
-                $v['addr']
-            }
             
             cfnetwork::describe_service { "cfdb_${cluster}_peer":
                 server => "tcp/${port}",
@@ -228,19 +278,42 @@ define cfdb::instance (
                 server => "tcp/${ist_port}",
             }
             
-            if size($peer_addr) > 0 {
+            if size($peer_addr_list) > 0 {
                 cfnetwork::service_port { "${iface}:cfdb_${cluster}_peer":
-                    src => $peer_addr,
+                    src => $peer_addr_list,
                 }
                 cfnetwork::service_port { "${iface}:cfdb_${cluster}_galera":
-                    src => $peer_addr,
+                    src => $peer_addr_list,
                 }
                 cfnetwork::service_port { "${iface}:cfdb_${cluster}_sst":
-                    src => $peer_addr,
+                    src => $peer_addr_list,
                 }
                 cfnetwork::service_port { "${iface}:cfdb_${cluster}_ist":
-                    src => $peer_addr,
+                    src => $peer_addr_list,
                 }
+            }
+        } elsif $type == 'postgresql' {
+            cfnetwork::describe_service { "cfdb_${cluster}_peer":
+                server => "tcp/${port}",
+            }
+         
+            if size($peer_addr_list) > 0 {
+                cfnetwork::service_port { "${iface}:cfdb_${cluster}_peer":
+                    src => $peer_addr_list,
+                }
+            }
+        }
+        
+        if $ssh_access {
+            $ssh_dir = "${root_dir}/.ssh"
+            $ssh_idkey = "${ssh_dir}/id_${ssh_key_type}"
+            
+            exec { "cfdb_genkey@${user}":
+                command => "/usr/bin/ssh-keygen -q -t ${ssh_key_type} -b ${ssh_key_bits} -P '' -f ${ssh_idkey}",
+                creates => $ssh_idkey,
+                user    => $user,
+                group   => $user,
+                require => User[$user],
             }
         }
     } else {
@@ -253,7 +326,7 @@ define cfdb::instance (
         type           => $type,
         cluster        => $cluster,
         user           => $user,
-        is_cluster     => getvar("cfdb::${type}::is_cluster") or $is_arbitrator,
+        is_cluster     => $is_cluster,
         is_secondary   => $is_secondary or $is_arbitrator,
         is_bootstrap   => $is_bootstrap and !$is_arbitrator,
         is_arbitrator  => $is_arbitrator,
@@ -345,11 +418,9 @@ define cfdb::instance (
         $fact_port = pick_default($port, try_get_value($::facts, "cf_persistent/ports/${cluster}"))
         
         if $fact_port and (size($allowed_hosts) > 0) {
-            if !defined(Cfnetwork::Describe_service["cfdb_${cluster}"]) {
-                cfnetwork::describe_service { "cfdb_${cluster}":
-                    server => "tcp/${fact_port}",
-                }
-            }
+            ensure_resource('cfnetwork::describe_service', "cfdb_${cluster}", {
+                server => "tcp/${fact_port}",
+            })
             cfnetwork::service_port { "${iface}:cfdb_${cluster}":
                 src => $allowed_hosts.sort(),
             }
