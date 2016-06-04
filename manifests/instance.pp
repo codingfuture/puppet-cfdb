@@ -170,7 +170,7 @@ define cfdb::instance (
                     fail("Type of ${cluster} on ${host} mismatch ${type}: ${cluster_fact}")
                 }
                 
-                if !$cluster_fact['is_secondary'] and has_key($cluster_fact, 'shared_secret') {
+                if !$cluster_fact['is_secondary'] and $cluster_fact['shared_secret'] {
                     $shared_secret = $cluster_fact['shared_secret']
                 }
                 
@@ -260,8 +260,10 @@ define cfdb::instance (
                     }
                     
                     $ret = {
-                        addr => $peer_addr,
-                        port => $peer_port
+                        addr          => $peer_addr,
+                        port          => $peer_port,
+                        is_secondary  => $cluster_fact['is_secondary'],
+                        is_arbitrator => $cluster_fact['is_arbitrator'],
                     }
                     $ret
                 }
@@ -332,12 +334,20 @@ define cfdb::instance (
                 require => User[$user],
             }
         }
+        
+        $shared_secret = keys($cluster_facts_all).reduce('') |$memo, $host| {
+            $cfdb_facts = $cluster_facts_all[$host]
+            $cluster_fact = $cfdb_facts['cfdb'][$cluster]
+            
+            if !$cluster_fact['is_secondary'] and $cluster_fact['shared_secret'] {
+                $cluster_fact['shared_secret']
+            } else {
+                $memo
+            }
+        }
     } else {
         $cluster_addr = undef
-    }
-    
-    if !defined('shared_secret') {
-        $shared_secret = pick_default(try_get_value($::facts, "cf_persistent/ports/${cluster}/shared_secret"), '')
+        $shared_secret = ''
     }
     #---
     
@@ -381,6 +391,7 @@ define cfdb::instance (
             File[$user_dirs],
             Class["cfdb::${type}::serverpkg"],
             Cfsystem_memory_weight[$cluster],
+            Cfsystem::Puppetpki[$user],
         ],
     }
     
@@ -523,9 +534,10 @@ define cfdb::instance (
                         user => $user,
                         service_name => $service_name,
                     }),
+                    notify => Cfdb_instance[$cluster],
                 }
                 
-                if $is_cluster {
+                if $is_cluster_by_fact {
                     file { "${root_dir}/bin/cfdb_repmgr":
                         mode    => '0755',
                         content => epp('cfdb/cfdb_repmgr.epp', {
@@ -533,6 +545,7 @@ define cfdb::instance (
                             user         => $user,
                             service_name => $service_name,
                         }),
+                        notify => Cfdb_instance[$cluster],
                     }                    
                 }
             }

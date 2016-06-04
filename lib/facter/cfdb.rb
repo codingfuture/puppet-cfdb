@@ -36,11 +36,10 @@ Facter.add('cfdb') do
             
             sections.fetch('cf10db1_instance', {}).each do |k, info|
                 cluster = info['cluster']
-                shared_secret_default = ''
+                shared_secret = persistent_secrets.fetch(cluster, '')
                 
                 if info['type'] == 'postgresql'
                     socket = "/run/#{info['service_name']}"
-                    shared_secret_default = persistent_secrets.fetch("#{cluster}:repmgr", '')
                 else
                     socket = "/run/#{info['service_name']}/service.sock"
                 end
@@ -54,7 +53,7 @@ Facter.add('cfdb') do
                     'is_secondary' => info['is_secondary'],
                     'is_cluster' => info['is_cluster'],
                     'is_arbitrator' => info.fetch('is_arbitrator', false),
-                    'shared_secret' => info.fetch('shared_secret', ),
+                    'shared_secret' => shared_secret,
                     'present' => true,
                 }
 
