@@ -66,4 +66,9 @@ class cfdb::postgresql::serverpkg {
         ensure => stopped,
         enable => false,
     }
+    
+    ensure_resource( service, 'repmgrd', {
+        ensure => stopped,
+        enable => false,
+    })
 }

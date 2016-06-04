@@ -5,9 +5,11 @@ class cfdb::postgresql::arbitratorpkg {
     include cfdb::postgresql
     
     ensure_resource('package', 'repmgr')
-    
-    service { 'repmgrd':
+    ensure_resource( service, 'repmgrd', {
         ensure => stopped,
         enable => false,
-    }
+    })
+    
+    fail("There is an open repmgr issue #186: https://github.com/2ndQuadrant/repmgr/issues/186
+          PostgreSQL witness server is not supported yet")
 }
