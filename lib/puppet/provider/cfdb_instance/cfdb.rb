@@ -1113,6 +1113,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             
             pgsettings.merge!({
                 'wal_level' => 'hot_standby',
+                'wal_log_hints' => 'on',
                 'hot_standby' => 'on',
                 'archive_mode' => 'on',
                 'max_wal_senders' => cluster_addr.size + 2,
@@ -1150,7 +1151,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             end
         end
             
-        if !is_95
+        if is_94
             ['cluster_name',
              'min_wal_size',
              'max_wal_size',
