@@ -14,7 +14,10 @@ Facter.add('cfdb') do
             json = File.read(cfsystem_json)
             json = JSON.parse(json)
             sections = json['sections']
-            persistent = json['persistent']['ports']
+            persistent = json['persistent']
+            persistent_ports = persistent['ports']
+            persistent_secrets = persistent['secrets']
+            
             
             ret = {}
             roles = {}
@@ -33,9 +36,11 @@ Facter.add('cfdb') do
             
             sections.fetch('cf10db1_instance', {}).each do |k, info|
                 cluster = info['cluster']
+                shared_secret_default = ''
                 
                 if info['type'] == 'postgresql'
                     socket = "/run/#{info['service_name']}"
+                    shared_secret_default = persistent_secrets.fetch("#{cluster}:repmgr", '')
                 else
                     socket = "/run/#{info['service_name']}/service.sock"
                 end
@@ -45,10 +50,11 @@ Facter.add('cfdb') do
                     'roles' => roles.fetch(cluster, {}),
                     'socket' => socket,
                     'host' => info['settings_tune'].fetch('cfdb', {}).fetch('listen', nil),
-                    'port' => persistent[cluster],
+                    'port' => persistent_ports[cluster],
                     'is_secondary' => info['is_secondary'],
                     'is_cluster' => info['is_cluster'],
                     'is_arbitrator' => info.fetch('is_arbitrator', false),
+                    'shared_secret' => info.fetch('shared_secret', ),
                     'present' => true,
                 }
 

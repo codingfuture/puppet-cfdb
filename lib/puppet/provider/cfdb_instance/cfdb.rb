@@ -30,6 +30,10 @@ Puppet::Type.type(:cfdb_instance).provide(
     GALERA_PORT_OFFSET = 100 unless defined? GALERA_PORT_OFFSET
     SST_PORT_OFFSET = 200 unless defined? SST_PORT_OFFSET
     IST_PORT_OFFSET = 300 unless defined? IST_PORT_OFFSET
+    
+    REPMGR = '/usr/bin/repmgr' unless defined? REPMGR
+    REPMGRD = '/usr/bin/repmgrd' unless defined? REPMGRD
+    REPMGR_USER = 'cfrepmgr' unless defined? REPMGR_USER
 
     def self.get_config_index
         'cf10db1_instance'
@@ -58,11 +62,9 @@ Puppet::Type.type(:cfdb_instance).provide(
         return cf_system.roundTo(to, val)
     end
     
-    def self.create_service(conf, service_ini, service_env)
+    def self.create_service(conf, service_ini, service_env, slice_name = nil, service_name = nil)
         db_type = conf[:type]
-        service_name = conf[:service_name]
-        service_file = "/etc/systemd/system/#{service_name}.service"
-        env_file = "/etc/default/#{service_name}.conf"
+        service_name = conf[:service_name] if service_name.nil?
         user = conf[:user]
         
         mem_limit = cf_system.getMemory(conf[:cluster])
@@ -88,11 +90,32 @@ Puppet::Type.type(:cfdb_instance).provide(
         content_ini['Service'].merge! service_ini
         
         #---
-        self.cf_system().createService({
+        opts = {
             :service_name => service_name,
             :user => user,
             :content_ini => content_ini,
             :content_env => content_env,
+        }
+        
+        if slice_name.nil?
+            opts.merge!({
+                :cpu_weight => conf[:cpu_weight],
+                :io_weight => conf[:io_weight],
+                :mem_limit => mem_limit,
+                :mem_lock => true,
+            })
+        else
+            content_ini['Service']['Slice'] = slice_name
+        end
+        
+        #---
+        self.cf_system().createService(opts)
+    end
+    
+    def self.create_slice(slice_name, conf)
+        mem_limit = cf_system.getMemory(conf[:cluster])
+        self.cf_system().createSlice({
+            :slice_name => slice_name,
             :cpu_weight => conf[:cpu_weight],
             :io_weight => conf[:io_weight],
             :mem_limit => mem_limit,
@@ -132,6 +155,14 @@ Puppet::Type.type(:cfdb_instance).provide(
             warning(e)
              # assume something with high IOPS
             return false
+        end
+    end
+    
+    def self.wait_sock(service_name, sock_file)
+        for i in 1..30
+            break if File.exists? sock_file
+            warning("Waiting #{service_name} startup (#{i})!")
+            sleep 1
         end
     end
     
@@ -635,6 +666,8 @@ Puppet::Type.type(:cfdb_instance).provide(
         elsif data_exists
             if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
                 systemctl('start', "#{service_name}.service")
+                wait_sock(service_name, sock_file)
+                
                 if not is_secondary
                     warning('> running mysql upgrade')
                     sudo('-u', user, MYSQL_UPGRADE, '--force')
@@ -698,11 +731,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 systemctl('start', "#{service_name}.service")
             end
             
-            for i in 1..30
-                break if File.exists? sock_file
-                warning("Waiting #{service_name} startup (#{i})!")
-                sleep 1
-            end
+            wait_sock(service_name, sock_file)
             
             if not File.exists? data_dir or not File.exists? sock_file
                 raise Puppet::DevError, "Failed to initialize #{data_dir}"
@@ -728,6 +757,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         cluster = conf[:cluster]
         service_name = conf[:service_name]
+        repmgr_service_name = "#{service_name}-repmgr"
         version = conf[:version]
         is_secondary = conf[:is_secondary]
         is_cluster = conf[:is_cluster]
@@ -739,6 +769,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         ident_file = "#{conf_dir}/pg_ident.conf"
         client_conf_file = "#{root_dir}/.pg_service.conf"
         pgpass_file = "#{root_dir}/.pgpass"
+        repmgr_file = "#{conf_dir}/repmgr.conf"
         
         data_dir = "#{root_data_dir}/#{version}"
         active_version_file = "#{conf_dir}/active_version"
@@ -788,7 +819,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         hba_content << ['local', 'all', 'all', 'md5']
         hba_host_roles = {}
         
-        if roles
+        if roles or is_cluster
             roles.each do |role_id, rinfo|
                 if rinfo[:cluster] == cluster
                     rinfo[:allowed_hosts].each do |host, max_conn|
@@ -802,27 +833,59 @@ Puppet::Type.type(:cfdb_instance).provide(
                     end
                 end
             end
+        end
             
-            if cfdb_settings.fetch('strict_hba_roles', false)
-                hba_host_roles.each do |host, host_roles|
-                    if IPAddr.new(host).ipv6?
-                        host = "#{host}/128"
-                    else
-                        host = "#{host}/32"
-                    end
-                    hba_content << ['host', 'all', host_roles.join(','), host, 'md5']
-                end
-            else
-                 hba_host_roles.keys.each do |host|
-                    if IPAddr.new(host).ipv6?
-                        host = "#{host}/128"
-                    else
-                        host = "#{host}/32"
-                    end
-                    hba_content << ['host', 'all', 'all', host, 'md5']
-                end
+        if is_cluster
+            cluster_addr.each do |v|
+                max_connections += 2
+                
+                host = v[:addr]
+                hba_host_roles[host] ||= []
+                hba_host_roles[host] << REPMGR_USER
             end
         end
+            
+            
+        if cfdb_settings.fetch('strict_hba_roles', false)
+            hba_host_roles.each do |host, host_roles|
+                begin
+                    host = Resolv.getaddress host
+                rescue
+                end
+                
+                begin
+                    if IPAddr.new(host).ipv6?
+                        host = "#{host}/128"
+                    else
+                        host = "#{host}/32"
+                    end
+                rescue => e
+                    warning("Host #{host}")
+                    raise e
+                end
+                hba_content << ['host', 'all', host_roles.join(','), host, 'md5']
+            end
+        else
+                hba_host_roles.keys.each do |host|
+                begin
+                    host = Resolv.getaddress host
+                rescue
+                end
+                
+                begin
+                    if IPAddr.new(host).ipv6?
+                        host = "#{host}/128"
+                    else
+                        host = "#{host}/32"
+                    end
+                rescue => e
+                    warning("Host #{host}")
+                    raise e
+                end
+                hba_content << ['host', 'all', 'all', host, 'md5']
+            end
+        end
+        
         hba_content << []
         
         max_connections_roundto = cfdb_settings.fetch('max_connections_roundto', 100).to_i
@@ -837,6 +900,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         end
         
         port = cf_system.genPort(cluster, cfdb_settings.fetch('port', nil))
+        sock_file = "#{run_dir}/.s.PGSQL.#{port}"
         
         #---
 
@@ -918,6 +982,9 @@ Puppet::Type.type(:cfdb_instance).provide(
         min_wal_size = (target_size / 20).to_i
         
         #==================================================
+        pgpass_content = []
+        pgpass_content << "localhost:*:*:#{user}:#{root_pass}"
+        
         pgsettings = {
             # Resources
             #---
@@ -999,13 +1066,58 @@ Puppet::Type.type(:cfdb_instance).provide(
         })
         
         if is_cluster
+            node_id = cfdb_settings.fetch('node_id', nil)
+            upstream_node_id = cfdb_settings.fetch('upstream_node_id', nil)
+            hostname = Facter['hostname'].value()
+            
+            sslrequire = ''
+            sslrequire = 'sslmode=require' if secure_cluster
+            
+            if is_secondary
+                repmgr_pass = conf['shared_secret']
+                # in case secondary is reconfigured to primary in puppet static confic
+                cf_system.genSecret("#{cluster}:repmgr", repmgr_pass)
+            else
+                repmgr_pass = cf_system.genSecret("#{cluster}:repmgr")
+            end
+            
+            if node_id.nil?
+                node_id = hostname[/([0-9]+)$/, 1].to_i
+                
+                if node_id <= 0
+                    fail("Either provide node_id in cfdb or make sure host name ends unique ID in cluster")
+                end
+            end
+            
+            pgpass_content << "*:*:*:#{REPMGR_USER}:#{repmgr_pass}"
+            
             pgsettings.merge!({
                 'wal_level' => 'hot_standby',
                 'archive_mode' => 'on',
+                'max_wal_senders' => cluster_addr.size + 2,
+                'shared_preload_libraries' => 'repmgr_funcs',
             })
+            
+            repmgr_conf = {
+                'cluster' => cluster,
+                'node' => node_id,
+                'node_name' => Facter['fqdn'].value(),
+                'conninfo' => "host=#{run_dir} port=#{port} user=#{REPMGR_USER} dbname=#{REPMGR_USER} #{sslrequire}",
+                'use_replication_slots' => 1,
+                'pg_basebackup_options' => '--xlog-method=stream',
+                'pg_ctl_options' => '-o "--config_file=#{conf_file}"',
+                'pg_bindir' => pg_bin_dir,
+                'failover' => 'automatic',
+                'promote_command' => "#{REPMGR} standby promote -f #{repmgr_file}",
+                'follow_command' => "#{REPMGR} standby follow -f #{repmgr_file}",
+            }
             
             if is_secondary
                 pgsettings['hot_standby'] = 'on'
+                
+                if not upstream_node_id.nil?
+                    repmgr_conf['upstream_node'] = upstream_node_id
+                end
             end
         end
             
@@ -1030,46 +1142,85 @@ Puppet::Type.type(:cfdb_instance).provide(
             }
         }
         cf_system.atomicWriteIni(client_conf_file, client_settings, {:user => user})
+        cf_system.atomicWrite(pgpass_file, pgpass_content, {:user => user})
         
-        pgpass_content = "localhost:*:*:#{user}:#{root_pass}"
-        cf_system.atomicWrite(pgpass_file, root_pass, {:user => user})
+        #---
+        FileUtils.touch(ident_file)
+        FileUtils.chown(user, user, ident_file)
 
         #==================================================
-        # config
-        config_changed = self.atomicWritePG(conf_file, pgsettings, {:user => user})
-        # hba
-        hba_content = (hba_content.map{ |v| v.join(' ') }).join("\n")
-        hba_changed = cf_system.atomicWrite(hba_file, hba_content, {:user => user})
-        config_changed ||= hba_changed
+        config_changed = false
         
-        #service
-        service_ini = {
-            #'Type' => 'forking',
-            #'TimeoutSec' => 120,
-            'LimitNOFILE' => open_file_limit * 2,
-            'ExecStart' => "#{pg_bin_dir}/postgres --config_file=#{conf_file} $PGSQL_OPTS",
-            'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
-            'ExecReload' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} reload",
-            'ExecStop' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} stop -m fast",
-            'OOMScoreAdjust' => -200,
-        }
-        service_env = {
-            'PGSQL_OPTS' => '',
-        }
-        service_changed = create_service(conf, service_ini, service_env)
+        if not is_arbitrator
+            # config
+            config_changed = self.atomicWritePG(conf_file, pgsettings, {:user => user})
+            # hba
+            hba_content = (hba_content.map{ |v| v.join(' ') }).join("\n")
+            hba_changed = cf_system.atomicWrite(hba_file, hba_content, {:user => user})
+            config_changed ||= hba_changed
+        end
+        
+        slice_name = "system-cfdb_#{cluster}"
+        self.create_slice(slice_name, conf)
+        
+        if is_cluster
+            # repmgr
+            repmgr_changed = self.atomicWritePG(repmgr_file, repmgr_conf, {:user => user})
+            
+            #service
+            service_ini = {
+                'LimitNOFILE' => open_file_limit * 2,
+                'ExecStart' => "#{REPMGRD} --config-file=#{repmgr_file}",
+                'OOMScoreAdjust' => -200,
+            }
+        
+            service_changed = create_service(conf, service_ini, {}, slice_name, repmgr_service_name)
 
-        config_changed ||= service_changed
+            config_changed ||= service_changed
+        end
+        
+        if not is_arbitrator
+            #service
+            service_ini = {
+                'LimitNOFILE' => open_file_limit * 2,
+                'ExecStart' => "#{pg_bin_dir}/postgres --config_file=#{conf_file} $PGSQL_OPTS",
+                'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
+                'ExecReload' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} reload",
+                'ExecStop' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} stop -m fast",
+                'OOMScoreAdjust' => -200,
+            }
+            service_env = {
+                'PGSQL_OPTS' => '',
+            }
+        
+            service_changed = create_service(conf, service_ini, service_env, slice_name)
+
+            config_changed ||= service_changed
+        end
         
         #---
         if File.exists?(unclean_state_file)
             warning("Something has gone wrong in previous runs!")
             warning("Please manually fix issues in #{root_dir} and then remove #{unclean_state_file}.")
-        elsif is_secondary
+        elsif is_arbitrator
+            # TODO:
+            # start repmgrd
+            # repmgr witness create
+        elsif is_cluster and is_secondary
             if !File.exists? root_data_dir
                 warning('> create root data dir for secondary server')
                 FileUtils.mkdir_p(root_data_dir, :mode => 0750)
                 FileUtils.chown(user, user, root_data_dir)
             end
+            
+            if not data_exists
+                # TODO:
+                # repmgr -h repmgr_node1 -U repmgr -d repmgr -D /path/to/node2/data/ -f /etc/repmgr.conf --ignore-external-config-files standby clone
+                # start pg
+                # repmgr -f /etc/repmgr.conf standby register
+                # start repmgrd
+            end
+
         elsif data_exists
             if config_changed
                 FileUtils.touch(restart_required_file)
@@ -1125,16 +1276,46 @@ Puppet::Type.type(:cfdb_instance).provide(
                 FileUtils.mv(old_data, "#{old_data}.bak")
             end
             
+            if is_cluster and !is_secondary
+                warning('> running repmgr configuration')
+                
+                systemctl('start', "#{service_name}.service")
+                
+                wait_sock(service_name, sock_file)
+                
+                sudo('-H', '-u', user,
+                     "#{root_dir}/bin/cfdb_psql", '-c',
+                     "CREATE USER #{REPMGR_USER} SUPERUSER PASSWORD '#{repmgr_pass}';")
+                
+                sudo('-H', '-u', user,
+                     "#{root_dir}/bin/cfdb_psql", '-c',
+                     "CREATE DATABASE #{REPMGR_USER} WITH OWNER = #{REPMGR_USER};")
+                
+                sudo('-H', '-u', user,
+                     "#{root_dir}/bin/cfdb_psql", '-c',
+                     "ALTER USER #{REPMGR_USER} SET search_path TO repmgr_#{cluster}, \"$user\", public;")
+                
+                sudo('-H', '-u', user,
+                     REPMGR,
+                     '-f', repmgr_file,
+                     'master', 'register'
+                )
+                
+                systemctl('start', "#{repmgr_service_name}.service")
+            end
+            
             cf_system.atomicWrite(active_version_file, version)
             #--
             FileUtils.rm_f(unclean_state_file)
             
             systemctl('start', "#{service_name}.service")
+            
+            wait_sock(service_name, sock_file)
         end
         
         #---
         backup_init_stamp = "#{backup_wal_dir}/.init"
-        if !File.exists?(backup_init_stamp)
+        if !is_arbitrator and !File.exists?(backup_init_stamp) and File.exists? data_dir
             sudo('-H', '-u', user, '/usr/bin/pg_backup_ctl',
                  '-h', run_dir,
                  '-p', port,

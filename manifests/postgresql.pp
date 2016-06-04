@@ -1,6 +1,5 @@
 
 class cfdb::postgresql (
-    $is_cluster = false,
     $version = '9.5',
     $default_extensions = true,
     $extensions = [],
@@ -10,12 +9,9 @@ class cfdb::postgresql (
     include cfdb
     
     $actual_version = $version
+    $is_cluster = true
     
     class { 'cfdb::postgresql::aptrepo':
         stage => setup
-    }
-    
-    if $is_cluster {
-        fail('is_cluster is not supported')
     }
 }

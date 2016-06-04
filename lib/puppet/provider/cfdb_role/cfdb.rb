@@ -41,7 +41,10 @@ Puppet::Type.type(:cfdb_role).provide(
             instance_index = Puppet::Type.type(:cfdb_instance).provider(:cfdb).get_config_index
             inst_conf = cf_system().config.get_old(instance_index)
             cluster = params[:cluster]
+            
             inst_conf = inst_conf[cluster]
+            return false if inst_conf.nil?
+            
             cluster_user = inst_conf['user']
             db_type = inst_conf['type']
             root_dir = inst_conf['root_dir']

@@ -22,7 +22,11 @@ Puppet::Type.type(:cfdb_database).provide(
         begin
             instance_index = Puppet::Type.type(:cfdb_instance).provider(:cfdb).get_config_index
             inst_conf = cf_system().config.get_old(instance_index)
-            inst_conf = inst_conf[params[:cluster]]
+            cluster = params[:cluster]
+
+            inst_conf = inst_conf[cluster]
+            return false if inst_conf.nil?
+
             db_type = inst_conf['type']
             self.send("check_#{db_type}", inst_conf['user'], params[:database], inst_conf['root_dir'])
         rescue => e

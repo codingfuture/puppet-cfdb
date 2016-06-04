@@ -57,7 +57,7 @@ class cfdb::postgresql::serverpkg {
     #package { 'barman': }
     package { 'postgresql-filedump': }
     package { 'pgtop': }
-    package { 'repmgr': }
+    ensure_resource('package', 'repmgr')
     package { 'pg-backup-ctl': }
     
 

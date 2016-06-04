@@ -1,6 +1,7 @@
 
 define cfdb::instance (
     $type,
+    $is_cluster = false,
     $is_secondary = false,
     $is_bootstrap = false,
     $is_arbitrator = false,
@@ -37,7 +38,12 @@ define cfdb::instance (
     
     #---
     $backup_support = !$is_arbitrator
-    $is_cluster = getvar("cfdb::${type}::is_cluster") or $is_arbitrator
+    $is_cluster_by_fact = $is_cluster or $is_secondary or $is_arbitrator
+    
+    if ($is_cluster or $is_secondary) and !getvar("cfdb::${type}::is_cluster") {
+        # that's mostly specific to MySQL
+        fail("cfdb::${type}::is_cluster must be set to true, if cluster is expected")
+    }
     
     if $backup_support {
         include cfdb::backup
@@ -46,7 +52,7 @@ define cfdb::instance (
     #---
     case $type {
         'postgresql': {
-            $ssh_access = $is_cluster
+            $ssh_access = $is_cluster_by_fact
         }
         default: {
             $ssh_access = false
@@ -127,15 +133,21 @@ define cfdb::instance (
         $def_memory_max = undef
     }
     
+    if $is_arbitrator {
+        $def_memory_min = 16
+    } else {
+        $def_memory_min = 128
+    }
+    
     cfsystem_memory_weight { $cluster:
         ensure => present,
         weight => $memory_weight,
-        min_mb => 128,
+        min_mb => $def_memory_min,
         max_mb => $def_memory_max,
     }
 
     #---
-    if $is_cluster {
+    if $is_cluster_by_fact {
         if !$port {
             fail('Cluster requires excplicit port')
         }
@@ -150,11 +162,16 @@ define cfdb::instance (
         } else {
             $secure_cluster = try_get_value($settings_tune, 'cfdb/secure_cluster')
             
-            $cluster_addr = ($cluster_facts_all.map |$host, $cfdb_facts| {
+            $cluster_addr = (keys($cluster_facts_all).sort().map |$host| {
+                $cfdb_facts = $cluster_facts_all[$host]
                 $cluster_fact = $cfdb_facts['cfdb'][$cluster]
                 
                 if $type != $cluster_fact['type'] {
                     fail("Type of ${cluster} on ${host} mismatch ${type}: ${cluster_fact}")
+                }
+                
+                if !$cluster_fact['is_secondary'] and has_key($cluster_fact, 'shared_secret') {
+                    $shared_secret = $cluster_fact['shared_secret']
                 }
                 
                 if $secure_cluster {
@@ -175,15 +192,15 @@ define cfdb::instance (
                     $host_under = regsubst($host, '\.', '_', 'G')
                     
                     if $ssh_access {
-                        cfnetwork::client_port { "${iface}:cfssh:cfdb_${host_under}":
+                        cfnetwork::client_port { "${iface}:cfssh:cfdb_${cluster}_${host_under}":
                             dst  => $peer_addr,
                             user => $user,
                         }
-                        cfnetwork::service_port { "${iface}:cfssh:cfdb_${host_under}":
+                        cfnetwork::service_port { "${iface}:cfssh:cfdb_${cluster}_${host_under}":
                             src => $peer_addr,
                         }
                         
-                        $cluster_fact['ssh_keys'].each |$kn, $kv| {
+                        pick($cluster_fact['ssh_keys'], {}).each |$kn, $kv| {
                             ssh_authorized_key { "${user}:${kn}@${host_under}":
                                 user    => $user,
                                 type    => $kv['type'],
@@ -241,7 +258,6 @@ define cfdb::instance (
                             user => $user,
                         }
                     }
-                    
                     
                     $ret = {
                         addr => $peer_addr,
@@ -319,6 +335,10 @@ define cfdb::instance (
     } else {
         $cluster_addr = undef
     }
+    
+    if !defined('shared_secret') {
+        $shared_secret = pick_default(try_get_value($::facts, "cf_persistent/ports/${cluster}/shared_secret"), '')
+    }
     #---
     
     cfdb_instance { $cluster:
@@ -326,7 +346,7 @@ define cfdb::instance (
         type           => $type,
         cluster        => $cluster,
         user           => $user,
-        is_cluster     => $is_cluster,
+        is_cluster     => $is_cluster_by_fact,
         is_secondary   => $is_secondary or $is_arbitrator,
         is_bootstrap   => $is_bootstrap and !$is_arbitrator,
         is_arbitrator  => $is_arbitrator,
@@ -344,8 +364,9 @@ define cfdb::instance (
             {
                 cfdb => merge(
                     {
-                        'listen' => $listen,
-                        'port'   => $port,
+                        'listen'        => $listen,
+                        'port'          => $port,
+                        'shared_secret' => $shared_secret,
                     },
                     pick($settings_tune['cfdb'], {})
                 )
@@ -494,6 +515,17 @@ define cfdb::instance (
                         user => $user,
                         service_name => $service_name,
                     }),
+                }
+                
+                if $is_cluster {
+                    file { "${root_dir}/bin/cfdb_repmgr":
+                        mode    => '0755',
+                        content => epp('cfdb/cfdb_repmgr.epp', {
+                            root_dir     => root_dir,
+                            user         => $user,
+                            service_name => $service_name,
+                        }),
+                    }                    
                 }
             }
             default: {
