@@ -1222,7 +1222,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         #---
         if !File.exists? root_data_dir
-            warning('> creating root data dir for secondary server')
+            warning('> creating root data dir')
             FileUtils.mkdir_p(root_data_dir, :mode => 0750)
             FileUtils.chown(user, user, root_data_dir)
         end
