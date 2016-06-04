@@ -11,4 +11,4 @@ if test "$(/usr/bin/id -u)" = 0; then
     exit -1
 fi
 
-/usr/bin/repmgr -f <%= $root_dir %> "$@"
+/usr/bin/repmgr -f <%= $root_dir %>/conf/repmgr.conf "$@"

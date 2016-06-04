@@ -438,12 +438,20 @@ define cfdb::instance (
         $allowed_hosts = keys($access)
         $fact_port = pick_default($port, try_get_value($::facts, "cf_persistent/ports/${cluster}"))
         
-        if $fact_port and (size($allowed_hosts) > 0) {
+        if $fact_port {
             ensure_resource('cfnetwork::describe_service', "cfdb_${cluster}", {
                 server => "tcp/${fact_port}",
             })
-            cfnetwork::service_port { "${iface}:cfdb_${cluster}":
-                src => $allowed_hosts.sort(),
+            
+            cfnetwork::service_port { "local:cfdb_${cluster}": }
+            cfnetwork::client_port { "local:cfdb_${cluster}":
+                user => $user,
+            }
+            
+            if size($allowed_hosts) > 0 {
+                cfnetwork::service_port { "${iface}:cfdb_${cluster}":
+                    src => $allowed_hosts.sort(),
+                }
             }
         }
     }
@@ -521,7 +529,7 @@ define cfdb::instance (
                     file { "${root_dir}/bin/cfdb_repmgr":
                         mode    => '0755',
                         content => epp('cfdb/cfdb_repmgr.epp', {
-                            root_dir     => root_dir,
+                            root_dir     => $root_dir,
                             user         => $user,
                             service_name => $service_name,
                         }),

@@ -105,7 +105,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 :mem_lock => true,
             })
         else
-            content_ini['Service']['Slice'] = slice_name
+            content_ini['Service']['Slice'] = "#{slice_name}.slice"
         end
         
         #---
@@ -836,6 +836,11 @@ Puppet::Type.type(:cfdb_instance).provide(
         end
             
         if is_cluster
+            cluster_addr = cluster_addr.clone
+            cluster_addr << {
+                :addr => Facter['fqdn'].value(),
+            }
+            
             cluster_addr.each do |v|
                 max_connections += 2
                 
@@ -845,43 +850,28 @@ Puppet::Type.type(:cfdb_instance).provide(
             end
         end
             
-            
-        if cfdb_settings.fetch('strict_hba_roles', false)
-            hba_host_roles.each do |host, host_roles|
-                begin
-                    host = Resolv.getaddress host
-                rescue
-                end
-                
-                begin
-                    if IPAddr.new(host).ipv6?
-                        host = "#{host}/128"
-                    else
-                        host = "#{host}/32"
-                    end
-                rescue => e
-                    warning("Host #{host}")
-                    raise e
-                end
-                hba_content << ['host', 'all', host_roles.join(','), host, 'md5']
+        strict_hba_roles = cfdb_settings.fetch('strict_hba_roles', true)
+        
+        hba_host_roles.each do |host, host_roles|
+            begin
+                host = Resolv.getaddress host
+            rescue
             end
-        else
-                hba_host_roles.keys.each do |host|
-                begin
-                    host = Resolv.getaddress host
-                rescue
+            
+            begin
+                if IPAddr.new(host).ipv6?
+                    host = "#{host}/128"
+                else
+                    host = "#{host}/32"
                 end
-                
-                begin
-                    if IPAddr.new(host).ipv6?
-                        host = "#{host}/128"
-                    else
-                        host = "#{host}/32"
-                    end
-                rescue => e
-                    warning("Host #{host}")
-                    raise e
-                end
+            rescue => e
+                warning("Host #{host}")
+                raise e
+            end
+            
+            if strict_hba_roles
+                hba_content << ['host', 'all', host_roles.join(','), host, 'md5']
+            else
                 hba_content << ['host', 'all', 'all', host, 'md5']
             end
         end
@@ -1069,6 +1059,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             node_id = cfdb_settings.fetch('node_id', nil)
             upstream_node_id = cfdb_settings.fetch('upstream_node_id', nil)
             hostname = Facter['hostname'].value()
+            fqdn = Facter['fqdn'].value()
             
             sslrequire = ''
             sslrequire = 'sslmode=require' if secure_cluster
@@ -1101,15 +1092,15 @@ Puppet::Type.type(:cfdb_instance).provide(
             repmgr_conf = {
                 'cluster' => cluster,
                 'node' => node_id,
-                'node_name' => Facter['fqdn'].value(),
-                'conninfo' => "host=#{run_dir} port=#{port} user=#{REPMGR_USER} dbname=#{REPMGR_USER} #{sslrequire}",
+                'node_name' => fqdn,
+                'conninfo' => "host=#{fqdn} port=#{port} user=#{REPMGR_USER} dbname=#{REPMGR_USER} #{sslrequire}",
                 'use_replication_slots' => 1,
                 'pg_basebackup_options' => '--xlog-method=stream',
-                'pg_ctl_options' => '-o "--config_file=#{conf_file}"',
+                'pg_ctl_options' => "-o \"--config_file=#{conf_file}\"",
                 'pg_bindir' => pg_bin_dir,
                 'failover' => 'automatic',
-                'promote_command' => "#{REPMGR} standby promote -f #{repmgr_file}",
-                'follow_command' => "#{REPMGR} standby follow -f #{repmgr_file}",
+                'promote_command' => "#{root_dir}/bin/cfdb_repmgr standby promote",
+                'follow_command' => "#{root_dir}/bin/cfdb_repmgr standby follow",
             }
             
             if is_secondary
@@ -1165,7 +1156,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         if is_cluster
             # repmgr
-            repmgr_changed = self.atomicWritePG(repmgr_file, repmgr_conf, {:user => user})
+            repmgr_changed = self.atomicWriteRepMgr(repmgr_file, repmgr_conf, {:user => user})
             
             #service
             service_ini = {
@@ -1296,7 +1287,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                      "ALTER USER #{REPMGR_USER} SET search_path TO repmgr_#{cluster}, \"$user\", public;")
                 
                 sudo('-H', '-u', user,
-                     REPMGR,
+                     "#{root_dir}/bin/cfdb_repmgr",
                      '-f', repmgr_file,
                      'master', 'register'
                 )
@@ -1336,7 +1327,23 @@ Puppet::Type.type(:cfdb_instance).provide(
             end
         end
         
-        content = content.join("\n")
+        content = content.join("\n") + "\n"
+        
+        self.cf_system.atomicWrite(file, content, opts)
+    end
+    
+    def self.atomicWriteRepMgr(file, settings, opts={})
+        content = []
+        settings.each do |k, v|
+            if v.is_a? String
+                v = v.gsub("'", "''")
+                content << "#{k}='#{v}'"
+            else
+                content << "#{k}=#{v}"
+            end
+        end
+        
+        content = content.join("\n") + "\n"
         
         self.cf_system.atomicWrite(file, content, opts)
     end    
