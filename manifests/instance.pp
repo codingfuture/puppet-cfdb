@@ -105,6 +105,7 @@ define cfdb::instance (
         system  => true,
         shell   => '/bin/bash',
         groups  => $groups,
+        purge_ssh_keys => true,
         require => Group[$user],
     }
     
@@ -332,6 +333,14 @@ define cfdb::instance (
                 user    => $user,
                 group   => $user,
                 require => User[$user],
+            } ->            
+            file { "$ssh_dir/config":
+                owner   => $user,
+                group   => $user,
+                content => [
+                    'StrictHostKeyChecking no',
+                    "IdentityFile ${ssh_idkey}",
+                ].join("\n")
             }
         }
         
@@ -516,10 +525,13 @@ define cfdb::instance (
                 require => File[$backup_script],
             }
         }
-        
-        #---
-        case $type {
-            'mysql': {
+    }
+    
+    # exta tools
+    #---
+    case $type {
+        'mysql': {
+            if !$is_arbitrator {
                 file { "${root_dir}/bin/cfdb_sysbench":
                     mode    => '0755',
                     content => epp('cfdb/cfdb_sysbench.epp', {
@@ -527,7 +539,9 @@ define cfdb::instance (
                     }),
                 }
             }
-            'postgresql': {
+        }
+        'postgresql': {
+            if !$is_arbitrator {
                 file { "${root_dir}/bin/cfdb_psql":
                     mode    => '0755',
                     content => epp('cfdb/cfdb_psql.epp', {
@@ -536,22 +550,22 @@ define cfdb::instance (
                     }),
                     notify => Cfdb_instance[$cluster],
                 }
-                
-                if $is_cluster_by_fact {
-                    file { "${root_dir}/bin/cfdb_repmgr":
-                        mode    => '0755',
-                        content => epp('cfdb/cfdb_repmgr.epp', {
-                            root_dir     => $root_dir,
-                            user         => $user,
-                            service_name => $service_name,
-                        }),
-                        notify => Cfdb_instance[$cluster],
-                    }                    
-                }
             }
-            default: {
-                fail("$type - benchmark is not implemented")
+            
+            if $is_cluster_by_fact {
+                file { "${root_dir}/bin/cfdb_repmgr":
+                    mode    => '0755',
+                    content => epp('cfdb/cfdb_repmgr.epp', {
+                        root_dir     => $root_dir,
+                        user         => $user,
+                        service_name => $service_name,
+                    }),
+                    notify => Cfdb_instance[$cluster],
+                }                    
             }
+        }
+        default: {
+            fail("$type - not supported type")
         }
     }
 }

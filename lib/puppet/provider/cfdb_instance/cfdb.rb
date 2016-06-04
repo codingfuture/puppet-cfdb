@@ -853,9 +853,10 @@ Puppet::Type.type(:cfdb_instance).provide(
         end
             
         if is_cluster
+            fqdn = Facter['fqdn'].value()
             cluster_addr = cluster_addr.clone
             cluster_addr << {
-                'addr' => Facter['fqdn'].value(),
+                'addr' => fqdn,
                 'port' => port,
             }
             
@@ -866,6 +867,22 @@ Puppet::Type.type(:cfdb_instance).provide(
                 host = v['addr']
                 hba_host_roles[host] ||= []
                 hba_host_roles[host] << REPMGR_USER
+            end
+            
+            #---
+            if is_secondary or is_arbitrator
+                master_node = nil
+                
+                cluster_addr.each do |v|
+                    next if v['addr'] == fqdn
+                    next if v['is_secondary'] or v['is_arbitrator']
+                    master_node = v
+                    break
+                end
+                
+                if master_node.nil?
+                    fail("No master node is known for #{cluster}")
+                end
             end
         end
             
@@ -1080,7 +1097,6 @@ Puppet::Type.type(:cfdb_instance).provide(
             node_id = cfdb_settings.fetch('node_id', nil)
             upstream_node_id = cfdb_settings.fetch('upstream_node_id', nil)
             hostname = Facter['hostname'].value()
-            fqdn = Facter['fqdn'].value()
             
             sslrequire = ''
             sslrequire = 'sslmode=require' if secure_cluster
@@ -1108,14 +1124,24 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'node' => node_id,
                 'node_name' => fqdn,
                 'conninfo' => "host=#{fqdn} port=#{port} user=#{REPMGR_USER} dbname=#{REPMGR_USER} #{sslrequire}",
-                'use_replication_slots' => 1,
-                'pg_basebackup_options' => '--xlog-method=stream',
+                # repmgr uses the same for initdb
                 'pg_ctl_options' => "-o \"--config_file=#{conf_file}\"",
                 'pg_bindir' => pg_bin_dir,
-                'failover' => 'automatic',
-                'promote_command' => "#{root_dir}/bin/cfdb_repmgr standby promote",
-                'follow_command' => "#{root_dir}/bin/cfdb_repmgr standby follow",
             }
+            
+            if is_arbitrator
+                repmgr_conf.merge!({
+                    'pg_ctl_options' => "$(test -e #{active_version_file} && echo \"\" -o \"--config_file=#{conf_file}\")",
+                })
+            else
+                repmgr_conf.merge!({
+                    'use_replication_slots' => 1,
+                    'pg_basebackup_options' => '--xlog-method=stream',
+                    'failover' => 'automatic',
+                    'promote_command' => "#{root_dir}/bin/cfdb_repmgr standby promote",
+                    'follow_command' => "#{root_dir}/bin/cfdb_repmgr standby follow",
+                })
+            end
             
             if is_secondary
                 if not upstream_node_id.nil?
@@ -1152,19 +1178,16 @@ Puppet::Type.type(:cfdb_instance).provide(
         FileUtils.chown(user, user, ident_file)
 
         #==================================================
-        config_changed = false
-        
-        if not is_arbitrator
-            # config
-            config_changed = self.atomicWritePG(conf_file, pgsettings, {:user => user})
-            # hba
-            hba_content = (hba_content.map{ |v| v.join(' ') }).join("\n")
-            hba_changed = cf_system.atomicWrite(hba_file, hba_content, {:user => user})
-            config_changed ||= hba_changed
-        end
+        # config
+        config_changed = self.atomicWritePG(conf_file, pgsettings, {:user => user})
+        # hba
+        hba_content = (hba_content.map{ |v| v.join(' ') }).join("\n")
+        hba_changed = cf_system.atomicWrite(hba_file, hba_content, {:user => user})
+        config_changed ||= hba_changed
+
         
         slice_name = "system-cfdb_#{cluster}"
-        self.create_slice(slice_name, conf)
+        create_slice(slice_name, conf)
         
         if is_cluster
             # repmgr
@@ -1178,28 +1201,24 @@ Puppet::Type.type(:cfdb_instance).provide(
             }
         
             service_changed = create_service(conf, service_ini, {}, slice_name, repmgr_service_name)
-
             config_changed ||= service_changed
         end
         
-        if not is_arbitrator
-            #service
-            service_ini = {
-                'LimitNOFILE' => open_file_limit * 2,
-                'ExecStart' => "#{pg_bin_dir}/postgres --config_file=#{conf_file} $PGSQL_OPTS",
-                'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
-                'ExecReload' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} reload",
-                'ExecStop' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} stop -m fast",
-                'OOMScoreAdjust' => -200,
-            }
-            service_env = {
-                'PGSQL_OPTS' => '',
-            }
-        
-            service_changed = create_service(conf, service_ini, service_env, slice_name)
-
-            config_changed ||= service_changed
-        end
+        #service
+        service_ini = {
+            'LimitNOFILE' => open_file_limit * 2,
+            'ExecStart' => "#{pg_bin_dir}/postgres --config_file=#{conf_file} $PGSQL_OPTS",
+            'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
+            'ExecReload' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} reload",
+            'ExecStop' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} stop -m fast",
+            'OOMScoreAdjust' => -200,
+        }
+        service_env = {
+            'PGSQL_OPTS' => '',
+        }
+    
+        service_changed = create_service(conf, service_ini, service_env, slice_name)
+        config_changed ||= service_changed
         
         #---
         if !File.exists? root_data_dir
@@ -1213,21 +1232,27 @@ Puppet::Type.type(:cfdb_instance).provide(
             warning("Something has gone wrong in previous runs!")
             warning("Please manually fix issues in #{root_dir} and then remove #{unclean_state_file}.")
             
-        elsif is_arbitrator
-            # TODO:
-            # start repmgrd
-            # repmgr witness create
-            
         elsif data_exists
             if config_changed
                 FileUtils.touch(restart_required_file)
                 FileUtils.chown(user, user, restart_required_file)
+
+                if not is_arbitrator
+                    begin
+                        warning("> reloading #{service_name}")
+                        systemctl('reload', "#{service_name}.service")
+                    rescue => e
+                        warning("Failed to reload instance: #{e}")
+                    end
+                end
                 
-                begin
-                    warning("> reloading #{service_name}")
-                    systemctl('reload', "#{service_name}.service")
-                rescue => e
-                    warning("Failed to reload instance: #{e}")
+                if is_cluster and repmgr_changed
+                    begin
+                        warning("> restarting #{repmgr_service_name}")
+                        systemctl('restart', "#{repmgr_service_name}.service")
+                    rescue => e
+                        warning("Failed to reload instance: #{e}")
+                    end
                 end
             end
             
@@ -1236,23 +1261,77 @@ Puppet::Type.type(:cfdb_instance).provide(
                 warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
             end
             
+        # No data: witness
+        elsif is_arbitrator
+            begin
+                warning("> testing master connection #{master_node['addr']}")
+                
+                sudo('-H', '-u', user,
+                    "#{pg_bin_dir}/pg_isready",
+                    '-h', master_node['addr'],
+                    '-p', master_node['port'],
+                    '-t', 5,
+                    '-U', REPMGR_USER,
+                    '-d', REPMGR_USER,
+                )
+                
+                warning('> register witness')
+                begin
+                    sudo('-H', '-u', user,
+                         "#{pg_bin_dir}/pg_ctl", '-s', '-D', "#{data_dir}", 'stop'
+                    )
+                rescue
+                end
+
+                FileUtils.rm_rf data_dir
+                
+                # workaround for repmgr issues
+                def_postgres_run_dir = "/run/postgresql"
+                FileUtils.mkdir_p(def_postgres_run_dir, :mode => 0755)
+                FileUtils.chown(user, user, def_postgres_run_dir)
+                
+                sudo('-H', '-u', user,
+                    "#{root_dir}/bin/cfdb_repmgr",
+                    '-h', master_node['addr'],
+                    '-p', master_node['port'],
+                    '-U', REPMGR_USER,
+                    '-d', REPMGR_USER,
+                    '-R', user.sub(/_arb$/, ''),
+                    '-D', data_dir,
+                    '-f', repmgr_file,
+                     '--force',
+                    'witness', 'create'
+                )
+                
+                sudo('-H', '-u', user,
+                     "#{pg_bin_dir}/pg_ctl", '-s', '-D', "#{data_dir}", 'stop'
+                )
+                
+                FileUtils.rm_rf(def_postgres_run_dir)
+                
+                cf_system.atomicWrite(active_version_file, version)
+                
+                warning("> starting #{service_name}")
+                systemctl('start', "#{service_name}.service")
+                
+                wait_sock(service_name, sock_file)
+                
+                warning("> starting #{repmgr_service_name}")
+                systemctl('start', "#{repmgr_service_name}.service")
+                
+            rescue => e
+                warning("Failed to setup witness: #{e}")
+                warning("Master server needs to be re-provisioned after this host facts are known. Then run again")
+                
+                systemctl('stop', "#{service_name}.service")
+                systemctl('stop', "#{repmgr_service_name}.service")
+            end
+            
         # No data: slave
         elsif is_cluster and is_secondary
             begin
+                warning("> stopping #{service_name}")
                 systemctl('stop', "#{service_name}.service")
-                
-                master_node = nil
-                
-                cluster_addr.each do |v|
-                    next if v['addr'] == fqdn
-                    next if v['is_secondary'] or v['is_arbitrator']
-                    master_node = v
-                    break
-                end
-                
-                if master_node.nil?
-                    fail("No master node is known for #{cluster}")
-                end
                 
                 warning("> testing master connection #{master_node['addr']}")
                 
@@ -1280,26 +1359,19 @@ Puppet::Type.type(:cfdb_instance).provide(
                     'standby', 'clone'
                 )
                 
+                warning("> starting #{service_name}")
                 systemctl('start', "#{service_name}.service")
                 
                 wait_sock(service_name, sock_file)
                 
-                begin
-                    # try to cleanup, if already registered
-                    sudo('-H', '-u', user,
-                        "#{root_dir}/bin/cfdb_repmgr",
-                        '-f', repmgr_file,
-                        'standby', 'unregister'
-                    )                    
-                rescue
-                end
-                
                 sudo('-H', '-u', user,
                     "#{root_dir}/bin/cfdb_repmgr",
                     '-f', repmgr_file,
+                     '--force',
                     'standby', 'register'
                 )
                 
+                warning("> starting #{repmgr_service_name}")
                 systemctl('start', "#{repmgr_service_name}.service")
                 
                 cf_system.atomicWrite(active_version_file, version)
@@ -1335,6 +1407,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 rescue
                 end
                 
+                warning("> stopping #{service_name}")
                 systemctl('stop', "#{service_name}.service")
 
                 sudo('-u', user, '/bin/sh', '-c',
@@ -1347,6 +1420,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             if is_cluster and !is_secondary
                 warning('> running repmgr configuration')
                 
+                warning("> starting #{service_name}")
                 systemctl('start', "#{service_name}.service")
                 
                 wait_sock(service_name, sock_file)
@@ -1369,6 +1443,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                      'master', 'register'
                 )
                 
+                warning("> starting #{repmgr_service_name}")
                 systemctl('start', "#{repmgr_service_name}.service")
             end
             
@@ -1376,6 +1451,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             #--
             FileUtils.rm_f(unclean_state_file)
             
+            warning("> starting #{service_name}")
             systemctl('start', "#{service_name}.service")
             
             wait_sock(service_name, sock_file)
