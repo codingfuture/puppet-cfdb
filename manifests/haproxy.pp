@@ -62,14 +62,14 @@ class cfdb::haproxy(
     }
     
     cfdb_haproxy { $service_name:
-        ensure         => present,
-        memory_weight  => $memory_weight,
-        cpu_weight     => $cpu_weight,
-        io_weight      => $io_weight,
-        root_dir       => $root_dir,
-        settings_tune  => pick($settings_tune, {}),
-        service_name   => $service_name,
-        require => [
+        ensure        => present,
+        memory_weight => $memory_weight,
+        cpu_weight    => $cpu_weight,
+        io_weight     => $io_weight,
+        root_dir      => $root_dir,
+        settings_tune => pick($settings_tune, {}),
+        service_name  => $service_name,
+        require       => [
             File[$root_dir],
             User[$user],
         ],

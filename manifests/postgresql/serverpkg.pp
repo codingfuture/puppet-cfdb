@@ -62,7 +62,7 @@ class cfdb::postgresql::serverpkg {
     
 
     # default instance must not run
-    service { ["postgresql", "postgresql@${ver}-main"]:
+    service { ['postgresql', "postgresql@${ver}-main"]:
         ensure => stopped,
         enable => false,
     }

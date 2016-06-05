@@ -99,14 +99,14 @@ define cfdb::instance (
     }
     
     user { $user:
-        ensure  => present,
-        gid     => $user,
-        home    => $root_dir,
-        system  => true,
-        shell   => '/bin/bash',
-        groups  => $groups,
+        ensure         => present,
+        gid            => $user,
+        home           => $root_dir,
+        system         => true,
+        shell          => '/bin/bash',
+        groups         => $groups,
         purge_ssh_keys => true,
-        require => Group[$user],
+        require        => Group[$user],
     }
     
     #---
@@ -333,8 +333,8 @@ define cfdb::instance (
                 user    => $user,
                 group   => $user,
                 require => User[$user],
-            } ->            
-            file { "$ssh_dir/config":
+            } ->
+            file { "${ssh_dir}/config":
                 owner   => $user,
                 group   => $user,
                 content => [
@@ -361,24 +361,24 @@ define cfdb::instance (
     #---
     
     cfdb_instance { $cluster:
-        ensure         => present,
-        type           => $type,
-        cluster        => $cluster,
-        user           => $user,
-        is_cluster     => $is_cluster_by_fact,
-        is_secondary   => $is_secondary or $is_arbitrator,
-        is_bootstrap   => $is_bootstrap and !$is_arbitrator,
-        is_arbitrator  => $is_arbitrator,
+        ensure        => present,
+        type          => $type,
+        cluster       => $cluster,
+        user          => $user,
+        is_cluster    => $is_cluster_by_fact,
+        is_secondary  => $is_secondary or $is_arbitrator,
+        is_bootstrap  => $is_bootstrap and !$is_arbitrator,
+        is_arbitrator => $is_arbitrator,
         
-        memory_weight  => $memory_weight,
-        cpu_weight     => $cpu_weight,
-        io_weight      => $io_weight,
-        target_size    => $target_size,
+        memory_weight => $memory_weight,
+        cpu_weight    => $cpu_weight,
+        io_weight     => $io_weight,
+        target_size   => $target_size,
         
-        root_dir       => $root_dir,
-        backup_dir     => $backup_dir,
+        root_dir      => $root_dir,
+        backup_dir    => $backup_dir,
         
-        settings_tune  => merge(
+        settings_tune => merge(
             $settings_tune,
             {
                 cfdb => merge(
@@ -391,11 +391,11 @@ define cfdb::instance (
                 )
             }
         ),
-        service_name   => $service_name,
-        version        => getvar("cfdb::${type}::actual_version"),
-        cluster_addr   => $cluster_addr,
+        service_name  => $service_name,
+        version       => getvar("cfdb::${type}::actual_version"),
+        cluster_addr  => $cluster_addr,
         
-        require        => [
+        require       => [
             User[$user],
             File[$user_dirs],
             Class["cfdb::${type}::serverpkg"],
@@ -550,10 +550,10 @@ define cfdb::instance (
                 file { "${root_dir}/bin/cfdb_psql":
                     mode    => '0755',
                     content => epp('cfdb/cfdb_psql.epp', {
-                        user => $user,
+                        user         => $user,
                         service_name => $service_name,
                     }),
-                    notify => Cfdb_instance[$cluster],
+                    notify  => Cfdb_instance[$cluster],
                 }
             }
             
@@ -565,12 +565,12 @@ define cfdb::instance (
                         user         => $user,
                         service_name => $service_name,
                     }),
-                    notify => Cfdb_instance[$cluster],
-                }                    
+                    notify  => Cfdb_instance[$cluster],
+                }
             }
         }
         default: {
-            fail("$type - not supported type")
+            fail("${type} - not supported type")
         }
     }
 }
