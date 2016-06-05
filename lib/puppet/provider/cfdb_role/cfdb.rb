@@ -81,7 +81,7 @@ Puppet::Type.type(:cfdb_role).provide(
         instance_index = Puppet::Type.type(:cfdb_instance).provider(:cfdb).get_config_index
         inst_conf_all = cf_system().config.get_new(instance_index)
         
-        cluster_type = {}
+        cluster_delinfo = {}
         
         newconf.each do |k, conf|
             cluster_name = conf[:cluster]
@@ -100,19 +100,24 @@ Puppet::Type.type(:cfdb_role).provide(
             
             if to_delete.has_key? cluster_user
                 to_delete[cluster_user].delete conf[:user]
-                cluster_type[cluster_user] = db_type
+                cluster_delinfo[cluster_user] = {
+                    :db_type => db_type,
+                    :root_dir => root_dir,
+                }
             end
         end
         
         to_delete.each do |cluster_user, cache|
-            db_type = cluster_type[cluster_user]
+            cinfo = cluster_delinfo[cluster_user]
+            db_type = cinfo[:db_type]
+            
             cache.each do |user, v|
                 self.send("create_#{db_type}", cluster_user,
                 {
                     :user => user,
                     :password => nil,
                     :allowed_hosts => {}
-                })
+                }, cinfo[:root_dir])
             end
         end
     end

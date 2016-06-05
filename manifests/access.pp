@@ -132,8 +132,8 @@ define cfdb::access(
     }
     
     #---
-    if $cfg['port'] != '' {
-        $port = $cfg['port']
+    $port = $cfg['port']
+    if $port and ($port != '') {
         ensure_resource('cfnetwork::describe_service', "cfdb_${cluster}", {
             server => "tcp/${port}",
         })

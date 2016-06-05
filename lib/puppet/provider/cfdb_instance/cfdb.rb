@@ -34,6 +34,8 @@ Puppet::Type.type(:cfdb_instance).provide(
     REPMGR = '/usr/bin/repmgr' unless defined? REPMGR
     REPMGRD = '/usr/bin/repmgrd' unless defined? REPMGRD
     REPMGR_USER = 'cfrepmgr' unless defined? REPMGR_USER
+    
+    ROOT_PASS_LEN = 24 unless defined? ROOT_PASS_LEN
 
     def self.get_config_index
         'cf10db1_instance'
@@ -207,7 +209,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         if is_secondary
             root_pass = cfdb_settings['shared_secret']
-            cf_system.genSecret(cluster, :set => root_pass)
+            cf_system.genSecret(cluster, ROOT_PASS_LEN, root_pass)
         else
             root_pass = cf_system.genSecret(cluster)
         end
@@ -237,6 +239,11 @@ Puppet::Type.type(:cfdb_instance).provide(
             else
                 upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--help').split("\n")[0]
             end
+        end
+        
+        #---
+        if is_bootstrap
+            warning("Please note that is_bootstrap MUST BE set false during normal operation")
         end
         
         # calculate based on user access list x limit
@@ -671,15 +678,17 @@ Puppet::Type.type(:cfdb_instance).provide(
                 warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
             end
         elsif data_exists
-            if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
-                systemctl('start', "#{service_name}.service")
-                wait_sock(service_name, sock_file)
-                
-                if not is_secondary
-                    warning('> running mysql upgrade')
-                    sudo('-u', user, MYSQL_UPGRADE, '--force')
+            if !is_secondary
+                if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
+                    systemctl('start', "#{service_name}.service")
+                    wait_sock(service_name, sock_file)
+                    
+                    if not is_secondary
+                        warning('> running mysql upgrade')
+                        sudo('-u', user, MYSQL_UPGRADE, '--force')
+                    end
+                    cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
                 end
-                cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
             end
             
             if config_changed
@@ -794,7 +803,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         if is_secondary
             root_pass = cfdb_settings['shared_secret']
-            cf_system.genSecret(cluster, :set => root_pass)
+            cf_system.genSecret(cluster, ROOT_PASS_LEN, root_pass)
         else
             root_pass = cf_system.genSecret(cluster)
         end
@@ -881,7 +890,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 end
                 
                 if master_node.nil?
-                    fail("No master node is known for #{cluster}")
+                    err("No master node is known for #{cluster}")
                 end
             end
         end

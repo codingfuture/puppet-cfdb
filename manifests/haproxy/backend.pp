@@ -92,18 +92,14 @@ define cfdb::haproxy::backend(
             $fw_service = "cfdbha_${cluster}_${port}"
             $fw_port = "any:${fw_service}:${host_under}"
 
-            if !defined(Cfnetwork::Describe_service[$fw_service]) {
-                cfnetwork::describe_service { $fw_service:
-                    server => "tcp/${port}",
-                }
-            }
+            ensure_resource('cfnetwork::describe_service', $fw_service, {
+                server => "tcp/${port}",
+            })
             
-            if !defined(Cfnetwork::Client_port[$fw_port]) {
-                cfnetwork::client_port { $fw_port:
-                    dst  => $addr,
-                    user => $cfdb::haproxy::user,
-                }
-            }
+            ensure_resource('cfnetwork::client_port', $fw_port, {
+                dst  => $addr,
+                user => $cfdb::haproxy::user,
+            })
             
             $ret = {
                 server => $host_under,

@@ -423,7 +423,10 @@ define cfdb::instance (
                 create_resources(
                     cfdb::database,
                     {
-                        "${cluster}/${db}" => {}
+                        "${cluster}/${db}" => {
+                            cluster  => $cluster,
+                            database => $db,
+                        }
                     },
                     {
                         require => [
@@ -440,6 +443,8 @@ define cfdb::instance (
                         "${cluster}/${db}" => pick_default($cfg, {})
                     },
                     {
+                        cluster  => $cluster,
+                        database => $db,
                         require => [
                             Cfdb_instance[$cluster],
                         ]
@@ -458,7 +463,7 @@ define cfdb::instance (
         $allowed_hosts = keys($access)
         $fact_port = pick_default($port, try_get_value($::facts, "cf_persistent/ports/${cluster}"))
         
-        if $fact_port {
+        if $fact_port and ($fact_port != '') {
             ensure_resource('cfnetwork::describe_service', "cfdb_${cluster}", {
                 server => "tcp/${fact_port}",
             })

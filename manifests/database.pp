@@ -1,11 +1,9 @@
 
 define cfdb::database (
+    $cluster,
+    $database,
     $roles = undef
 ) {
-    $title_split = $title.split('/')
-    $cluster = $title_split[0]
-    $database = $title_split[1]
-    
     cfdb_database { $title:
         ensure   => present,
         cluster  => $cluster,
