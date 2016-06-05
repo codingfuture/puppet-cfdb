@@ -1,15 +1,27 @@
 {
   "name": "codingfuture/cfdb",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Andrey Galkin",
   "summary": "Universal multi-instance multi-type database setup tool with cgroup runtime isolation",
   "license": "Apache-2.0",
   "source": "https://github.com/codingfuture/puppet-cfdb",
   "project_page": "https://github.com/codingfuture/puppet-cfdb",
   "issues_url": "https://github.com/codingfuture/puppet-cfdb/issues",
-  "tags": ["mysql", "postgresql", "db", "haproxy", "high-availability",
-           "fail-over", "cluster", "replication", "backup", "restore",
-           "repmgr", "percona", "xtradb"],
+  "tags": [
+    "mysql",
+    "postgresql",
+    "db",
+    "haproxy",
+    "high-availability",
+    "fail-over",
+    "cluster",
+    "replication",
+    "backup",
+    "restore",
+    "repmgr",
+    "percona",
+    "xtradb"
+  ],
   "operatingsystem_support": [
     {
       "operatingsystem": "Debian",
