@@ -44,7 +44,7 @@
     },
     {
       "name": "codingfuture-cfsystem",
-      "version_requirement": ">= 0.9.13"
+      "version_requirement": ">= 0.9.14"
     },
     {
       "name": "dalen-puppetdbquery",
