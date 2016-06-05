@@ -324,7 +324,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         mb = 1024 * 1024
         gb = mb * 1024
         
-        max_binlog_files = cfdb_settings.fetch('max_binlog_files', 20).to_i
+        max_binlog_files = mysqld_tune.fetch('max_binlog_files', 20).to_i
         binlog_reserve_percent = cfdb_settings.fetch('binlog_reserve_percent', 10).to_i
         binlog_reserve = target_size * binlog_reserve_percent / 100
         
