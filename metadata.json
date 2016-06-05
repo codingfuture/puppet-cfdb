@@ -1,5 +1,5 @@
 {
-  "name": "codingfuture/cfdb",
+  "name": "codingfuture-cfdb",
   "version": "0.9.1",
   "author": "Andrey Galkin",
   "summary": "Universal multi-instance multi-type database setup tool with cgroup runtime isolation",
