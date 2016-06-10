@@ -104,14 +104,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     backend_conf['balance'] = 'first'
                 end
                 
-                case type
-                when 'postgresql' then
-                    backend_conf['option pgsql-check'] = role
-                when 'redis' then
-                    backend_conf['option redis-check'] = ''
-                else
-                    backend_conf['external-check command'] = "#{bin_dir}/check_#{cluster}_#{role}"
-                end
+                backend_conf['external-check command'] = "#{bin_dir}/check_#{cluster}_#{role}"
 
                 conf["backend #{backend_name}"] = backend_conf
             end
@@ -137,8 +130,10 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             # normally, each "cluster_addr" parameter must be identical per cluster
             # so, the items will get overrided in place
             cluster_addr.each do |sinfo|
+                host = sinfo['host']
                 ip = sinfo['addr']
                 port = sinfo['port']
+                server_id = sinfo['server']
                 
                 begin
                     ip = IPAddr.new(ip)
@@ -161,7 +156,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     server_config << "crl-file #{ssl_dir}/crl.crt"
                     server_config << 'no-sslv3'
                     server_config << 'verify required'
-                    server_config << "verifyhost #{ip}"
+                    server_config << "verifyhost #{host}"
                 else
                     server_config << 'weight 100'
                 end
@@ -171,7 +166,39 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 end
                 
                 server_config << sinfo['extra'] if sinfo.has_key? 'extra'
-                backend_conf["server #{sinfo['server']}"] = server_config.join(' ')
+                backend_conf["server #{server_id}"] = server_config.join(' ')
+                
+                # Configure block for checks
+                #---
+                check_listen = "listen check__#{server_id}"
+                conn_per_check = 2
+                
+                if conf.has_key? check_listen
+                    conf[check_listen]['maxconn'] += conn_per_check
+                else
+                    check_server_config = ["#{ip}:#{port}"]
+
+                    if secure_server
+                        check_server_config << 'ssl'
+                        check_server_config << "ca-file #{ssl_dir}/ca.crt"
+                        check_server_config << "crl-file #{ssl_dir}/crl.crt"
+                        check_server_config << 'no-sslv3'
+                        check_server_config << 'verify required'
+                        check_server_config << "verifyhost #{host}"
+                    end
+
+                    conf[check_listen] = {
+                        'mode' => 'tcp',
+                        'option tcplog' => '',
+                        'log global' => '',
+                        'retries' => 1,
+                        'maxconn' => conn_per_check,
+                        'bind' => "unix@/run/#{service_name}/check__#{server_id}.sock user #{user} group #{user} mode 660",
+                        "server #{server_id}" => check_server_config.join(' ')
+                    }
+                end
+                
+                open_files += conn_per_check * 2
             end
                        
             conf["frontend #{title}"] = {

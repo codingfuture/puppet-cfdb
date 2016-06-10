@@ -1,0 +1,28 @@
+<% |String $service_name,
+    String $role,
+    String $password,
+    String $database | -%>
+#!/bin/dash
+
+sock_name=/run/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}.sock
+pgsock_dir=/tmp/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}
+pgport=123
+pgsock_file="${pgsock_dir}/.s.PGSQL.${pgport}"
+
+pg_ident=""
+
+HOME=/db/<%= $service_name %>
+cd
+
+# Create socket libpq expected way
+test ! -e $pgsock_file && \
+    /bin/mkdir -p $pgsock_dir && \
+    /bin/ln -sfn $sock_name $pgsock_file
+    
+# For PXC we need to make sure 
+# This file should be called heavily
+res=$(/usr/bin/psql \
+    "postgresql://<%= $role %>:<%= uriescape($password) %>@localhost:${pgport}/<%= uriescape($database) %>?host=${pgsock_dir}" \
+    -c 'select pg_is_in_recovery();' \
+    --tuples-only --no-align --quiet 2>/dev/null)
+test "$res" = "f"

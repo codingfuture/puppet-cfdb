@@ -1,14 +1,14 @@
 
 require File.expand_path( '../../../../puppet_x/cf_db', __FILE__ )
 
-Puppet::Type.type(:cfdb_haproxy_frontend).provide(
+Puppet::Type.type(:cfdb_haproxy_endpoint).provide(
     :cfdb,
     :parent => PuppetX::CfDb::ProviderBase
 ) do
-    desc "Provider for cfdb_haproxy_frontend"
+    desc "Provider for cfdb_haproxy_endpoint"
     
     def self.get_config_index
-        'cf20db2_haproxy_frontend'
+        'cf20db3_haproxy_endpoint'
     end
 
     def self.get_generator_version

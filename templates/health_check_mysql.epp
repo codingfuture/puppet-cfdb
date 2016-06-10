@@ -1,12 +1,17 @@
-<% |String $role, String $password | -%>
+<% |String $service_name,
+    String $role,
+    String $password,
+    String $database  | -%>
 #!/bin/dash
+
+sock_name=/run/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}.sock
 
 # For PXC we need to make sure 
 # This file should be called heavily
 /usr/bin/mysql \
     --user='<%= $role %>' \
     --password='<%= $password %>' \
-    --host="$3" \
-    --port="$4" \
+    --host=localhost \
+    --socket=$sock_name \
     --batch \
     -e 'SELECT 1;' >/dev/null 2>&1

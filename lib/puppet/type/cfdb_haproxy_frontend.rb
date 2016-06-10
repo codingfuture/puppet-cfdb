@@ -31,7 +31,7 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
     newproperty(:type) do
         validate do |value|
             unless VALID_PROXY_DB_TYPES.include? value
-                raise ArgumentError, "%s is not valid username" % value
+                raise ArgumentError, "%s is not valid db type" % value
             end
         end
     end
@@ -55,7 +55,7 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
     newproperty(:max_connections) do
         validate do |value|
             unless value.is_a? Integer and value > 0
-                raise ArgumentError, "%s is not vakud max_connections" % value
+                raise ArgumentError, "%s is not valid max_connections" % value
             end
         end
     end

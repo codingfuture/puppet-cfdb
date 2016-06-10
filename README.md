@@ -452,7 +452,8 @@ This type defines client with specific properties for auto-configuration of inst
 * `$use_proxy = 'auto'` - do not change the default (for future use)
 * `$max_connections = $cfdb::max_connections_default` - define max number of client connections for particular case.
 * `$config_prefix = 'DB_'` - variable prefix for `.env` file. The following variables are defined:
-    *'HOST', 'PORT', 'SOCKET', 'USER', 'PASS', 'TYPE'*.
+    * *'HOST', 'PORT', 'SOCKET', 'USER', 'PASS', 'DB', 'TYPE'*.
+    * *'CONNINFO'* - only for PostgreSQL
 * `$env_file = '.env'` - name of dot-env file relative to $home of the user
 * `$iface = $cfdb::iface` - DB network facing interface
 

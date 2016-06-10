@@ -3,11 +3,12 @@ define cfdb::haproxy::frontend(
     $type,
     $cluster,
     $role,
+    $database,
     $password,
     $access_user,
     $max_connections,
     $socket,
-    $is_secure,
+    $secure_mode,
     $distribute_load,
 ) {
     assert_private()
@@ -23,7 +24,10 @@ define cfdb::haproxy::frontend(
     $mem_per_conn_kb = ceiling($tune_bufsize / 1024.0)
     $mem_per_secure_conn_kb = $mem_per_conn_kb * 2
     
-    if $is_secure {
+    $force_secure = ($secure_mode == 'secure')
+    $force_insecure = ($secure_mode == 'insecure')
+    
+    if $force_secure {
         $extra_mem_kb = ($mem_per_conn_kb + $mem_per_secure_conn_kb) * $max_connections
     } else {
         $extra_mem_kb = 2 * $mem_per_conn_kb * $max_connections
@@ -36,20 +40,14 @@ define cfdb::haproxy::frontend(
         min_mb => ceiling($extra_mem_kb / 1024.0),
     }
     
-    #---
-    if $is_secure {
-        fail('Unfortunately, DB protocols do not support pure TLS tunnel.
-        An advanced [client -> HAProxy -> internet -> Haproxy -> server] solution may be implemented later.
-        ')
-    }
-    
     # connect only to DB nodes in same DC
+    $cf_location = $::facts['cf_location']
     $cluster_facts_try = query_facts(
         "cfdb.${cluster}.present=true and cfdb.${cluster}.is_arbitrator=false and cf_location='${cf_location}'",
         ['cfdb', 'cf_location']
     )
     
-    if size($cluster_facts_try) {
+    if size($cluster_facts_try) > 0 {
         $cluster_facts_all = $cluster_facts_try
     } else {
         # fallback to connect to any possible DC
@@ -62,8 +60,6 @@ define cfdb::haproxy::frontend(
     if empty($cluster_facts_all) {
         $cluster_addr = []
     } else {
-        $cf_location = $::facts['cf_location']
-        
         $cluster_addr = (keys($cluster_facts_all).sort.map |$host| {
             $cfdb_facts = $cluster_facts_all[$host]
             $cluster_fact = $cfdb_facts['cfdb'][$cluster]
@@ -73,15 +69,9 @@ define cfdb::haproxy::frontend(
             }
             
             # it does not really work with database protocols :(
-            #$secure_host = ($cf_location != $cfdb_facts['cf_location'])
-            $secure_host = false
+            $secure_host = (!$force_insecure and ($cf_location != $cfdb_facts['cf_location']))
             
-            if $is_secure or $secure_host {
-                # required for cname matching
-                $addr = $host
-            } else {
-                $addr = pick($cluster_fact['host'], $host)
-            }
+            $addr = pick($cluster_fact['host'], $host)
             $port = $cluster_fact['port']
 
             if !$addr or !$port {
@@ -101,10 +91,17 @@ define cfdb::haproxy::frontend(
                 user => $cfdb::haproxy::user,
             })
             
+            if $secure_host {
+                $server_name = "${host_under}_TLS_${port}"
+            } else {
+                $server_name = "${host_under}_${port}"
+            }
+            
             $ret = {
-                server => $host_under,
-                addr => $addr,
-                port => $port,
+                server => $server_name,
+                host   => $host,
+                addr   => $addr,
+                port   => $port,
                 backup => $cluster_fact['is_secondary'],
                 secure => $secure_host,
             }
@@ -122,23 +119,23 @@ define cfdb::haproxy::frontend(
         access_user     => $access_user,
         max_connections => $max_connections,
         socket          => $socket,
-        is_secure       => $is_secure,
+        is_secure       => $force_secure,
         distribute_load => $distribute_load,
         cluster_addr    => $cluster_addr,
         require         => Cfdb_haproxy[$cfdb::haproxy::service_name],
     }
     
     #---
-    if $type == 'mysql' {
-        file { "${cfdb::haproxy::bin_dir}/check_${cluster}_${role}":
-            ensure  => present,
-            owner   => $cfdb::haproxy::user,
-            group   => $cfdb::haproxy::user,
-            mode    => '0750',
-            content => epp("cfdb/health_check_${type}", {
-                role     => $role,
-                password => $password,
-            }),
-        }
+    file { "${cfdb::haproxy::bin_dir}/check_${cluster}_${role}":
+        ensure  => present,
+        owner   => $cfdb::haproxy::user,
+        group   => $cfdb::haproxy::user,
+        mode    => '0750',
+        content => epp("cfdb/health_check_${type}", {
+            service_name => $cfdb::haproxy::service_name,
+            role         => $role,
+            password     => $password,
+            database     => $database,
+        }),
     }
 }

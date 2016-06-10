@@ -10,6 +10,8 @@ define cfdb::access(
     $iface = $cfdb::iface,
 ) {
     include cfnetwork
+    #---
+    $resource_title = "${cluster}:${role}:${local_user}"
     
     #---
     if $iface == 'any' {
@@ -30,16 +32,10 @@ define cfdb::access(
     
     #---
     if $use_proxy == 'auto' {
-        $cf_location = $::facts['cf_location']
-        
         $use_proxy_detected = (size(query_facts(
-            "cfdb.${cluster}.present=true and cf_location='${cf_location}'",
+            "cfdb.${cluster}.present=true",
             ['cfdb']
         )) > 1)
-        
-        # note, if only some servers have location mismatch - it does not mean we should
-        # use secure connection for all nodes
-        #$use_proxy_detected = $secure_detected or $cluster_detected
     } else {
         $use_proxy_detected = $use_proxy
     }
@@ -65,31 +61,58 @@ define cfdb::access(
         } else {
             fail("Unknown cluster ${cluster} or associated role ${role}: ${cluster_facts_all}")
         }
-    } elsif $use_proxy_detected == true or $use_proxy_detected == 'secure' {
+    } elsif $use_proxy_detected != false {
+        case $use_proxy_detected {
+            'secure', 'insecure', true: {}
+            default: {
+                fail("Unknown \$use_proxy parameter: ${use_proxy_detected}")
+            }
+        }
+        
         $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
         $role_fact = $cluster_fact['roles'][$role]
         $type = $cluster_fact['type']
-        $socket = "/run/cfhaproxy/${type}_${cluster}_${role}_${local_user}.sock"
         
-        cfdb::haproxy::frontend{ "${cluster}:${role}:${local_user}":
+        case $type {
+            'postgresql' : {
+                $fake_port = 1234
+                $cfg_socket = "/var/tmp/${type}_${cluster}_${role}_${local_user}"
+                $socket = "${cfg_socket}/.s.PGSQL.${fake_port}"
+                
+                file { $cfg_socket:
+                    ensure => directory,
+                    mode   => '0775',
+                    notify => Cfdb::Haproxy::Frontend[$resource_title],
+                }
+            }
+            default: {
+                $fake_port = ''
+                $socket = "/run/cfhaproxy/${type}_${cluster}_${role}_${local_user}.sock"
+                $cfg_socket = $socket
+            }
+        }
+        
+        cfdb::haproxy::frontend{ $resource_title:
             type            => $type,
             cluster         => $cluster,
             max_connections => $max_connections,
             role            => $role,
             password        => $role_fact['password'],
+            database        => $role_fact['database'],
             access_user     => $local_user,
             socket          => $socket,
-            is_secure       => ($use_proxy_detected == 'secure'),
+            secure_mode     => $use_proxy_detected,
             distribute_load => $role_fact['readonly'],
         }
         
         $cfg = {
-            'host' => 'localhost',
-            'port' => '',
-            'socket' => $socket,
-            'user' => $role,
-            'pass' => $role_fact['password'],
-            'type' => $type,
+            'host'  => 'localhost',
+            'port'  => "${fake_port}",
+            'socket' => $cfg_socket,
+            'user'  => $role,
+            'pass'  => $role_fact['password'],
+            'db'    => $role_fact['database'],
+            'type'  => $type,
         }
     } elsif $use_proxy_detected == false {
         $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
@@ -99,19 +122,21 @@ define cfdb::access(
         if $host == $::trusted['certname'] {
             $cfg = {
                 'host' => 'localhost',
-                'port' => $cluster_fact['port'],
+                'port' => "${cluster_fact['port']}",
                 'socket' => $cluster_fact['socket'],
                 'user' => $role,
                 'pass' => $role_fact['password'],
+                'db'    => $role_fact['database'],
                 'type' => $cluster_fact['type'],
             }
         } else {
             $cfg = {
                 'host' => pick($cluster_fact['host'], $host),
-                'port' => $cluster_fact['port'],
+                'port' => "${cluster_fact['port']}",
                 'socket' => '',
                 'user' => $role,
                 'pass' => $role_fact['password'],
+                'db'    => $role_fact['database'],
                 'type' => $cluster_fact['type'],
             }
         }
@@ -123,13 +148,38 @@ define cfdb::access(
     }
     #---
     $cfg.each |$var, $val| {
-        cfsystem::dotenv { "${title}/${var}":
+        cfsystem::dotenv { "${resource_title}:${var}":
             user     => $local_user,
             variable => upcase("${config_prefix}${var}"),
             value    => $val,
             env_file => $env_file,
         }
     }
+    
+    # DB type specific extras
+    case $type {
+        'postgresql' : {
+            if $cfg['socket'] != '' {
+                $conninfo_socket = "?host=${uriescape($cfg['socket'])}"
+            } else {
+                $conninfo_socket = ''
+            }
+            cfsystem::dotenv { "${resource_title}:conninfo":
+                user     => $local_user,
+                variable => upcase("${config_prefix}conninfo"),
+                value    => [
+                    "postgresql://${uriescape($cfg['user'])}:",
+                    "${uriescape($cfg['pass'])}@",
+                    "${uriescape($cfg['host'])}:",
+                    "${uriescape($cfg['port'])}/",
+                    "${uriescape($cfg['db'])}",
+                    $conninfo_socket,
+                ].join(''),
+                env_file => $env_file,
+            }
+        }
+    }
+    
     
     #---
     $port = $cfg['port']
