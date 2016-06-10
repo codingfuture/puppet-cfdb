@@ -18,7 +18,7 @@ class cfdb::haproxy(
             }
         }
         package { 'haproxy':
-            #ensure   => latest,
+            ensure   => latest,
         }
         service { 'haproxy':
             ensure => stopped,
@@ -73,5 +73,10 @@ class cfdb::haproxy(
             File[$root_dir],
             User[$user],
         ],
+    } ->
+    service { $service_name:
+        ensure => running,
+        enable => true,
+        require => Package['haproxy'],
     }
 }
