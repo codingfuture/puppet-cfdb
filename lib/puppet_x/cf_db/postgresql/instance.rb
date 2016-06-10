@@ -22,6 +22,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         is_cluster = conf[:is_cluster]
         is_arbitrator = conf[:is_arbitrator]
         cluster_addr = conf[:cluster_addr]
+        access_list = conf[:access_list]
         type = conf[:type]
         conf_file = "#{conf_dir}/postgresql.conf"
         hba_file = "#{conf_dir}/pg_hba.conf"
@@ -74,6 +75,8 @@ module PuppetX::CfDb::PostgreSQL::Instance
         is_94 = (ver_parts[0] == '9' and ver_parts[1] == '4')
         is_95 = (ver_parts[0] == '9' and ver_parts[1] == '5')
         
+        fqdn = Facter['fqdn'].value()
+        
         
         # calculate based on user access list x limit
         #---
@@ -81,31 +84,26 @@ module PuppetX::CfDb::PostgreSQL::Instance
         max_connections = superuser_reserved_connections
         max_replication_slots = 3
         have_external_conn = false
-        role_index = Puppet::Type.type(:cfdb_role).provider(:cfdb).get_config_index
-        roles = cf_system().config.get_new(role_index)
         hba_content = []
         hba_content << ['local', 'all', user, 'ident']
         hba_content << ['local', 'all', 'all', 'md5']
         hba_host_roles = {}
         
-        if roles
-            roles.each do |role_id, rinfo|
-                if rinfo[:cluster] == cluster
-                    rinfo[:allowed_hosts].each do |host, max_conn|
-                        max_connections += max_conn
-                        
-                        if host != 'localhost'
-                            have_external_conn = true
-                            hba_host_roles[host] ||= []
-                            hba_host_roles[host] << rinfo[:user]
-                        end
-                    end
+        access_list.each do |role_id, rinfo|
+            rinfo.each do |v|
+                host = v['host']
+                max_conn = v['maxconn']
+                max_connections += max_conn
+                
+                if host != fqdn
+                    have_external_conn = true
+                    hba_host_roles[host] ||= []
+                    hba_host_roles[host] << role_id
                 end
             end
         end
             
         if is_cluster
-            fqdn = Facter['fqdn'].value()
             cluster_addr = cluster_addr.clone
             cluster_addr << {
                 'addr' => fqdn,

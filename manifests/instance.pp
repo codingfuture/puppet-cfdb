@@ -358,8 +358,34 @@ define cfdb::instance (
         $cluster_addr = undef
         $shared_secret = ''
     }
-    #---
     
+    #---
+    $access = query_facts("cfdbaccess.${cluster}.present=true", ['cfdbaccess'])
+    $access_list = $access.reduce({}) |$memo, $val| {
+        $host = $val[0]
+        $cluster_info = $val[1]['cfdbaccess'][$cluster]
+        $cluster_info['roles'].reduce($memo) |$imemo, $ival| {
+            $role = $ival[0]
+            $role_info = $ival[1]['client'].map |$v| {
+                {
+                    host    => pick($v['host'], $host),
+                    maxconn => $v['max_connections'],
+                }
+            }
+            
+            if $imemo[$role] {
+                merge($imemo, {
+                    "${role}" => $imemo[$role] + $role_info
+                })
+            } else {
+                merge($imemo, {
+                    "${role}" => $role_info
+                })
+            }
+        }
+    }
+    
+    #---
     cfdb_instance { $cluster:
         ensure        => present,
         type          => $type,
@@ -394,6 +420,7 @@ define cfdb::instance (
         service_name  => $service_name,
         version       => getvar("cfdb::${type}::actual_version"),
         cluster_addr  => $cluster_addr,
+        access_list   => $access_list,
         
         require       => [
             User[$user],
@@ -458,7 +485,6 @@ define cfdb::instance (
     
     # Open firewall for clients on secondary nodes
     #---
-    $access = query_facts("cfdbaccess.${cluster}.present=true", ['cfdbaccess'])
     if $access {
         $allowed_hosts = keys($access)
         $fact_port = pick_default($port, try_get_value($::facts, "cf_persistent/ports/${cluster}"))

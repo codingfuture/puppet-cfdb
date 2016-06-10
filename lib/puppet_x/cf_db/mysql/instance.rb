@@ -19,6 +19,7 @@ module PuppetX::CfDb::MySQL::Instance
         is_cluster = conf[:is_cluster]
         is_arbitrator = conf[:is_arbitrator]
         cluster_addr = conf[:cluster_addr]
+        access_list = conf[:access_list]
         server_id = 1 # TODO
         type = conf[:type]
         conf_file = "#{conf_dir}/mysql.cnf"
@@ -55,6 +56,8 @@ module PuppetX::CfDb::MySQL::Instance
         
         secure_cluster = cfdb_settings.fetch('secure_cluster', false)
         
+        fqdn = Facter['fqdn'].value()
+        
         #---
         if is_arbitrator
             is_56 = true
@@ -81,16 +84,15 @@ module PuppetX::CfDb::MySQL::Instance
         #---
         max_connections = 10
         have_external_conn = false
-        role_index = Puppet::Type.type(:cfdb_role).provider(:cfdb).get_config_index
-        roles = cf_system().config.get_new(role_index)
         
-        if roles
-            roles.each do |k, v|
-                if v[:cluster] == cluster
-                    max_connections += v[:allowed_hosts].values.inject(0, :+)
-                    
-                    # check, if there is some other than locahost
-                    have_external_conn = true if v[:allowed_hosts].length > 1
+        access_list.each do |role_id, rinfo|
+            rinfo.each do |v|
+                host = v['host']
+                max_conn = v['maxconn']
+                max_connections += max_conn
+                
+                if host != fqdn
+                    have_external_conn = true
                 end
             end
         end

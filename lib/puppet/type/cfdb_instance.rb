@@ -164,4 +164,10 @@ Puppet::Type.newtype(:cfdb_instance) do
             value
         end
     end
+    
+    newproperty(:access_list) do
+        validate do |value|
+            value.is_a? Hash
+        end
+    end
 end

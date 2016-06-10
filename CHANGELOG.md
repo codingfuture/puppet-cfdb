@@ -14,6 +14,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
     - fixed to properly support PostgreSQL UNIX sockets
 - Fixed missing DB variable for .env files
 - Added PostgreSQL-specific CONNINFO variable for cfdb::access
+- Fixed to properly configure access & max connections on secondary servers
 
 ## [0.9.0]
 
