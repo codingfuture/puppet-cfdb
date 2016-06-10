@@ -21,10 +21,19 @@ Puppet::Type.type(:cfdb_instance).provide(
     end
     
     def self.check_exists(params)
-        File.exists?(params[:root_dir] + '/data')
+        debug('check_exists')
+        begin
+            File.exists?(params[:root_dir] + '/data') and
+                    systemctl(['status', "#{params[:service_name]}.service"])
+        rescue => e
+            warning(e)
+            #warning(e.backtrace)
+            false
+        end
     end
    
     def self.on_config_change(newconf)
+        debug('on_config_change')
         newconf.each do |name, conf|
             db_type = conf[:type]
             self.send("create_#{db_type}", conf)

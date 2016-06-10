@@ -97,7 +97,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                         if host != 'localhost'
                             have_external_conn = true
                             hba_host_roles[host] ||= []
-                            hba_host_roles[host] << rinfo[:role]
+                            hba_host_roles[host] << rinfo[:user]
                         end
                     end
                 end
@@ -139,7 +139,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         end
             
         strict_hba_roles = cfdb_settings.fetch('strict_hba_roles', true)
-        
+
         hba_host_roles.each do |host, host_roles|
             begin
                 host = Resolv.getaddress host

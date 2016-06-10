@@ -5,6 +5,8 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.9.1]
 - Major refactoring to support provider mixins per database type
+- Fixed PostgreSQL HBA files with strict_hba_roles 
+- Fixed to check that DB services are running
 
 ## [0.9.0]
 

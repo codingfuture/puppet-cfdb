@@ -12,6 +12,7 @@ Puppet::Type.type(:cfdb_database).provide(
     commands :sudo => '/usr/bin/sudo'
     
     def self.check_exists(params)
+        debug('check_exists')
         begin
             instance_index = Puppet::Type.type(:cfdb_instance).provider(:cfdb).get_config_index
             inst_conf = cf_system().config.get_old(instance_index)
@@ -34,6 +35,7 @@ Puppet::Type.type(:cfdb_database).provide(
     end
     
     def self.on_config_change(newconf)
+        debug('on_config_change')
         instance_index = Puppet::Type.type(:cfdb_instance).provider(:cfdb).get_config_index
         inst_conf_all = cf_system().config.get_new(instance_index)
         
