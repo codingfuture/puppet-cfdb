@@ -71,7 +71,7 @@ define cfdb::access(
         $type = $cluster_fact['type']
         $socket = "/run/cfhaproxy/${type}_${cluster}_${role}_${local_user}.sock"
         
-        cfdb::haproxy::backend{ "${cluster}:${role}:${local_user}":
+        cfdb::haproxy::frontend{ "${cluster}:${role}:${local_user}":
             type            => $type,
             cluster         => $cluster,
             max_connections => $max_connections,

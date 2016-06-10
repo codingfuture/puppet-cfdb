@@ -1,5 +1,5 @@
 
-define cfdb::haproxy::backend(
+define cfdb::haproxy::frontend(
     $type,
     $cluster,
     $role,
@@ -113,7 +113,7 @@ define cfdb::haproxy::backend(
     }
     
     #---
-    cfdb_haproxy_backend { $title:
+    cfdb_haproxy_frontend { $title:
         ensure          => present,
         type            => $type,
         cluster         => $cluster,

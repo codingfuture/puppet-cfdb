@@ -6,6 +6,7 @@ module PuppetX::CfDb
     ]
     ROOT_PASS_LEN = 24
     BASE_DIR = File.expand_path('../', __FILE__)
+    SECURE_PORT_OFFSET = 50
 
     #---
     require "#{BASE_DIR}/cf_db/provider_base"

@@ -1,6 +1,6 @@
 require 'puppet/property/boolean'
 
-Puppet::Type.newtype(:cfdb_haproxy_backend) do
+Puppet::Type.newtype(:cfdb_haproxy_frontend) do
     desc "DO NOT USE DIRECTLY."
     
     VALID_PROXY_DB_TYPES = [

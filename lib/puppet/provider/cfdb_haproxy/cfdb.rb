@@ -33,8 +33,8 @@ Puppet::Type.type(:cfdb_haproxy).provide(
         user = service_name
         settings_tune = newconf[:settings_tune]
         
-        backend_index = Puppet::Type.type(:cfdb_haproxy_backend).provider(:cfdb).get_config_index
-        frontends = cf_system().config.get_new(backend_index) # yep, great naming...
+        frontend_index = Puppet::Type.type(:cfdb_haproxy_frontend).provider(:cfdb).get_config_index
+        frontends = cf_system().config.get_new(frontend_index)
         backends = {}
 
         open_files = 100
@@ -138,6 +138,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             # so, the items will get overrided in place
             cluster_addr.each do |sinfo|
                 ip = sinfo['addr']
+                port = sinfo['port']
                 
                 begin
                     ip = IPAddr.new(ip)
@@ -147,10 +148,13 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     end
                 rescue
                 end
-
-                server_config = ["#{ip}:#{sinfo['port']} check fall 2 rise 1 fastinter 500ms"]
                 
-                if is_secure or sinfo['secure']
+                secure_server = (is_secure or sinfo['secure'])
+                port += PuppetX::CfDb::SECURE_PORT_OFFSET if secure_server
+
+                server_config = ["#{ip}:#{port} check fall 2 rise 1 fastinter 500ms"]
+                
+                if secure_server
                     server_config << 'weight 10'
                     server_config << 'ssl'
                     server_config << "ca-file #{ssl_dir}/ca.crt"
