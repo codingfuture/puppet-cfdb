@@ -28,6 +28,14 @@ Puppet::Type.newtype(:cfdb_access) do
     newproperty(:role) do
         validate do |value|
             unless value =~ /^[a-zA-Z_][a-zA-Z0-9_-]*$/
+                raise ArgumentError, "%s is not valid role" % value
+            end
+        end
+    end
+    
+    newproperty(:local_user) do
+        validate do |value|
+            unless value =~ /^[a-zA-Z_][a-zA-Z0-9_-]*$/
                 raise ArgumentError, "%s is not valid user" % value
             end
         end
@@ -43,4 +51,10 @@ Puppet::Type.newtype(:cfdb_access) do
     
     newproperty(:client_host) do
     end
+    
+    newproperty(:config_vars) do
+        validate do |value|
+            value.is_a? Hash
+        end
+    end    
 end

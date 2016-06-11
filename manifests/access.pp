@@ -22,14 +22,6 @@ define cfdb::access(
         $client_host = $iface
     }
     
-    cfdb_access { $title:
-        ensure          => present,
-        cluster         => $cluster,
-        role            => $role,
-        max_connections => $max_connections,
-        client_host     => $client_host,
-    }
-    
     #---
     if $use_proxy == 'auto' {
         $use_proxy_detected = (size(query_facts(
@@ -146,8 +138,34 @@ define cfdb::access(
     } else {
         fail('Invalid value for $use_proxy')
     }
+
+    # DB type specific extras
     #---
-    $cfg.each |$var, $val| {
+    case $type {
+        'postgresql': {
+            if $cfg['socket'] != '' {
+                $conninfo_socket = "?host=${uriescape($cfg['socket'])}"
+            } else {
+                $conninfo_socket = ''
+            }
+            $cfg_all = merge($cfg, {
+                'conninfo' => [
+                    "postgresql://${uriescape($cfg['user'])}:",
+                    "${uriescape($cfg['pass'])}@",
+                    "${uriescape($cfg['host'])}:",
+                    "${uriescape($cfg['port'])}/",
+                    "${uriescape($cfg['db'])}",
+                    $conninfo_socket,
+                ].join('')
+            })
+        }
+        default: {
+            $cfg_all = $cfg
+        }
+    }
+    
+    #---
+    $cfg_all.each |$var, $val| {
         cfsystem::dotenv { "${resource_title}:${var}":
             user     => $local_user,
             variable => upcase("${config_prefix}${var}"),
@@ -156,30 +174,16 @@ define cfdb::access(
         }
     }
     
-    # DB type specific extras
-    case $type {
-        'postgresql' : {
-            if $cfg['socket'] != '' {
-                $conninfo_socket = "?host=${uriescape($cfg['socket'])}"
-            } else {
-                $conninfo_socket = ''
-            }
-            cfsystem::dotenv { "${resource_title}:conninfo":
-                user     => $local_user,
-                variable => upcase("${config_prefix}conninfo"),
-                value    => [
-                    "postgresql://${uriescape($cfg['user'])}:",
-                    "${uriescape($cfg['pass'])}@",
-                    "${uriescape($cfg['host'])}:",
-                    "${uriescape($cfg['port'])}/",
-                    "${uriescape($cfg['db'])}",
-                    $conninfo_socket,
-                ].join(''),
-                env_file => $env_file,
-            }
-        }
+    #---
+    cfdb_access { $title:
+        ensure          => present,
+        cluster         => $cluster,
+        role            => $role,
+        local_user      => $local_user,
+        max_connections => $max_connections,
+        client_host     => $client_host,
+        config_vars     => $cfg_all,
     }
-    
     
     #---
     $port = $cfg['port']

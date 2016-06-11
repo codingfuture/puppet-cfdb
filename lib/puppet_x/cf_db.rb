@@ -14,6 +14,7 @@ module PuppetX::CfDb
     CFDB_TYPES.each do |t|
         t = t.downcase()
         require "#{BASE_DIR}/cf_db/#{t}"
+        require "#{BASE_DIR}/cf_db/#{t}/access"
         require "#{BASE_DIR}/cf_db/#{t}/database"
         require "#{BASE_DIR}/cf_db/#{t}/instance"
         require "#{BASE_DIR}/cf_db/#{t}/role"

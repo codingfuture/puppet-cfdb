@@ -15,6 +15,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed missing DB variable for .env files
 - Added PostgreSQL-specific CONNINFO variable for cfdb::access
 - Fixed to properly configure access & max connections on secondary servers
+- Implemented automatic check for cfdb::access connection availability
 
 ## [0.9.0]
 
