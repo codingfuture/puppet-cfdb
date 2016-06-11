@@ -148,13 +148,16 @@ define cfdb::access(
             } else {
                 $conninfo_socket = ''
             }
+            $uri_pass = regsubst(regsubst($cfg['pass'],
+                '\\+', '%2B', 'G'),
+                '/', '%2F', 'G')
             $cfg_all = merge($cfg, {
                 'conninfo' => [
-                    "postgresql://${uriescape($cfg['user'])}:",
-                    "${uriescape($cfg['pass'])}@",
-                    "${uriescape($cfg['host'])}:",
-                    "${uriescape($cfg['port'])}/",
-                    "${uriescape($cfg['db'])}",
+                    "postgresql://${cfg['user']}:",
+                    "${uri_pass}@",
+                    "${cfg['host']}:",
+                    "${cfg['port']}/",
+                    "${cfg['db']}",
                     $conninfo_socket,
                 ].join('')
             })

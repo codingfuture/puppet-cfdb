@@ -34,6 +34,17 @@ Puppet::Type.type(:cfdb_access).provide(
     end
 
     def self.on_config_change(newconf)
-        # noop - only store in cfsystem.json
+        debug('on_config_change')
+        newconf.each do |name, conf|
+            begin
+                config_vars = conf[:config_vars]
+                db_type = config_vars['type']
+                self.send("check_#{db_type}", conf[:local_user], config_vars)
+            rescue => e
+                warning(e)
+                #warning(e.backtrace)
+                err("Transition error in setup")
+            end
+        end
     end
 end
