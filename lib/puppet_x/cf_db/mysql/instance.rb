@@ -69,9 +69,9 @@ module PuppetX::CfDb::MySQL::Instance
             is_57 = (ver_parts[0] == '5' and ver_parts[1] == '7')
             
             if is_57
-                upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--version')
+                upgrade_ver = sudo('-H', '-u', user, MYSQL_UPGRADE, '--version')
             else
-                upgrade_ver = sudo('-u', user, MYSQL_UPGRADE, '--help').split("\n")[0]
+                upgrade_ver = sudo('-H', '-u', user, MYSQL_UPGRADE, '--help').split("\n")[0]
             end
         end
         
@@ -518,7 +518,7 @@ module PuppetX::CfDb::MySQL::Instance
                     
                     if not is_secondary
                         warning('> running mysql upgrade')
-                        sudo('-u', user, MYSQL_UPGRADE, '--force')
+                        sudo('-H', '-u', user, MYSQL_UPGRADE, '--force')
                     end
                     cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
                 end
@@ -527,7 +527,7 @@ module PuppetX::CfDb::MySQL::Instance
             if config_changed
                 debug('Updating max_connections in runtime')
                 begin
-                    sudo('-u', user, MYSQL, '--wait', '-e',
+                    sudo('-H', '-u', user, MYSQL, '--wait', '-e',
                         "SET GLOBAL max_connections = #{max_connections};")
                 rescue
                     warning('Failed to update max_connections in runtime')

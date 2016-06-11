@@ -81,8 +81,10 @@ module PuppetX::CfDb::PostgreSQL::Role
             
             self.role_cache[cluster_user] = cache
         end
-        
-        return false if cache.fetch(conf[:user], 0) == conf[:allowed_hosts].values.inject(0, :+)
+
+        cache_user = cache[conf[:user]]
+        return false if cache_user.nil?
+        return false if cache_user == conf[:allowed_hosts].values.inject(0, :+)
         
         self.check_match_common(cluster_user, conf)
     end

@@ -16,6 +16,8 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Added PostgreSQL-specific CONNINFO variable for cfdb::access
 - Fixed to properly configure access & max connections on secondary servers
 - Implemented automatic check for cfdb::access connection availability
+- Fixed issues with roles not getting updated after transition error
+- Fixed some cases when PostgreSQL roles were not getting created
 
 ## [0.9.0]
 

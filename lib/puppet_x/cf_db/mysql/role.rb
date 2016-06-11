@@ -60,12 +60,12 @@ module PuppetX::CfDb::MySQL::Role
         
         # Workaround possible hit of argument size limit
         while subsql = sql.slice!(0, 10) and !subsql.nil? and !subsql.empty?
-            sudo('-u', cluster_user, MYSQL, '--wait', '-e', subsql.join(''))
+            sudo('-H', '-u', cluster_user, MYSQL, '--wait', '-e', subsql.join(''))
         end
         
         # Final commands, if any
         if not sql.empty?
-            sudo('-u', cluster_user, MYSQL, '--wait', '-e', sql.join(''))
+            sudo('-H', '-u', cluster_user, MYSQL, '--wait', '-e', sql.join(''))
         end
     end
     
@@ -73,7 +73,7 @@ module PuppetX::CfDb::MySQL::Role
         if self.role_cache.has_key? cluster_user
             cache = self.role_cache[cluster_user]
         else
-            ret = sudo('-u', cluster_user,
+            ret = sudo('-H', '-u', cluster_user,
                        MYSQL, '--wait', '--batch', '--skip-column-names', '-e',
                        'SELECT user, host, max_user_connections FROM mysql.user
                         WHERE Super_priv <> "Y" ORDER BY user, host;')

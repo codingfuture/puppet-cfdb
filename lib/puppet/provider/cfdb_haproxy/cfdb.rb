@@ -58,6 +58,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 ].join(' '),
             },
             'defaults' => {
+                'log global' => '',
                 'timeout connect' => '5s',
                 'timeout client' => '10m',
                 'timeout server' => '10m',
@@ -147,7 +148,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 secure_server = (is_secure or sinfo['secure'])
                 port += PuppetX::CfDb::SECURE_PORT_OFFSET if secure_server
 
-                server_config = ["#{ip}:#{port} check fall 2 rise 1 fastinter 500ms"]
+                server_config = ["#{ip}:#{port} check fall 2 rise 1 inter 1000ms fastinter 500ms"]
                 
                 if secure_server
                     server_config << 'weight 10'

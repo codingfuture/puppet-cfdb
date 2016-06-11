@@ -22,8 +22,12 @@ Puppet::Type.type(:cfdb_role).provide(
         # { cluster_user => { user => { allowed_hosts => max_connections } } }
         attr_accessor :role_cache
     end
-    self.role_old = {}
-    self.role_cache = {}
+    
+    def self.instances
+        self.role_old = {}
+        self.role_cache = {}
+        super
+    end
     
     def flush
         super
@@ -45,20 +49,24 @@ Puppet::Type.type(:cfdb_role).provide(
             db_type = inst_conf['type']
             root_dir = inst_conf['root_dir']
             
-            self.role_old[cluster_user] = {} if not self.role_old.has_key? cluster_user
+            # this data is used in checks
+            self.role_old[cluster_user] ||= {}
             self.role_old[cluster_user][params[:user]] = params
             
             begin
                 self.send("check_#{db_type}", cluster_user, params, root_dir)
             rescue => e
+                # force recreate
+                self.role_old[cluster_user].delete(params[:user])
                 warning(e)
                 #warning(e.backtrace)
                 err("Transition error in setup")
+                return false
             end
         rescue => e
             warning(e)
             #warning(e.backtrace)
-            false
+            return false
         end
 
     end
@@ -86,6 +94,9 @@ Puppet::Type.type(:cfdb_role).provide(
             begin
                 self.send("create_#{db_type}", cluster_user, conf, root_dir)
             rescue => e
+                # force recreate
+                conf[:password] = nil
+                
                 warning(e)
                 #warning(e.backtrace)
                 err("Transition error in setup")
@@ -118,13 +129,14 @@ Puppet::Type.type(:cfdb_role).provide(
     def self.check_match_common(cluster_user, conf)
         user = conf[:user]
         oldconf = self.role_old.fetch(cluster_user, {}).fetch(user, nil)
-        
+
         return false if oldconf.nil?
         return false if oldconf.fetch(:custom_grant, nil) != conf[:custom_grant]
         return false if oldconf.fetch(:readonly, nil) != conf[:readonly]
         return false if oldconf.fetch(:database, nil) != conf[:database]
         return false if oldconf.fetch(:custom_grant, nil) != conf[:custom_grant]
-        
+        return false if oldconf.fetch(:password, nil) != conf[:password]
+
         true
     end
 end

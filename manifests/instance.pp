@@ -368,7 +368,7 @@ define cfdb::instance (
             $role = $ival[0]
             $role_info = $ival[1]['client'].map |$v| {
                 {
-                    host    => pick($v['host'], $host),
+                    host    => pick($v['host'], $host).split('/')[0],
                     maxconn => $v['max_connections'],
                 }
             }

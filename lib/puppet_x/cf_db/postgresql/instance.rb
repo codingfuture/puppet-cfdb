@@ -638,7 +638,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             FileUtils.touch(unclean_state_file)
             #--
 
-            sudo('-u', user,
+            sudo('-H', '-u', user,
                  "#{pg_bin_dir}/initdb",
                  '--locale', cfdb_settings.fetch('locale', 'en_US.UTF-8'),
                  '--pwfile', pgpass_file,
@@ -651,7 +651,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 old_pg_bin_dir = "/usr/lib/postgresql/#{old_version}/bin"
 
                 begin
-                    sudo('-u', user,
+                    sudo('-H', '-u', user,
                         "#{old_pg_bin_dir}/pg_ctl",
                         '-D', old_data,
                         'stop')
@@ -661,7 +661,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 warning("> stopping #{service_name}")
                 systemctl('stop', "#{service_name}.service")
 
-                sudo('-u', user, '/bin/sh', '-c',
+                sudo('-H', '-u', user, '/bin/sh', '-c',
                     "cd /tmp && #{pg_bin_dir}/pg_upgrade " +
                         "-d #{old_data} -D #{data_dir} " +
                         "-b #{old_pg_bin_dir} -B #{pg_bin_dir}")
