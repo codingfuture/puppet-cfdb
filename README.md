@@ -24,6 +24,7 @@
     * automatic protection for roles x max connections
 * Automatic backup and automated restore
 * Strict cgroup-based resource isolation on top of `systemd` integration
+* Atutomatic DB connection availability checks
 
 ### Terminology & Concept
 

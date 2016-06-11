@@ -78,7 +78,6 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             type = finfo[:type]
             cluster = finfo[:cluster]
             socket = finfo[:socket]
-            role = finfo[:role]
             access_user = finfo[:access_user]
             max_connections = finfo[:max_connections]
             is_secure = finfo[:is_secure]
@@ -105,7 +104,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     backend_conf['balance'] = 'first'
                 end
                 
-                backend_conf['external-check command'] = "#{bin_dir}/check_#{cluster}_#{role}"
+                backend_conf['external-check command'] = "#{bin_dir}/check_#{cluster}"
 
                 conf["backend #{backend_name}"] = backend_conf
             end

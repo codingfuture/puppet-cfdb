@@ -2,14 +2,12 @@
 define cfdb::haproxy::frontend(
     $type,
     $cluster,
-    $role,
-    $database,
-    $password,
     $access_user,
     $max_connections,
     $socket,
     $secure_mode,
     $distribute_load,
+    $client_host,
 ) {
     assert_private()
     
@@ -114,8 +112,6 @@ define cfdb::haproxy::frontend(
         ensure          => present,
         type            => $type,
         cluster         => $cluster,
-        role            => $role,
-        password        => $password,
         access_user     => $access_user,
         max_connections => $max_connections,
         socket          => $socket,
@@ -126,16 +122,42 @@ define cfdb::haproxy::frontend(
     }
     
     #---
-    file { "${cfdb::haproxy::bin_dir}/check_${cluster}_${role}":
-        ensure  => present,
-        owner   => $cfdb::haproxy::user,
-        group   => $cfdb::haproxy::user,
-        mode    => '0750',
-        content => epp("cfdb/health_check_${type}", {
-            service_name => $cfdb::haproxy::service_name,
-            role         => $role,
-            password     => $password,
-            database     => $database,
-        }),
+    $healthcheck = $cfdb::healthcheck
+    if !defined(Cfdb_access["${cluster}/${healthcheck}"]) {
+        $health_check_facts = query_facts(
+            "cfdb.${cluster}.is_secondary=false and cfdb.${cluster}.roles.${healthcheck}.present=true",
+            ['cfdb']
+        )
+        if size($health_check_facts) > 0 {
+            $healthcheck_password = values($health_check_facts)[0]['cfdb'][$cluster]['roles'][$healthcheck]['password']
+        } else {
+            # temporary
+            $healthcheck_password = $healthcheck
+        }
+        
+        cfdb_access{ "${cluster}/${healthcheck}":
+            ensure          => present,
+            cluster         => $cluster,
+            role            => $healthcheck,
+            local_user      => undef,
+            max_connections => 2,
+            client_host     => $client_host,
+            config_vars     => {},
+        }
+        
+        
+        #---
+        file { "${cfdb::haproxy::bin_dir}/check_${cluster}":
+            ensure  => present,
+            owner   => $cfdb::haproxy::user,
+            group   => $cfdb::haproxy::user,
+            mode    => '0750',
+            content => epp("cfdb/health_check_${type}", {
+                service_name => $cfdb::haproxy::service_name,
+                role         => $healthcheck,
+                password     => $healthcheck_password,
+                database     => $healthcheck,
+            }),
+        }
     }
 }

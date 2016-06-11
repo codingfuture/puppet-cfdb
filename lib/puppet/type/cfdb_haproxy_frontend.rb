@@ -44,10 +44,6 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
     end
     newproperty(:socket) do
     end
-    newproperty(:role) do
-    end
-    newproperty(:password) do
-    end
     
     newproperty(:access_user) do
     end

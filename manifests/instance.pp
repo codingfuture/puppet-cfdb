@@ -440,6 +440,15 @@ define cfdb::instance (
     }
     
     #---
+    if !$is_secondary and !$is_arbitrator {
+        $healthcheck = $cfdb::healthcheck
+        cfdb::database { "${cluster}/${healthcheck}":
+            cluster  => $cluster,
+            database => $healthcheck,
+        }
+    }
+    
+    #---
     if $databases {
         if $is_secondary or $is_arbitrator {
             fail("It's not allowed to defined databases on secondary server")

@@ -7,6 +7,9 @@ class cfdb (
     $max_connections_default = 10,
     $backup = true,
 ) {
+    # global healthcheck db/role names
+    $healthcheck = 'cfdbhealth'
+    
     file { $root_dir:
         ensure => directory,
         mode   => '0555',

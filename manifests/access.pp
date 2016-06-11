@@ -88,13 +88,11 @@ define cfdb::access(
             type            => $type,
             cluster         => $cluster,
             max_connections => $max_connections,
-            role            => $role,
-            password        => $role_fact['password'],
-            database        => $role_fact['database'],
             access_user     => $local_user,
             socket          => $socket,
             secure_mode     => $use_proxy_detected,
             distribute_load => $role_fact['readonly'],
+            client_host     => $client_host,
         }
         
         $cfg = {
