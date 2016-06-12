@@ -13,14 +13,11 @@ import sys, os, MySQLdb
 sys.stdin.close()
 sys.stdout.close()
 sys.stderr.close()
-os.close(0)
-os.close(1)
-os.close(2)
 #---
 
-HAPROXY_SERVER_NAME = os.environ['HAPROXY_SERVER_NAME']
+server_name = os.environ['HAPROXY_SERVER_NAME']
 
-sock_name = '/run/<%= $service_name %>/check__{0}.sock'.format(HAPROXY_SERVER_NAME)
+sock_name = '/run/<%= $service_name %>/check__{0}.sock'.format(server_name)
     
 conn_params={
     'db': '<%= $database %>',

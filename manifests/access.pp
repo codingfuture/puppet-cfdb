@@ -121,15 +121,30 @@ define cfdb::access(
                 'type' => $cluster_fact['type'],
             }
         } else {
+            $addr = pick($cluster_fact['host'], $host)
+            $port = $cluster_fact['port']
             $cfg = {
-                'host' => pick($cluster_fact['host'], $host),
-                'port' => "${cluster_fact['port']}",
+                'host' => $addr,
+                'port' => "${port}",
                 'socket' => '',
                 'user' => $role,
                 'pass' => $role_fact['password'],
                 'db'    => $role_fact['database'],
                 'type' => $cluster_fact['type'],
             }
+            
+            $host_under = regsubst($host, '\.', '_', 'G')
+            $fw_service = "cfdb_${cluster}_${port}"
+            $fw_port = "any:${fw_service}:${host_under}"
+
+            ensure_resource('cfnetwork::describe_service', $fw_service, {
+                server => "tcp/${port}",
+            })
+            
+            ensure_resource('cfnetwork::client_port', $fw_port, {
+                dst  => $addr,
+                user => $local_user,
+            })
         }
         
         $type = $cluster_fact['type']
@@ -186,19 +201,7 @@ define cfdb::access(
         client_host     => $client_host,
         config_vars     => $cfg_all,
     }
-    
-    #---
-    $port = $cfg['port']
-    if $port and ($port != '') {
-        ensure_resource('cfnetwork::describe_service', "cfdb_${cluster}", {
-            server => "tcp/${port}",
-        })
-        ensure_resource('cfnetwork::client_port', "any:cfdb_${cluster}:${local_user}", {
-            dst  => $cfg['host'],
-            user => $local_user,
-        })
-    }
-    
+
     #---
     if $custom_config {
         create_resources($custom_config, {

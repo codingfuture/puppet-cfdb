@@ -13,16 +13,16 @@ import sys, os, psycopg2
 sys.stdin.close()
 sys.stdout.close()
 sys.stderr.close()
-os.close(0)
-os.close(1)
-os.close(2)
 #---
 
 
-HAPROXY_SERVER_NAME = os.environ['HAPROXY_SERVER_NAME']
+proxy_name = os.environ['HAPROXY_PROXY_NAME']
+server_name = os.environ['HAPROXY_SERVER_NAME']
 
-sock_name = '/run/<%= $service_name %>/check__{0}.sock'.format(HAPROXY_SERVER_NAME)
-pgsock_dir = '/tmp/<%= $service_name %>/check__{0}'.format(HAPROXY_SERVER_NAME)
+is_load_balance = (proxy_name.find(':lb') >= 0)
+
+sock_name = '/run/<%= $service_name %>/check__{0}.sock'.format(server_name)
+pgsock_dir = '/tmp/<%= $service_name %>/check__{0}'.format(server_name)
 pgport=123
 pgsock_file="{0}/.s.PGSQL.{1}".format(pgsock_dir, pgport)
 
@@ -34,7 +34,7 @@ except OSError:
     pass
 
 try:
-    os.makedirs(pgsock_dir)
+    os.symlink(sock_name, pgsock_file)
 except OSError:
     pass
     
@@ -58,10 +58,16 @@ exit_code = 1
 
 conn = psycopg2.connect(**conn_params)
 curs = conn.cursor()
-curs.execute('SELECT pg_is_in_recovery();')
-res = curs.fetchone()
-if res[0] == False:
-    exit_code = 0
+if is_load_balance:
+    curs.execute('SELECT pg_is_in_recovery();')
+    res = curs.fetchone()
+    if res[0] == False:
+        exit_code = 0
+else:
+    curs.execute('SELECT 1;')
+    res = curs.fetchone()
+    if res[0] == 1:
+        exit_code = 0
 
 try:
     conn.close()

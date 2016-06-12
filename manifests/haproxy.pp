@@ -83,6 +83,7 @@ class cfdb::haproxy(
     #---
     ensure_resource('package', 'hatop', {})
     file { "${bin_dir}/cfdb_hatop":
+        mode => '0555',
         content => [
             '#!/bin/dash',
             "/usr/bin/hatop -s /run/${service_name}/stats.sock"

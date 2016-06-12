@@ -178,7 +178,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 
                 # Configure block for checks
                 #---
-                check_listen = "listen check__#{server_id}"
+                check_listen = "listen #{server_id}:check"
                 conn_per_check = 2
                 
                 if conf.has_key? check_listen
