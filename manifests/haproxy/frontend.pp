@@ -13,6 +13,7 @@ define cfdb::haproxy::frontend(
     
     include cfnetwork
     include cfdb::haproxy
+    include "cfdb::${type}::clientpkg"
     
     #---
     $settings_tune = $cfdb::haproxy::settings_tune

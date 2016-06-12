@@ -9,6 +9,8 @@ module PuppetX::CfDb::MySQL::Access
         socket = config_vars['socket']
         socket = '/notexisting.sock' if socket.empty?
         
+        # TODO: get rid of password on commandline
+        
         sudo('-H', '-u', local_user,
              MYSQL,
              "--user=#{config_vars['user']}",

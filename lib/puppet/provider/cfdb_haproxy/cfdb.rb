@@ -56,20 +56,28 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     'no-sslv3',
                     #'verify required',
                 ].join(' '),
+                'spread-checks' => 5,
+                '# unfortunately, haproxy misbehaves with UNIX socket & epoll :(' => '',
+                'noepoll' => '',
+                '# as we work with unix sockets, there is no point in splice() :(' => '',
+                'nosplice' => '',
             },
             'defaults' => {
-                'log global' => '',
+                #'log global' => '',
                 'timeout connect' => '5s',
                 'timeout client' => '10m',
                 'timeout server' => '10m',
+                'timeout check' => '2s',
                 'option abortonclose' => '',
                 'option dontlog-normal' => '',
                 'option dontlognull' => '',
-                'option nolinger' => '',
-                'option splice-auto' => '',
-                'option splice-request' => '',
-                'option splice-response' => '',
+                # this causes async RST issues
+                #'option nolinger' => '',
+                #'option splice-auto' => '',
+                #'option splice-request' => '',
+                #'option splice-response' => '',
                 'option srvtcpka' => '',
+                'option clitcpka' => '',
             },
         }
         
@@ -189,12 +197,12 @@ Puppet::Type.type(:cfdb_haproxy).provide(
 
                     conf[check_listen] = {
                         'mode' => 'tcp',
-                        'option tcplog' => '',
-                        'log global' => '',
-                        'retries' => 1,
+                        #'option tcplog' => '',
+                        #'log global' => '',
+                        'retries' => 0,
                         'maxconn' => conn_per_check,
                         'bind' => "unix@/run/#{service_name}/check__#{server_id}.sock user #{user} group #{user} mode 660",
-                        "server #{server_id}" => check_server_config.join(' ')
+                        "server check__#{server_id}" => check_server_config.join(' ')
                     }
                 end
                 
@@ -203,8 +211,8 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                        
             conf["frontend #{title}"] = {
                 'mode' => 'tcp',
-                'option tcplog' => '',
-                'log global' => '',
+                #'option tcplog' => '',
+                #'log global' => '',
                 'bind' => "unix@#{socket} user #{access_user} group #{access_user} mode 660",
                 'backlog' => cf_system.fitRange(max_connections, 4096, max_connections),
                 'maxconn' => max_connections,

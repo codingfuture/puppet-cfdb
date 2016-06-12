@@ -1,17 +1,42 @@
 <% |String $service_name,
     String $role,
     String $password,
-    String $database  | -%>
-#!/bin/dash
+    String $database |
+-%>
+#!/usr/bin/python -B
 
-sock_name=/run/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}.sock
+import sys, os, MySQLdb
 
-# For PXC we need to make sure 
-# This file should be called heavily
-/usr/bin/mysql \
-    --user='<%= $role %>' \
-    --password='<%= $password %>' \
-    --host=localhost \
-    --socket=$sock_name \
-    --batch \
-    -e 'SELECT 1;' >/dev/null 2>&1
+#---
+# workaround for known HAProxy issue with junk getting into connections...
+# http://thread.gmane.org/gmane.comp.web.haproxy/28184/focus=28254
+sys.stdin.close()
+sys.stdout.close()
+sys.stderr.close()
+os.close(0)
+os.close(1)
+os.close(2)
+#---
+
+HAPROXY_SERVER_NAME = os.environ['HAPROXY_SERVER_NAME']
+
+sock_name = '/run/<%= $service_name %>/check__{0}.sock'.format(HAPROXY_SERVER_NAME)
+    
+conn_params={
+    'db': '<%= $database %>',
+    'user': '<%= $role %>',
+    'passwd': '<%= $password %>',
+    'host': 'localhost',
+    'unix_socket': sock_name,
+    'connect_timeout': 2,
+}
+
+try:
+    conn = MySQLdb.connect(**conn_params)
+except:
+    conn = MySQLdb.connect(**conn_params)
+
+curs = conn.cursor()
+curs.execute('SELECT 1;')
+sys.exit(0)
+

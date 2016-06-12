@@ -572,6 +572,14 @@ define cfdb::instance (
     case $type {
         'mysql': {
             if !$is_arbitrator {
+                file { "${root_dir}/bin/cfdb_mysql":
+                    mode    => '0755',
+                    content => epp('cfdb/cfdb_mysql.epp', {
+                        user         => $user,
+                    }),
+                    notify  => Cfdb_instance[$cluster],
+                }
+                
                 file { "${root_dir}/bin/cfdb_sysbench":
                     mode    => '0755',
                     content => epp('cfdb/cfdb_sysbench.epp', {

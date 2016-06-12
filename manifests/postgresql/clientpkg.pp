@@ -7,5 +7,8 @@ class cfdb::postgresql::clientpkg {
     
     $ver = $cfdb::postgresql::version
 
-    package { "postgresql-client-${ver}": }
+    ensure_resource('package', "postgresql-client-${ver}", {})
+    
+    # required for healthcheck script
+    ensure_resource('package', 'python-psycopg2', {})
 }

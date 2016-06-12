@@ -12,4 +12,7 @@ class cfdb::mysql::clientpkg {
     } else {
         package { "percona-server-client-${ver}": }
     }
+    
+    # required for healthcheck script
+    ensure_resource('package', 'python-mysqldb', {})
 }

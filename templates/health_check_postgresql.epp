@@ -2,32 +2,71 @@
     String $role,
     String $password,
     String $database |
-
-$uri_pass = regsubst(regsubst($password,
-    '\\+', '%2B', 'G'),
-    '/', '%2F', 'G')
 -%>
-#!/bin/dash
+#!/usr/bin/python -B
 
-sock_name=/run/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}.sock
-pgsock_dir=/tmp/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}
+import sys, os, psycopg2
+
+#---
+# workaround for known HAProxy issue with junk getting into connections...
+# http://thread.gmane.org/gmane.comp.web.haproxy/28184/focus=28254
+sys.stdin.close()
+sys.stdout.close()
+sys.stderr.close()
+os.close(0)
+os.close(1)
+os.close(2)
+#---
+
+
+HAPROXY_SERVER_NAME = os.environ['HAPROXY_SERVER_NAME']
+
+sock_name = '/run/<%= $service_name %>/check__{0}.sock'.format(HAPROXY_SERVER_NAME)
+pgsock_dir = '/tmp/<%= $service_name %>/check__{0}'.format(HAPROXY_SERVER_NAME)
 pgport=123
-pgsock_file="${pgsock_dir}/.s.PGSQL.${pgport}"
+pgsock_file="{0}/.s.PGSQL.{1}".format(pgsock_dir, pgport)
 
-pg_ident=""
+os.umask(0077)
 
-HOME=/db/<%= $service_name %>
-cd
+try:
+    os.makedirs(pgsock_dir)
+except OSError:
+    pass
 
-# Create socket libpq expected way
-test ! -e $pgsock_file && \
-    /bin/mkdir -p $pgsock_dir && \
-    /bin/ln -sfn $sock_name $pgsock_file
+try:
+    os.makedirs(pgsock_dir)
+except OSError:
+    pass
     
-# For PXC we need to make sure 
-# This file should be called heavily
-res=$(/usr/bin/psql \
-    "postgresql://<%= $role %>:<%= $uri_pass %>@localhost:${pgport}/<%= $database %>?host=${pgsock_dir}" \
-    -c 'select pg_is_in_recovery();' \
-    --tuples-only --no-align --quiet 2>/dev/null)
-test "$res" = "f"
+sock_dir_stat = os.stat(pgsock_dir)
+
+if sock_dir_stat.st_uid != os.geteuid():
+    print("FATAL: Invalid socket folder permissions. Possible attack.")
+    print(sock_dir_stat)
+    sys.exit(1)
+    
+conn_params={
+    'database': '<%= $database %>',
+    'user': '<%= $role %>',
+    'password': '<%= $password %>',
+    'host': pgsock_dir,
+    'port': pgport,
+    'connect_timeout': 1,
+}
+
+exit_code = 1
+
+conn = psycopg2.connect(**conn_params)
+curs = conn.cursor()
+curs.execute('SELECT pg_is_in_recovery();')
+res = curs.fetchone()
+if res[0] == False:
+    exit_code = 0
+
+try:
+    conn.close()
+except:
+    pass
+
+sys.exit(exit_code)
+

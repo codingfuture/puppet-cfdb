@@ -79,4 +79,13 @@ class cfdb::haproxy(
         enable => true,
         require => Package['haproxy'],
     }
+    
+    #---
+    ensure_resource('package', 'hatop', {})
+    file { "${bin_dir}/cfdb_hatop":
+        content => [
+            '#!/bin/dash',
+            "/usr/bin/hatop -s /run/${service_name}/stats.sock"
+        ].join("\n"),
+    }
 }
