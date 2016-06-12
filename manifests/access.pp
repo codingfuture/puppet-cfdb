@@ -8,6 +8,7 @@ define cfdb::access(
     $config_prefix = 'DB_',
     $env_file = '.env',
     $iface = $cfdb::iface,
+    $custom_config = undef,
 ) {
     include cfnetwork
     #---
@@ -195,6 +196,20 @@ define cfdb::access(
         ensure_resource('cfnetwork::client_port', "any:cfdb_${cluster}:${local_user}", {
             dst  => $cfg['host'],
             user => $local_user,
+        })
+    }
+    
+    #---
+    if $custom_config {
+        create_resources($custom_config, {
+            "${title}" => {
+                cluster         => $cluster,
+                role            => $role,
+                local_user      => $local_user,
+                max_connections => $max_connections,
+                client_host     => $client_host,
+                config_vars     => $cfg_all,
+            }
         })
     }
 }

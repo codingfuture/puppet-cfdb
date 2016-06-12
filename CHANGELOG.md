@@ -18,6 +18,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Implemented automatic check for cfdb::access connection availability
 - Fixed issues with roles not getting updated after transition error
 - Fixed some cases when PostgreSQL roles were not getting created
+- Added support for custom config variable resource for a sort of polymorphism in cfdb::access
 
 ## [0.9.0]
 

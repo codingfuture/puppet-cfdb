@@ -457,6 +457,13 @@ This type defines client with specific properties for auto-configuration of inst
     * *'CONNINFO'* - only for PostgreSQL
 * `$env_file = '.env'` - name of dot-env file relative to $home of the user
 * `$iface = $cfdb::iface` - DB network facing interface
+* `$custom_config = undef` - name of custom resource to instantiate with the following parameters:
+    * `cluster` - related cluster name
+    * `role` - related role name
+    * `local_user` - related local user name
+    * `max_connections` - max connections allowed per this access
+    * `client_host` - expected host for outgoing connections
+    * `config_vars` - hash of configuration variables in lower case (see above)
 
 ## type `cfdb::database` parameters
 This type must be used only on primary instance of cluster.
