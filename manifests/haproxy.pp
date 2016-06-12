@@ -75,15 +75,15 @@ class cfdb::haproxy(
         ],
     } ->
     service { $service_name:
-        ensure => running,
-        enable => true,
+        ensure  => running,
+        enable  => true,
         require => Package['haproxy'],
     }
     
     #---
     ensure_resource('package', 'hatop', {})
     file { "${bin_dir}/cfdb_hatop":
-        mode => '0555',
+        mode    => '0555',
         content => [
             '#!/bin/dash',
             "/usr/bin/hatop -s /run/${service_name}/stats.sock"

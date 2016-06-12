@@ -98,7 +98,7 @@ define cfdb::access(
         
         $cfg = {
             'host'  => 'localhost',
-            'port'  => "${fake_port}",
+            'port'  => $fake_port,
             'socket' => $cfg_socket,
             'user'  => $role,
             'pass'  => $role_fact['password'],
@@ -113,7 +113,7 @@ define cfdb::access(
         if $host == $::trusted['certname'] {
             $cfg = {
                 'host' => 'localhost',
-                'port' => "${cluster_fact['port']}",
+                'port' => $cluster_fact['port'],
                 'socket' => $cluster_fact['socket'],
                 'user' => $role,
                 'pass' => $role_fact['password'],
@@ -125,7 +125,7 @@ define cfdb::access(
             $port = $cluster_fact['port']
             $cfg = {
                 'host' => $addr,
-                'port' => "${port}",
+                'port' => $port,
                 'socket' => '',
                 'user' => $role,
                 'pass' => $role_fact['password'],
@@ -158,7 +158,10 @@ define cfdb::access(
     case $type {
         'postgresql': {
             if $cfg['socket'] != '' {
-                $conninfo_socket = "?host=${uriescape($cfg['socket'])}"
+                $psql_socket = regsubst(regsubst($cfg['socket'],
+                    '\\+', '%2B', 'G'),
+                    '/', '%2F', 'G')
+                $conninfo_socket = "?host=${psql_socket}"
             } else {
                 $conninfo_socket = ''
             }
@@ -171,7 +174,7 @@ define cfdb::access(
                     "${uri_pass}@",
                     "${cfg['host']}:",
                     "${cfg['port']}/",
-                    "${cfg['db']}",
+                    $cfg['db'],
                     $conninfo_socket,
                 ].join('')
             })

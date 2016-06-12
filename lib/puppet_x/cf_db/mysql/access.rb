@@ -4,7 +4,7 @@ module PuppetX::CfDb::MySQL::Access
     
     def check_mysql(local_user, config_vars)
         port = config_vars['port']
-        port = 1 if port.empty?
+        port = 1 if port == ''
         
         socket = config_vars['socket']
         socket = '/notexisting.sock' if socket.empty?

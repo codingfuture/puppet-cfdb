@@ -575,7 +575,7 @@ define cfdb::instance (
                 file { "${root_dir}/bin/cfdb_mysql":
                     mode    => '0755',
                     content => epp('cfdb/cfdb_mysql.epp', {
-                        user         => $user,
+                        user => $user,
                     }),
                     notify  => Cfdb_instance[$cluster],
                 }
