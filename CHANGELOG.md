@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.9.4]
+- Fixed to support single server access for multiple local users without HAProxy involved
+
 ## [0.9.3]
 - Major refactoring to support provider mixins per database type
 - Fixed PostgreSQL HBA files with strict_hba_roles 
@@ -20,10 +23,11 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed some cases when PostgreSQL roles were not getting created
 - Added support for custom config variable resource for a sort of polymorphism in cfdb::access
 
-## [0.9.0]
+## [0.9.2]
 
 Initial release
 
+[0.9.4]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.4
 [0.9.3]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.3
-[0.9.0]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.0
+[0.9.2]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.2
 

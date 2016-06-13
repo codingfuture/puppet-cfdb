@@ -135,7 +135,7 @@ define cfdb::access(
             
             $host_under = regsubst($host, '\.', '_', 'G')
             $fw_service = "cfdb_${cluster}_${port}"
-            $fw_port = "any:${fw_service}:${host_under}"
+            $fw_port = "any:${fw_service}:${host_under}:${local_user}"
 
             ensure_resource('cfnetwork::describe_service', $fw_service, {
                 server => "tcp/${port}",
