@@ -26,7 +26,9 @@ Puppet::Type.type(:cfdb_haproxy).provide(
         bin_dir = "#{root_dir}/bin"
         conf_dir = "#{root_dir}/conf"
         conf_file = "#{conf_dir}/haproxy.conf"
-        ssl_dir = "#{root_dir}/pki/puppet"
+        pki_dir = "#{root_dir}/pki"
+        puppet_pki_dir = "#{pki_dir}/puppet"
+
         
         service_name = newconf[:service_name]
         run_dir = "/run/#{service_name}"
@@ -35,13 +37,26 @@ Puppet::Type.type(:cfdb_haproxy).provide(
         cfdb_settings = settings_tune.fetch('cfdb', {})
         
         frontend_index = Puppet::Type.type(:cfdb_haproxy_frontend).provider(:cfdb).get_config_index
-        frontends = cf_system().config.get_new(frontend_index)
-        backends = {}
+        frontends = cf_system().config.get_new(frontend_index) || {}
+        endpoint_index = Puppet::Type.type(:cfdb_haproxy_endpoint).provider(:cfdb).get_config_index
+        endpoints = cf_system().config.get_new(endpoint_index) || {}
 
         inter = cfdb_settings.fetch('inter', '1000ms')
         fastinter = cfdb_settings.fetch('fastinter', '500ms')
 
         open_files = 100
+        
+        # Prepare server PKI
+        #---
+        # NOTE: even though HAProxy support directory in crt paramter, it's not too safe
+        local_pem = [
+            File.read("#{puppet_pki_dir}/local.crt"),
+            File.read("#{puppet_pki_dir}/local.key"),
+            File.read("#{pki_dir}/dh.pem"),
+        ].join
+        cert_file = "#{pki_dir}/haproxy.pem"
+        cf_system.atomicWrite(cert_file, local_pem, {:user => user})
+        
         # HAProxy config
         #==================================================
         conf = {
@@ -55,12 +70,13 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 'ssl-server-verify' => 'required',
                 'ssl-default-server-options' => [
                     # not working here
-                    #"ca-file #{ssl_dir}/ca.crt",
-                    #"crl-file #{ssl_dir}/crl.crt",
+                    #"ca-file #{puppet_pki_dir}/ca.crt",
+                    #"crl-file #{puppet_pki_dir}/crl.crt",
                     'no-sslv3',
                     #'verify required',
                 ].join(' '),
                 'spread-checks' => 5,
+                'tune.ssl.default-dh-param' => 2048,
                 "# unfortunately, haproxy misbehaves with external-check & epoll :(" => '',
                 "# reported as issue about CLOEXEC with patch provided" => '',
                 'noepoll' => '',
@@ -85,7 +101,12 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 'option clitcpka' => '',
             },
         }
+            
+        conf_listeners = {}
+        conf_backends = {}
+        conf_frontends = {}
         
+        # Connections to DB servers
         #---
         frontends.each do |title, finfo|
             type = finfo[:type]
@@ -100,10 +121,11 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             backend_name = "#{type}:#{cluster}"
             backend_name += ":lb" if distribute_load
             backend_name += ":secure" if is_secure
+
+            backend_conf_index = "backend #{backend_name}"
                        
-                       
-            if conf.has_key? "backend #{backend_name}"
-                backend_conf = conf["backend #{backend_name}"]
+            if conf_backends.has_key? backend_conf_index
+                backend_conf = conf_backends[backend_conf_index]
             else
                 backend_conf = {
                     'mode' => 'tcp',
@@ -119,7 +141,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 
                 backend_conf['external-check command'] = "#{bin_dir}/check_#{cluster}"
 
-                conf["backend #{backend_name}"] = backend_conf
+                conf_backends[backend_conf_index] = backend_conf
             end
             
             # do not sort in place
@@ -165,8 +187,9 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 if secure_server
                     server_config << 'weight 10'
                     server_config << 'ssl'
-                    server_config << "ca-file #{ssl_dir}/ca.crt"
-                    server_config << "crl-file #{ssl_dir}/crl.crt"
+                    server_config << "ca-file #{puppet_pki_dir}/ca.crt"
+                    server_config << "crl-file #{puppet_pki_dir}/crl.crt"
+                    server_config << "crt #{cert_file}"
                     server_config << 'no-sslv3'
                     server_config << 'verify required'
                     server_config << "verifyhost #{host}"
@@ -186,21 +209,22 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 check_listen = "listen #{server_id}:check"
                 conn_per_check = 2
                 
-                if conf.has_key? check_listen
-                    conf[check_listen]['maxconn'] += conn_per_check
+                if conf_listeners.has_key? check_listen
+                    conf_listeners[check_listen]['maxconn'] += conn_per_check
                 else
                     check_server_config = ["#{ip}:#{port}"]
 
                     if secure_server
                         check_server_config << 'ssl'
-                        check_server_config << "ca-file #{ssl_dir}/ca.crt"
-                        check_server_config << "crl-file #{ssl_dir}/crl.crt"
+                        check_server_config << "ca-file #{puppet_pki_dir}/ca.crt"
+                        check_server_config << "crl-file #{puppet_pki_dir}/crl.crt"
+                        check_server_config << "crt #{cert_file}"
                         check_server_config << 'no-sslv3'
                         check_server_config << 'verify required'
                         check_server_config << "verifyhost #{host}"
                     end
 
-                    conf[check_listen] = {
+                    conf_listeners[check_listen] = {
                         'mode' => 'tcp',
                         #'option tcplog' => '',
                         #'log global' => '',
@@ -214,7 +238,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 open_files += conn_per_check * 2
             end
                        
-            conf["frontend #{title}"] = {
+            conf_frontends["frontend #{title}"] = {
                 'mode' => 'tcp',
                 #'option tcplog' => '',
                 #'log global' => '',
@@ -225,6 +249,67 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             }
                        
             open_files += max_connections * 2
+        end
+        
+        # Endpoints for secure connections
+        #---
+        endpoints.each do |title, finfo|
+            type = finfo[:type]
+            cluster = finfo[:cluster]
+            cluster_service_name = finfo[:service_name]
+            listen = finfo[:listen]
+            sec_port = finfo[:sec_port]
+            max_connections = finfo[:max_connections]
+                       
+            endpoint_name = "listen #{type}:#{cluster}:secure_endpoint"
+            
+            if conf_listeners.has_key? endpoint_name
+                endpoint_conf = conf_listeners[endpoint_name]
+            else
+                socket = "/run/#{cluster_service_name}/"
+                
+                if type == 'postgresql'
+                    server_port = (sec_port - PuppetX::CfDb::SECURE_PORT_OFFSET)
+                    socket += ".s.PGSQL.#{server_port}"
+                else
+                    socket += 'service.sock'
+                end
+                
+                bind_config = ["#{listen}:#{sec_port}"]
+                bind_config << 'ssl'
+                bind_config << "ca-file #{puppet_pki_dir}/ca.crt"
+                bind_config << "crl-file #{puppet_pki_dir}/crl.crt"
+                bind_config << "crt #{cert_file}"
+                bind_config << 'no-sslv3'
+                bind_config << 'verify required'
+
+                endpoint_conf = {
+                    'mode' => 'tcp',
+                    'retries' => 0,
+                    'maxconn' => 0,
+                    'bind' => bind_config.join(' '),
+                    'server' => "#{type}_#{cluster}_unix unix@#{socket}",
+                }
+
+                conf_listeners[endpoint_name] = endpoint_conf
+            end
+            
+            endpoint_conf['maxconn'] += max_connections
+            endpoint_conf['backlog'] = cf_system.fitRange(endpoint_conf['maxconn'], 4096, endpoint_conf['maxconn'])
+            
+            
+            open_files += max_connections * 2
+        end
+        
+        #---
+        conf['global']['maxconn'] = open_files
+        
+        # stable sort of content
+        #---
+        [conf_listeners, conf_backends, conf_frontends].each do |subconf|
+            subconf.keys.sort.each do |k|
+                conf[k] = subconf[k]
+            end
         end
         
         

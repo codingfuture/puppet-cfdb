@@ -145,6 +145,14 @@ define cfdb::access(
                 dst  => $addr,
                 user => $local_user,
             })
+            
+            cfdb::require_endpoint{ "${resource_title}:${host}":
+                cluster => $cluster,
+                host    => $host,
+                source  => $::trusted['certname'],
+                maxconn => $max_connections,
+                secure  => false,
+            }
         }
         
         $type = $cluster_fact['type']

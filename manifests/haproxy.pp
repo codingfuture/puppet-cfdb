@@ -6,14 +6,15 @@ class cfdb::haproxy(
     $io_weight = 100,
     $settings_tune = {},
 ) {
+    assert_private()
     include cfdb
 
     if !defined(Package['haproxy']) {
         # make sure to use backports version
         if $::facts['lsbdistcodename'] == 'jessie' {
             apt::pin { 'haproxy':
-                release  => 'jessie-backports',
-                packages => ['haproxy'],
+                codename => 'jessie-backports',
+                packages => 'haproxy',
                 priority => $cfsystem::apt_pin + 1,
             }
         }
@@ -30,6 +31,8 @@ class cfdb::haproxy(
     $user = $service_name
     $root_dir = "${cfdb::root_dir}/${user}"
     $bin_dir = "${root_dir}/bin"
+    $dh_params = "${root_dir}/pki/dh.pem"
+    $openssl = '/usr/bin/openssl'
     
     group { $user:
         ensure => present,
@@ -50,9 +53,13 @@ class cfdb::haproxy(
         group  => $user,
         mode   => '0750',
     } ->
-    cfsystem::puppetpki { $user:
-        copy_key => false,
+    cfsystem::puppetpki { $user: } ->
+    # TODO: implement generic cfpki module
+    exec { "cfhaproxy_dhparam":
+        command => "${openssl} dhparam -out ${dh_params} 2048",
+        creates => $dh_params,
     }
+    
     
     cfsystem_memory_weight { $service_name:
         ensure => present,
@@ -72,6 +79,8 @@ class cfdb::haproxy(
         require       => [
             File[$root_dir],
             User[$user],
+            Cfsystem::Puppetpki[$user],
+            Exec["cfhaproxy_dhparam"],
         ],
     } ->
     service { $service_name:

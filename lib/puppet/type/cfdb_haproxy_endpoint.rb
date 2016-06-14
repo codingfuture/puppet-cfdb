@@ -27,6 +27,20 @@ Puppet::Type.newtype(:cfdb_haproxy_endpoint) do
     newparam(:name) do
         isnamevar
     end
+    
+    newproperty(:listen) do
+    end
+    
+    newproperty(:sec_port) do
+    end
+
+    newproperty(:service_name) do
+        validate do |value|
+            unless value =~ /^[a-z0-9_@-]+$/i
+                raise ArgumentError, "%s is not a valid service name" % value
+            end
+        end
+    end
 
     newproperty(:type) do
         validate do |value|
@@ -35,6 +49,7 @@ Puppet::Type.newtype(:cfdb_haproxy_endpoint) do
             end
         end
     end
+
     newproperty(:cluster) do
         validate do |value|
             unless value =~ /^[a-zA-Z_][a-zA-Z0-9_-]*$/

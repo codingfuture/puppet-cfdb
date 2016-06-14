@@ -11,6 +11,8 @@
     * repmgr for PostgreSQL
 * High Availability and fail-over out-of-the-box
     * Specialized HAProxy on each client system
+* Support for secure TLS tunnel with mutual authentication for
+    database connections
 * Automatic creation of databases
 * Automatic upgrade of databases after DB software upgrade
 * Complete management of user accounts (roles)
@@ -524,6 +526,23 @@ If `$cfdb::instance::backup` is true then `bin/cfdb_backup_auto` symlink is crea
 The symlinks are automatically called in sequence during system-wide cron-based backup
 to **minimize stress on system**.
 
+# TLS tunnel based on HAProxy
+
+As database services do not support a dedicated TLS-only port and generally do not well
+offload TLS processing overhead the actual implentation is based on HAProxy utilizing
+Puppet PKI for mutual authentication of both peers. There are no changes required
+to client application - they open local UNIX socket.
+
+TLS tunnel is created in the following cases:
+* `use_proxy = 'secure'` - unconditionally created
+* `use_proxy = 'auto'` - if specific database node `cf_location` mismatch client's
+    `cf_location`
+
+TLS tunnel is NOT created in the following cases:
+* `use_proxy = 'insecure'` - HAProxy is used, but without any TLS security. This parameter
+    is useful, if there is lower level secure VPN tunnel is available.
+* `use_proxy = false` - HAProxy is not used
+
 # Other commands & configurations
 
 * `/opt/codingfuture/bin/cfdb_backup_all` is installed and used in periodic cron
@@ -532,6 +551,7 @@ to **minimize stress on system**.
 ## MySQL
 
 * `~/.my.cnf` is properly configured for `mysql` client to work without parameters.
+* `~/bin/cfdb_mysql` is installed to properly invoke mysql
 * `~/bin/cfdb_sysbench` is installed for easy sysbench invocation
 
 ## PostgreSQL
@@ -541,6 +561,9 @@ to **minimize stress on system**.
 * `~/.pgpass` is properly configured for superuser and repmgr
 * `~/.pg_service.conf` is properly configured to be used with `~/bin/cfdb_psql`
 
+## HAProxy
+
+* `~/bin/cfdb_hatop` is installed to properly invoke hatop
 
 
 # `$settings_tune` magic

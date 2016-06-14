@@ -68,7 +68,7 @@ define cfdb::haproxy::frontend(
             }
             
             # it does not really work with database protocols :(
-            $secure_host = (!$force_insecure and ($cf_location != $cfdb_facts['cf_location']))
+            $secure_host = $force_secure or (!$force_insecure and ($cf_location != $cfdb_facts['cf_location']))
             
             $addr = pick($cluster_fact['host'], $host)
             $port = $cluster_fact['port']
@@ -89,6 +89,14 @@ define cfdb::haproxy::frontend(
                 dst  => $addr,
                 user => $cfdb::haproxy::user,
             })
+            
+            cfdb::require_endpoint{ "${title}:${host}":
+                cluster => $cluster,
+                host    => $host,
+                source  => $::trusted['certname'],
+                maxconn => $max_connections,
+                secure  => $secure_host,
+            }
             
             if $secure_host {
                 $server_name = "${host_under}_TLS_${port}"

@@ -3,6 +3,7 @@ class cfdb::backup(
     $cron = {},
     $root_dir = '/mnt/backup',
 ) {
+    assert_private()
     include cfsystem::custombin
     
     file { $root_dir:

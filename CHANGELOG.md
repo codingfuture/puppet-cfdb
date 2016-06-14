@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.9.4]
 - Fixed to support single server access for multiple local users without HAProxy involved
 - Added HAProxy `inter` & `fastinter` tune support
+- Implemented HAProxy-based secure TLS tunnel for database connection on demand
+- Added a workaround for PostgreSQL stats UDP socket
 
 ## [0.9.3]
 - Major refactoring to support provider mixins per database type

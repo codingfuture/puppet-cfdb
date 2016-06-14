@@ -5,6 +5,8 @@ class cfdb::postgresql (
     $extensions = [],
     $apt_repo = 'http://apt.postgresql.org/pub/repos/apt/',
 ) {
+    assert_private()
+    
     include stdlib
     include cfdb
     

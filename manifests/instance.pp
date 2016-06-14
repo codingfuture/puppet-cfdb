@@ -212,10 +212,9 @@ define cfdb::instance (
                     }
                     
                     if $type == 'mysql' {
-                        # TODO: wrap into some functions
-                        $galera_port = $peer_port + 100
-                        $sst_port = $peer_port + 200
-                        $ist_port = $peer_port + 300
+                        $galera_port = cfdb_derived_port($peer_port, 'galera')
+                        $sst_port = cfdb_derived_port($peer_port, 'galera_sst')
+                        $ist_port = cfdb_derived_port($peer_port, 'galera_ist')
                     
                         cfnetwork::describe_service { "cfdb_${cluster}_peer_${host_under}":
                             server => "tcp/${peer_port}",
@@ -276,10 +275,9 @@ define cfdb::instance (
         }
         
         if $type == 'mysql' {
-            # TODO: wrap into some functions
-            $galera_port = $port + 100
-            $sst_port = $port + 200
-            $ist_port = $port + 300
+            $galera_port = cfdb_derived_port($port, 'galera')
+            $sst_port = cfdb_derived_port($port, 'galera_sst')
+            $ist_port = cfdb_derived_port($port, 'galera_ist')
             
             cfnetwork::describe_service { "cfdb_${cluster}_peer":
                 server => "tcp/${port}",
@@ -321,6 +319,17 @@ define cfdb::instance (
                     src => $peer_addr_list,
                 }
             }
+            
+            # a workaround for ignorant PostgreSQL devs
+            #---
+            ensure_resource( 'cfnetwork::describe_service', 'postgres_stats', {
+                server => 'udp/1:65535'
+            })
+            cfnetwork::service_port { "local:postgres_stats:${cluster}": }
+            cfnetwork::client_port { "local:postgres_stats:${cluster}":
+                user => $user,
+            }
+            #---
         }
         
         if $ssh_access {
@@ -492,15 +501,19 @@ define cfdb::instance (
         }
     }
     
-    # Open firewall for clients on secondary nodes
+    # Open firewall for clients and/or add optional haproxy endpoint
     #---
     if $access {
-        $allowed_hosts = keys($access)
         $fact_port = pick_default($port, try_get_value($::facts, "cf_persistent/ports/${cluster}"))
         
         if $fact_port and ($fact_port != '') {
+            $sec_port = cfdb_derived_port($fact_port, 'secure')
+            
             ensure_resource('cfnetwork::describe_service', "cfdb_${cluster}", {
                 server => "tcp/${fact_port}",
+            })
+            ensure_resource('cfnetwork::describe_service', "cfdbsec_${cluster}", {
+                server => "tcp/${sec_port}",
             })
             
             cfnetwork::service_port { "local:cfdb_${cluster}": }
@@ -508,9 +521,59 @@ define cfdb::instance (
                 user => $user,
             }
             
+            $required_endpoints = query_resources(
+                false,
+                ['and',
+                    ['=', 'type', 'Cfdb::Require_endpoint'],
+                    ['=', ['parameter', 'host'], $::trusted['certname']],
+                ],
+                false,
+            )
+            
+            $allowed_hosts = unique($required_endpoints.reduce([]) |$memo, $v| {
+                $params = $v['parameters']
+
+                if $params['secure'] {
+                    $memo
+                } else {
+                    $memo + [$params['source']]
+                }
+            })
+            
+            $sec_allowed_hosts = $required_endpoints.reduce({}) |$memo, $v| {
+                $params = $v['parameters']
+
+                if $params['secure'] {
+                    $source = $params['source']
+                    merge($memo, {
+                        $source => $params['maxconn'] + pick($memo[$source], 0)
+                    })
+                } else {
+                    $memo
+                }
+            }
+            
             if size($allowed_hosts) > 0 {
                 cfnetwork::service_port { "${iface}:cfdb_${cluster}":
                     src => $allowed_hosts.sort(),
+                }
+            }
+            if size($sec_allowed_hosts) > 0 {
+                cfnetwork::service_port { "${iface}:cfdbsec_${cluster}":
+                    src => keys($sec_allowed_hosts).sort(),
+                }
+                $maxconn = $sec_allowed_hosts.reduce(0) |$memo, $kv| {
+                    $memo + $kv[1]
+                }
+                include cfdb::haproxy
+                cfdb_haproxy_endpoint { "${cluster}":
+                    ensure          => present,
+                    listen          => $listen,
+                    sec_port        => $sec_port,
+                    service_name    => $service_name,
+                    type            => $type,
+                    cluster         => $cluster,
+                    max_connections => $maxconn,
                 }
             }
         }
