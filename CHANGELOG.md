@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.9.4]
 - Fixed to support single server access for multiple local users without HAProxy involved
+- Added HAProxy `inter` & `fastinter` tune support
 
 ## [0.9.3]
 - Major refactoring to support provider mixins per database type

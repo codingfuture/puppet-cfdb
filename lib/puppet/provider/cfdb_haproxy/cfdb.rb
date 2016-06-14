@@ -32,10 +32,14 @@ Puppet::Type.type(:cfdb_haproxy).provide(
         run_dir = "/run/#{service_name}"
         user = service_name
         settings_tune = newconf[:settings_tune]
+        cfdb_settings = settings_tune.fetch('cfdb', {})
         
         frontend_index = Puppet::Type.type(:cfdb_haproxy_frontend).provider(:cfdb).get_config_index
         frontends = cf_system().config.get_new(frontend_index)
         backends = {}
+
+        inter = cfdb_settings.fetch('inter', '1000ms')
+        fastinter = cfdb_settings.fetch('fastinter', '500ms')
 
         open_files = 100
         # HAProxy config
@@ -57,7 +61,8 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     #'verify required',
                 ].join(' '),
                 'spread-checks' => 5,
-                '# unfortunately, haproxy misbehaves with UNIX socket & epoll :(' => '',
+                "# unfortunately, haproxy misbehaves with external-check & epoll :(" => '',
+                "# reported as issue about CLOEXEC with patch provided" => '',
                 'noepoll' => '',
                 '# as we work with unix sockets, there is no point in splice() :(' => '',
                 'nosplice' => '',
@@ -67,7 +72,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 'timeout connect' => '5s',
                 'timeout client' => '10m',
                 'timeout server' => '10m',
-                'timeout check' => '2s',
+                'timeout check' => fastinter,
                 'option abortonclose' => '',
                 'option dontlog-normal' => '',
                 'option dontlognull' => '',
@@ -155,7 +160,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 secure_server = (is_secure or sinfo['secure'])
                 port += PuppetX::CfDb::SECURE_PORT_OFFSET if secure_server
 
-                server_config = ["#{ip}:#{port} check fall 2 rise 1 inter 1000ms fastinter 500ms"]
+                server_config = ["#{ip}:#{port} check fall 2 rise 1 inter #{inter} fastinter #{fastinter}"]
                 
                 if secure_server
                     server_config << 'weight 10'
@@ -225,6 +230,8 @@ Puppet::Type.type(:cfdb_haproxy).provide(
         
         #---
         settings_tune.each do |k, v|
+            next if k == 'cfdb'
+
             if v.nil?
                 conf.delete k if conf.has_key? k
             else

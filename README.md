@@ -605,3 +605,7 @@ However, there is also a special "cfdb" section:
     * Nil value is interpreted as "delete section"
 3. Due to quite messy HAProxy configuration, you should check `lib/puppet/provider/cfdb_haproxy/cfdbb.rb`
     for how to properly overrides entires (some of them include space, like "timeout client")
+
+However, there is also a special "cfdb" section:
+* `inter = '1000ms'` default for `server inter`
+* `fastinter = '500ms'` default for `server fastinter` - it also serves for `timeout checks`
