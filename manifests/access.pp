@@ -11,6 +11,14 @@ define cfdb::access(
     $custom_config = undef,
 ) {
     include cfnetwork
+    include cfsystem::custombin
+    #---
+    $access_checker = "${cfsystem::custombin::bin_dir}/cfdb_access_checker"
+    ensure_resource('file', $access_checker, {
+        mode   => '0555',
+        source => 'puppet:///modules/cfdb/cfdb_access_checker.py',
+    })
+    
     #---
     $resource_title = "${cluster}:${role}:${local_user}"
     
@@ -49,6 +57,7 @@ define cfdb::access(
                 'socket' => '',
                 'user' => $role,
                 'pass' => 'INVALID_PASSWORD',
+                'db'   => '',
                 'type' => 'UNKNOWN',
             }
         } else {
@@ -65,21 +74,21 @@ define cfdb::access(
         $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
         $role_fact = $cluster_fact['roles'][$role]
         $type = $cluster_fact['type']
+        $fake_port = 1234
         
         case $type {
             'postgresql' : {
-                $fake_port = 1234
-                $cfg_socket = "/var/tmp/${type}_${cluster}_${role}_${local_user}"
+                $cfg_socket = "/var/lib/${type}_${cluster}_${role}_${local_user}"
                 $socket = "${cfg_socket}/.s.PGSQL.${fake_port}"
                 
+                # HAProxy creates socket in this folder
                 file { $cfg_socket:
                     ensure => directory,
-                    mode   => '0775',
+                    mode   => '0755',
                     notify => Cfdb::Haproxy::Frontend[$resource_title],
                 }
             }
             default: {
-                $fake_port = ''
                 $socket = "/run/cfhaproxy/${type}_${cluster}_${role}_${local_user}.sock"
                 $cfg_socket = $socket
             }
@@ -210,7 +219,13 @@ define cfdb::access(
         local_user      => $local_user,
         max_connections => $max_connections,
         client_host     => $client_host,
-        config_vars     => $cfg_all,
+        config_info     => {
+            'dotenv' => $env_file,
+            'prefix' => $config_prefix,
+        },
+        require         => [
+            File[$access_checker],
+        ],
     }
 
     #---

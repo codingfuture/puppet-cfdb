@@ -8,8 +8,6 @@ Puppet::Type.type(:cfdb_access).provide(
 ) do
     desc "Provider for cfdb_access"
     
-    mixin_dbtypes('access')
-    
     commands :sudo => '/usr/bin/sudo'
     CFDB_HEALTH_CHECK = 'cfdbhealth'
     
@@ -26,9 +24,14 @@ Puppet::Type.type(:cfdb_access).provide(
         begin
             return true if params[:role] == CFDB_HEALTH_CHECK
             
-            config_vars = params[:config_vars]
-            db_type = config_vars['type']
-            self.send("check_#{db_type}", params[:local_user], config_vars)
+            config_info = params[:config_info]
+            
+            sudo(PuppetX::CfDb::ACCESS_CHECK_TOOL,
+                params[:local_user],
+                config_info['dotenv'],
+                config_info['prefix']
+            )
+        
         rescue => e
             warning(e)
             #warning(e.backtrace)
@@ -42,9 +45,13 @@ Puppet::Type.type(:cfdb_access).provide(
             begin
                 next if conf[:role] == CFDB_HEALTH_CHECK
                 
-                config_vars = conf[:config_vars]
-                db_type = config_vars['type']
-                self.send("check_#{db_type}", conf[:local_user], config_vars)
+                config_info = conf[:config_info]
+                
+                sudo(PuppetX::CfDb::ACCESS_CHECK_TOOL,
+                    conf[:local_user],
+                    config_info['dotenv'],
+                    config_info['prefix']
+                )
             rescue => e
                 warning(e)
                 #warning(e.backtrace)

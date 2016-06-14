@@ -547,6 +547,9 @@ TLS tunnel is NOT created in the following cases:
 
 * `/opt/codingfuture/bin/cfdb_backup_all` is installed and used in periodic cron
     for sequential instance backup with minimized stress on the system.
+* `/opt/codingfuture/bin/cfdb_access_checker <user> <dotenv> <prefix>` is a generic
+    tool to verify each configured access is working. It is used on every Puppet
+    provisioning run for every `cfdb::access` defined.
 
 ## MySQL
 

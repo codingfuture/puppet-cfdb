@@ -51,12 +51,16 @@ conn_params={
     'password': '<%= $password %>',
     'host': pgsock_dir,
     'port': pgport,
-    'connect_timeout': 1,
+    'connect_timeout': 2,
 }
 
 exit_code = 1
 
-conn = psycopg2.connect(**conn_params)
+try:
+    conn = psycopg2.connect(**conn_params)
+except:
+    conn = psycopg2.connect(**conn_params)
+
 curs = conn.cursor()
 if is_load_balance:
     curs.execute('SELECT pg_is_in_recovery();')

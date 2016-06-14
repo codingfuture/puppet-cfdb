@@ -151,7 +151,7 @@ define cfdb::haproxy::frontend(
             local_user      => undef,
             max_connections => 2,
             client_host     => $client_host,
-            config_vars     => {},
+            config_info     => {},
         }
         
         

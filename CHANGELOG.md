@@ -8,6 +8,8 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Added HAProxy `inter` & `fastinter` tune support
 - Implemented HAProxy-based secure TLS tunnel for database connection on demand
 - Added a workaround for PostgreSQL stats UDP socket
+- Added generic /opt/codingfuture/bin/cfdb_access_checker and fixed not to pass access
+    password in command line during deployment auto-checks
 
 ## [0.9.3]
 - Major refactoring to support provider mixins per database type

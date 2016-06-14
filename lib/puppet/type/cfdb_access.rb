@@ -52,7 +52,7 @@ Puppet::Type.newtype(:cfdb_access) do
     newproperty(:client_host) do
     end
     
-    newproperty(:config_vars) do
+    newproperty(:config_info) do
         validate do |value|
             value.is_a? Hash
         end
