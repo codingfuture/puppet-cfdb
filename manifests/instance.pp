@@ -322,11 +322,8 @@ define cfdb::instance (
             
             # a workaround for ignorant PostgreSQL devs
             #---
-            ensure_resource( 'cfnetwork::describe_service', 'postgres_stats', {
-                server => 'udp/1:65535'
-            })
-            cfnetwork::service_port { "local:postgres_stats:${cluster}": }
-            cfnetwork::client_port { "local:postgres_stats:${cluster}":
+            cfnetwork::service_port { "local:alludp:${cluster}-stats": }
+            cfnetwork::client_port { "local:alludp:${cluster}-stats":
                 user => $user,
             }
             #---

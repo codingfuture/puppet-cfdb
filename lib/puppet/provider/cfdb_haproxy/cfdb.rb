@@ -180,7 +180,6 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 end
                 
                 secure_server = (is_secure or sinfo['secure'])
-                port += PuppetX::CfDb::SECURE_PORT_OFFSET if secure_server
 
                 server_config = ["#{ip}:#{port} check fall 2 rise 1 inter #{inter} fastinter #{fastinter}"]
                 

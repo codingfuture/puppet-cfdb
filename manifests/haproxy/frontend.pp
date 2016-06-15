@@ -71,7 +71,12 @@ define cfdb::haproxy::frontend(
             $secure_host = $force_secure or (!$force_insecure and ($cf_location != $cfdb_facts['cf_location']))
             
             $addr = pick($cluster_fact['host'], $host)
-            $port = $cluster_fact['port']
+            
+            if $secure_host {
+                $port = cfdb_derived_port($cluster_fact['port'], 'secure')
+            } else {
+                $port = $cluster_fact['port']
+            }
 
             if !$addr or !$port {
                 fail("Invalid host/port for ${host}: ${cluster_fact}")
