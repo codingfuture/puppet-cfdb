@@ -3,14 +3,8 @@
 require File.expand_path( '../../../../puppet_x/cf_db', __FILE__ )
 
 module Puppet::Parser::Functions
-    newfunction(:cfdb_derived_port,  :type => :rvalue) do |args|
-        raise(Puppet::ParseError,
-            "cfdb_derived_port(base_port, derived_type): Wrong number of arguments " +
-            "given (#{arguments.size} for 1)") if args.size != 2
-
-        
-        base_port = args[0]
-        derived_type = args[1]
+    newfunction(:cfdb_derived_port,  :type => :rvalue, :arity => 2) do |args|
+        base_port, derived_type = args
         
         return case derived_type
         when 'secure'
