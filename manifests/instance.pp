@@ -523,13 +523,16 @@ define cfdb::instance (
             
             $required_endpoints = query_resources(
                 false,
-                ['and',
-                    ['=', 'type', 'Cfdb::Require_endpoint'],
-                    ['=', ['parameter', 'host'], $::trusted['certname']],
+                ['extract', ['certname', 'parameters'],
+                    ['and',
+                        ['=', 'type', 'Cfdb::Require_endpoint'],
+                        ['=', ['parameter', 'host'], $::trusted['certname']],
+                        ['=', ['parameter', 'cluster'], $cluster],
+                    ],
                 ],
                 false,
             )
-            
+
             $allowed_hosts = unique($required_endpoints.reduce([]) |$memo, $v| {
                 $params = $v['parameters']
 
