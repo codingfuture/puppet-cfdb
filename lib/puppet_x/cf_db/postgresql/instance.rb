@@ -653,6 +653,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             warning('> running initdb')
             FileUtils.touch(unclean_state_file)
             #--
+            do_migrate = true
 
             if init_db_from and !init_db_from.empty?
                 old_version, init_data = init_db_from.split(':')
@@ -698,7 +699,9 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 )
             end
 
-            if not File.exists? data_dir
+            if File.exists? data_dir
+                do_migrate = false
+            else
                 sudo('-H', '-u', user,
                     "#{pg_bin_dir}/initdb",
                     '--locale', cfdb_settings.fetch('locale', 'en_US.UTF-8'),
@@ -707,7 +710,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     '-U', superuser)
             end
             
-            if File.exists?(active_version_file)
+            if File.exists?(active_version_file) and do_migrate
                 warning('> migrating old data')
                 old_version = File.read(active_version_file).strip()
                 old_data = "#{root_data_dir}/#{old_version}"

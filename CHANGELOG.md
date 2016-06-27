@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.9.6]
+- Fixed to support init_db_from the same PostgreSQL version
+
 ## [0.9.5]
 - Changed `cfhaproxy` to `cfdbhaproxy` service name
 - Changed internal format of secrets storage
@@ -46,6 +49,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 Initial release
 
+[0.9.6]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.6
 [0.9.5]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.5
 [0.9.4]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.4
 [0.9.3]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.3
