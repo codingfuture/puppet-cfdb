@@ -117,6 +117,10 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             is_secure = finfo[:is_secure]
             distribute_load = finfo[:distribute_load]
             cluster_addr = finfo[:cluster_addr]
+            
+            use_unix_socket = finfo[:use_unix_socket]
+            local_port = finfo[:local_port]
+            cf_system.genPort("cfha/#{title}", local_port)
                        
             backend_name = "#{type}:#{cluster}"
             backend_name += ":lb" if distribute_load
@@ -179,7 +183,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 rescue
                 end
                 
-                secure_server = (is_secure or sinfo['secure'])
+                secure_server = sinfo['secure']
 
                 server_config = ["#{ip}:#{port} check fall 2 rise 1 inter #{inter} fastinter #{fastinter}"]
                 
@@ -236,12 +240,20 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 
                 open_files += conn_per_check * 2
             end
+            
+                        
+            if use_unix_socket
+                bind = "unix@#{socket} user #{access_user} group #{access_user} mode 660"
+            else
+                bind = "127.0.0.1:#{local_port}"
+            end
+
                        
             conf_frontends["frontend #{title}"] = {
                 'mode' => 'tcp',
                 #'option tcplog' => '',
                 #'log global' => '',
-                'bind' => "unix@#{socket} user #{access_user} group #{access_user} mode 660",
+                'bind' => bind,
                 'backlog' => cf_system.fitRange(max_connections, 4096, max_connections),
                 'maxconn' => max_connections,
                 'default_backend' => backend_name,
@@ -344,7 +356,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             },
             'Service' => {
                 'LimitNOFILE' => cf_system.fitRange(64*1024, open_files),
-                'ExecStart' => "#{HAPROXY_SYSTEMD} -f #{conf_file} -p #{run_dir}/cfhaproxy.pid",
+                'ExecStart' => "#{HAPROXY_SYSTEMD} -f #{conf_file} -p #{run_dir}/haproxy.pid",
                 'ExecReload' => '/bin/kill -USR2 $MAINPID',
                 'WorkingDirectory' => root_dir,
             },
@@ -356,7 +368,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             :content_ini => content_ini,
             :cpu_weight => newconf[:cpu_weight],
             :io_weight => newconf[:io_weight],
-            :mem_limit => mem_limit = cf_system.getMemory(service_name),
+            :mem_limit => cf_system.getMemory(service_name),
             :mem_lock => true,
         })
         

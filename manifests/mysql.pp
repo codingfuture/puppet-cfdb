@@ -5,7 +5,7 @@ class cfdb::mysql (
     $version = '5.7',
     $cluster_version = '5.6',
 ) {
-    assert_private()
+    #assert_private()
     
     include stdlib
     include cfdb

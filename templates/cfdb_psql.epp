@@ -11,4 +11,4 @@ if test "$(/usr/bin/id -u)" = 0; then
 fi
 
 cd $HOME
-/usr/bin/psql "service=<%= $service_name %>" "$@"
+/usr/bin/psql -U postgres "$@"

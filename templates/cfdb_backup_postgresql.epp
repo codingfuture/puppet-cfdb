@@ -12,7 +12,7 @@ base_date=<%= $base_date %>
 
 # Make sure to run under instance user
 if test "$(/usr/bin/id -u)" = 0; then
-    exec /usr/bin/sudo -u <%= $user %> $0 "$@"
+    exec /usr/bin/sudo -H -u <%= $user %> $0 "$@"
     # should not reach here
     exit -1
 fi
@@ -40,7 +40,7 @@ if test ! -e $base_stamp_file; then
         -A "${backup_root_dir}" \
         -D "${data_dir}" \
         -z \
-        -h $host -p $port -U $user \
+        -h $host -p $port -U postgres \
         rsyncbackup
     /bin/mkdir -p $stamp_dir
     /bin/rm -f $stamp_dir/*.stamp
@@ -50,7 +50,7 @@ else
         -A "${backup_root_dir}" \
         -D "${data_dir}" \
         -z \
-        -h $host -p $port -U $user \
+        -h $host -p $port -U postgres \
         currentbackup
 fi
 

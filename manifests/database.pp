@@ -2,12 +2,14 @@
 define cfdb::database (
     $cluster,
     $database,
-    $roles = undef
+    $roles = undef,
+    $ext = [],
 ) {
     cfdb_database { $title:
         ensure   => present,
         cluster  => $cluster,
         database => $database,
+        ext      => $ext,
     }
     
     cfdb::role { $title:
@@ -27,9 +29,6 @@ define cfdb::database (
                                 cluster => $cluster,
                                 database => $database,
                                 subname => $subname,
-                                require => [
-                                    Cfdb_instance[$cluster],
-                                ]
                             }
                         )
                     }

@@ -30,9 +30,9 @@ Puppet::Type.type(:cfdb_role).provide(
     end
     
     def flush
+        title = "cfdb/#{@resource[:cluster]}@#{@resource[:user]}"
+        cf_system.genSecret(title, -1, @resource[:password])
         super
-        title = "#{@resource[:cluster]}@#{@resource[:database]}"
-        cf_system().config.get_persistent('cfdb_passwd')[title] = @resource[:password]
     end
     
     def self.check_exists(params)
@@ -95,7 +95,7 @@ Puppet::Type.type(:cfdb_role).provide(
                 self.send("create_#{db_type}", cluster_user, conf, root_dir)
             rescue => e
                 # force recreate
-                conf[:password] = nil
+                conf[:custom_grant] = 'NEED RECONF'
                 
                 warning(e)
                 #warning(e.backtrace)

@@ -20,13 +20,16 @@
     * full & read-only database roles
     * custom grants support
     * ensures max connections meet
+    * PostgreSQL extension support
 * Easy access configuration
     * automatic firewall setup on both client & server side
     * automatic protection for roles x incoming hosts
     * automatic protection for roles x max connections
 * Automatic backup and automated restore
 * Strict cgroup-based resource isolation on top of `systemd` integration
-* Atutomatic DB connection availability checks
+* Automatic DB connection availability checks
+* Automatic cluster state checks
+* Support easy migration from default data dirs (see `init_db_from`).
 
 ### Terminology & Concept
 
@@ -442,7 +445,7 @@ This class is included automatically on demand.
     * Default list: *'asn1oid', 'debversion', 'ip4r', 'partman', 'pgespresso', 'pgextwlist', 'pgmp',
             'pgrouting', 'pllua', 'plproxy', 'plr', 'plv8', "postgis-${postgis_ver}", 'postgis-scripts',
             'powa', 'prefix', 'preprepare', 'repack', 'repmgr', 'contrib',
-            'plperl', 'plpython', 'pltcl'*
+            'plpython', 'pltcl'*. Note: 'plperl' is disabled as it causes troubles with packaging.
 * `$extensions = []` - custom list of extensions to install
 * `$apt_repo = 'http://apt.postgresql.org/pub/repos/apt/'` - PostgreSQL APT repository location
 
@@ -455,7 +458,7 @@ This type defines client with specific properties for auto-configuration of inst
 * `$use_proxy = 'auto'` - do not change the default (for future use)
 * `$max_connections = $cfdb::max_connections_default` - define max number of client connections for particular case.
 * `$config_prefix = 'DB_'` - variable prefix for `.env` file. The following variables are defined:
-    * *'HOST', 'PORT', 'SOCKET', 'USER', 'PASS', 'DB', 'TYPE'*.
+    * *'HOST', 'PORT', 'SOCKET', 'USER', 'PASS', 'DB', 'TYPE', 'MAXCONN'*.
     * *'CONNINFO'* - only for PostgreSQL
 * `$env_file = '.env'` - name of dot-env file relative to $home of the user
 * `$iface = $cfdb::iface` - DB network facing interface
@@ -463,16 +466,18 @@ This type defines client with specific properties for auto-configuration of inst
     * `cluster` - related cluster name
     * `role` - related role name
     * `local_user` - related local user name
-    * `max_connections` - max connections allowed per this access
-    * `client_host` - expected host for outgoing connections
     * `config_vars` - hash of configuration variables in lower case (see above)
+* `$use_unix_socket = true` - should UNIX sockets be used as much as possible
 
 ## type `cfdb::database` parameters
 This type must be used only on primary instance of cluster.
+**Please avoid direct configuration, see $cfdb::instance::databases**
 
 * `$cluster` - unique cluster name
 * `$database` - database name
 * `$roles = undef` - configuration for `cfdb::role` resources (Hiera-friendly)
+* `$ext = []` - database-specific extensions. Genereral format "{name}" or "{name}:{version}".
+    If version is omitted then the latest one is used.
 
 
 ## type `cfdb::instance` parameters
@@ -502,6 +507,20 @@ Defines and auto-configures instances.
 *
 * `$ssh_key_type = 'ed25519'` - SSH key type for in-cluster communication
 * `$ssh_key_bits = 2048` - SSH key bits for RSA
+
+## type `cfdb::role` parameters
+Define and auto-configures roles per database in specified cluster.
+**Please avoid direct configuration, see $cfdb::database::roles**
+
+* `$cluster` - cluster name
+* `$database` - database name
+* `$password = undef` - force password instead of auto-generated
+* `$subname = ''` - role name is equal to $database. Sub-name is added to it.
+* `$readonly = false` - set read-only access, if supported by type
+* `$custom_grant = undef` - custom grant rules with `$database` and `$user` being replaced
+    by actual values.
+* `$static_access = {}` - host => maxconn pairs for static configuration with data in PuppetDB.
+    **Please avoid using it, unless really needed.**
 
 
 # Backup & restore
@@ -594,6 +613,8 @@ special keys:
 * `innodb_buffer_pool_roundto = 1GB or 128MB` - rounding of memory available for InnoDB
     pool. The default depends on actual amount of RAM available.
 * `wsrep_provider_options = {}` - overrides for some of `wsrep_provider_options` of Galera Cluster
+* `init_db_from` - "{pgver}:{orig_dara_dir}" - copies initial data from specified path
+    expecting specific PostgreSQL version and then upgrades
 
 
 
@@ -622,6 +643,7 @@ However, there is also a special "cfdb" section:
 * `node_id` - node ID for repmgr. If not set then the last digits of hostname are used as ID.
 * `upstream_node_id` - upstream node ID for repmgr. If not set then primary instance is used.
 * `locale = 'en_US.UTF-8'` - locale to use for `initdb`
+* `init_db_from` - copies initial data dir from specified path and then upgrades
 
 ## HAProxy
 

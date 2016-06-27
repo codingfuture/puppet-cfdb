@@ -41,9 +41,16 @@ module PuppetX::CfDb::MySQL::Instance
         
         if is_secondary
             root_pass = cfdb_settings['shared_secret']
-            cf_system.genSecret(cluster, ROOT_PASS_LEN, root_pass)
+            
+            if root_pass.nil? or root_pass.empty?
+                fail("Secondary instance must get non-empty shared_secret.\n" +
+                     "Something is wrong with facts.\n" +
+                     "Please try to reprovision primary instance first.")
+            end
+            
+            cf_system.genSecret("cfdb/#{cluster}", -1, root_pass)
         else
-            root_pass = cf_system.genSecret(cluster)
+            root_pass = cf_system.genSecret("cfdb/#{cluster}", ROOT_PASS_LEN)
         end
         
         data_exists = File.exists?(data_dir)
@@ -55,6 +62,7 @@ module PuppetX::CfDb::MySQL::Instance
         end
         
         secure_cluster = cfdb_settings.fetch('secure_cluster', false)
+        init_db_from = cfdb_settings.fetch('init_db_from', nil)
         
         fqdn = Facter['fqdn'].value()
         
@@ -244,10 +252,17 @@ module PuppetX::CfDb::MySQL::Instance
         
         # Make sure we have root password always set
         #---
-        setup_sql = [
-            "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('#{root_pass}');",
-            'FLUSH PRIVILEGES;',
-        ]
+        if is_56
+            setup_sql = [
+                "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('#{root_pass}');",
+                'FLUSH PRIVILEGES;',
+            ]
+        else
+            setup_sql = [
+                "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '#{root_pass}';",
+                'FLUSH PRIVILEGES;',
+            ]
+        end
         cf_system.atomicWrite(init_file, setup_sql.join("\n"), { :user => user})
         
         # Prepare conf
@@ -503,6 +518,7 @@ module PuppetX::CfDb::MySQL::Instance
                 
                 warning("JOINER arbitrator must be started manually AFTER firewall is configured on active nodes")
                 warning("Please run when safe: /bin/systemctl start #{service_name}.service")
+                systemctl('start', "#{service_name}.service")
             elsif File.exists?(restart_required_file)
                 warning("#{user} configuration update. Service restart is required!")
                 warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
@@ -553,6 +569,19 @@ module PuppetX::CfDb::MySQL::Instance
                 # need to manually initialize data_dir from master
                 raise Puppet::DevError, "MySQL slave is not supported.\nPlease use more reliable is_cluster setup."
             end
+        elsif init_db_from and !init_db_from.empty?
+            warning("> copying from #{init_db_from}")
+            FileUtils.cp_r(init_db_from, data_dir)
+            FileUtils.chown_R(user, user, data_dir)
+            
+            warning("> starting service")
+            systemctl('start', "#{service_name}.service")
+            wait_sock(service_name, sock_file)
+            
+            warning('> running mysql upgrade')
+            sudo('-H', '-u', user, MYSQL_UPGRADE, '--force')
+            cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
+            
         else
             have_initialize = sudo('-u', user, MYSQLD, '--verbose', '--help')
             have_initialize = /--initialize/.match(have_initialize)
@@ -585,6 +614,31 @@ module PuppetX::CfDb::MySQL::Instance
             
             # no need to upgrade just initialized instance
             cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
+        end
+        
+        # Check cluster is complete
+        #---
+        check_cluster_mysql(conf)
+    end
+    
+    def check_cluster_mysql(conf)
+        return true if !conf[:is_cluster] or conf[:is_arbitrator]
+        
+        begin
+            cluster_size = 1  + conf[:cluster_addr].size()
+            res = sudo('-H', '-u', conf[:user], MYSQL,
+                       '--batch', '--skip-column-names', '--wait', '-e',
+                       "SHOW STATUS LIKE 'wsrep_cluster_size';")
+            fact_cluster_size = res.split()[1].to_i
+            
+            if fact_cluster_size != cluster_size
+                cluster = conf[:cluster]
+                warning("> cluster #{cluster} is incomplete #{fact_cluster_size}/#{cluster_size}")
+            end
+        rescue => e
+            warning(e)
+            #warning(e.backtrace)
+            false
         end
     end
 end

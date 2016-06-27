@@ -44,12 +44,20 @@ module PuppetX::CfDb::PostgreSQL::Instance
         is_bootstrap = conf[:is_bootstrap]
         cfdb_settings = settings_tune.fetch('cfdb', {})
         postgresql_tune = settings_tune.fetch('postgresql', {})
+        superuser = 'postgres'
         
         if is_secondary
             root_pass = cfdb_settings['shared_secret']
-            cf_system.genSecret(cluster, ROOT_PASS_LEN, root_pass)
+
+            if root_pass.nil? or root_pass.empty?
+                fail("Secondary instance must get non-empty shared_secret.\n" +
+                     "Something is wrong with facts.\n" +
+                     "Please try to reprovision primary instance first.")
+            end
+            
+            cf_system.genSecret("cfdb/#{cluster}", -1, root_pass)
         else
-            root_pass = cf_system.genSecret(cluster)
+            root_pass = cf_system.genSecret("cfdb/#{cluster}", ROOT_PASS_LEN)
         end
         
         
@@ -67,6 +75,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         end
         
         secure_cluster = cfdb_settings.fetch('secure_cluster', false)
+        init_db_from = cfdb_settings.fetch('init_db_from', nil)
         
         port = cf_system.genPort(cluster, cfdb_settings.fetch('port', nil))
         sock_file = "#{run_dir}/.s.PGSQL.#{port}"
@@ -85,8 +94,9 @@ module PuppetX::CfDb::PostgreSQL::Instance
         max_replication_slots = 3
         have_external_conn = false
         hba_content = []
-        hba_content << ['local', 'all', user, 'ident']
+        hba_content << ['local', 'all', superuser, 'ident', 'map=tosuperuser']
         hba_content << ['local', 'all', 'all', 'md5']
+        hba_content << ['host', 'all', 'all', '127.0.0.1/8', 'md5']
         hba_host_roles = {}
         
         access_list.each do |role_id, rinfo|
@@ -260,7 +270,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         
         #==================================================
         pgpass_content = []
-        pgpass_content << "localhost:*:*:#{user}:#{root_pass}"
+        pgpass_content << "localhost:*:*:#{superuser}:#{root_pass}"
         
         pgsettings = {
             # Resources
@@ -344,14 +354,14 @@ module PuppetX::CfDb::PostgreSQL::Instance
         })
         
         if is_cluster
-            node_id = cfdb_settings.fetch('node_id', nil)
+            node_id = cfdb_settings.fetch('node_id', nil).to_i
             upstream_node_id = cfdb_settings.fetch('upstream_node_id', nil)
             hostname = Facter['hostname'].value()
             
             sslrequire = ''
             sslrequire = 'sslmode=require' if secure_cluster
             
-            if node_id.nil?
+            if node_id <= 0
                 node_id = hostname[/([0-9]+)$/, 1].to_i
                 
                 if node_id <= 0
@@ -416,7 +426,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             "#{service_name}" => {
                 'host' => run_dir,
                 'port' => port,
-                'user' => user,
+                'user' => superuser,
                 'password' => root_pass,
                 'dbname' => 'postgres',
             }
@@ -424,9 +434,15 @@ module PuppetX::CfDb::PostgreSQL::Instance
         cf_system.atomicWriteIni(client_conf_file, client_settings, {:user => user})
         cf_system.atomicWrite(pgpass_file, pgpass_content, {:user => user, :mode => 0600})
         
+        cf_system.atomicWrite(
+            "#{root_dir}/.postgresqlrc",
+            "#{version} #{run_dir}:#{port} postgres",
+            {:user => user, :mode => 0600}
+        )
+        
         #---
-        FileUtils.touch(ident_file)
-        FileUtils.chown(user, user, ident_file)
+        ident_content = "tosuperuser #{user} #{superuser}"
+        cf_system.atomicWrite(ident_file, ident_content, {:user => user, :mode => 0600})
 
         #==================================================
         # config
@@ -638,11 +654,58 @@ module PuppetX::CfDb::PostgreSQL::Instance
             FileUtils.touch(unclean_state_file)
             #--
 
-            sudo('-H', '-u', user,
-                 "#{pg_bin_dir}/initdb",
-                 '--locale', cfdb_settings.fetch('locale', 'en_US.UTF-8'),
-                 '--pwfile', pgpass_file,
-                 '-D', data_dir)
+            if init_db_from and !init_db_from.empty?
+                old_version, init_data = init_db_from.split(':')
+                
+                if !old_version or !init_data
+                    fail("init_db_from must be in format {version}:{dir}:{old_conf}")
+                end
+                
+                old_data = "#{root_data_dir}/#{old_version}"
+                
+                if File.exists? old_data
+                    fail("> unable to copy to #{old_data}, destination exists.")
+                end
+                
+                warning("> copying from #{init_data}")
+                FileUtils.cp_r(init_data, old_data)
+                FileUtils.chown_R(user, user, old_data)
+                FileUtils.chmod_R("go-rwx", old_data)
+                cf_system.atomicWrite(active_version_file, old_version)
+                
+                old_hba_conf = "#{old_data}/pg_hba.conf"
+                old_ident_conf = "#{old_data}/pg_ident.conf"
+                
+                atomicWritePG("#{old_data}/postgresql.conf",
+                    {
+                        'shared_buffers' => "64MB",
+                        'max_connections' => 10,
+                        'hba_file' => old_hba_conf,
+                        'ident_file' => old_ident_conf,
+                    },
+                    {:user => user}
+                )
+                
+                cf_system.atomicWrite(
+                    old_hba_conf,
+                    'local all all ident map=topostgres',
+                    {:user => user}
+                )
+                cf_system.atomicWrite(
+                    old_ident_conf,
+                    "topostgres #{user} #{superuser}",
+                    {:user => user}
+                )
+            end
+
+            if not File.exists? data_dir
+                sudo('-H', '-u', user,
+                    "#{pg_bin_dir}/initdb",
+                    '--locale', cfdb_settings.fetch('locale', 'en_US.UTF-8'),
+                    '--pwfile', pgpass_file,
+                    '-D', data_dir,
+                    '-U', superuser)
+            end
             
             if File.exists?(active_version_file)
                 warning('> migrating old data')
@@ -664,7 +727,8 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 sudo('-H', '-u', user, '/bin/sh', '-c',
                     "cd /tmp && #{pg_bin_dir}/pg_upgrade " +
                         "-d #{old_data} -D #{data_dir} " +
-                        "-b #{old_pg_bin_dir} -B #{pg_bin_dir}")
+                        "-b #{old_pg_bin_dir} -B #{pg_bin_dir} " +
+                        "-U #{superuser}")
                 FileUtils.mv(old_data, "#{old_data}.bak")
             end
             
@@ -714,9 +778,64 @@ module PuppetX::CfDb::PostgreSQL::Instance
             sudo('-H', '-u', user, '/usr/bin/pg_backup_ctl',
                  '-h', run_dir,
                  '-p', port,
-                 '-U', user,
+                 '-U', superuser,
                  '-A', backup_dir, 'setup')
             FileUtils.touch(backup_init_stamp)
+        end
+        
+        
+        # Check cluster is complete
+        #---
+        check_cluster_postgresql(conf)
+    end
+    
+    def check_cluster_postgresql(conf)
+        return true if !conf[:is_cluster]
+        
+        cluster = conf[:cluster]
+        root_dir = conf[:root_dir]
+        is_secondary = conf[:is_secondary]
+        cluster_size = 1  + conf[:cluster_addr].size()
+    
+        begin
+            res = sudo('-H', '-u', conf[:user],
+                    "#{root_dir}/bin/cfdb_repmgr",
+                    '-f', "#{root_dir}/conf/repmgr.conf",
+                    'cluster', 'show'
+            )
+            
+            fact_cluster_size = 0 
+            
+            res = res.split("\n").drop(2).reduce({}) do |m, l|
+                l = l.split('|')
+                status = l[0].strip()
+                host = l[1].strip()
+                
+                fact_cluster_size += 1 if ['* master', 'standby'].include? status
+                
+                m[host] = status
+                m
+            end
+            
+            fqdn = Facter['fqdn'].value()
+            
+            if is_secondary
+                if res[fqdn] != 'standby'
+                    warning("> cluster #{cluster}: this peer #{fqdn} is in invalid mode #{res[fqdn]} != standby")
+                end
+            else
+                if res[fqdn] != '* master'
+                    warning("> cluster #{cluster}: this peer #{fqdn} is in invalid mode #{res[fqdn]} != master")
+                end
+            end
+            
+            if fact_cluster_size != cluster_size
+                warning("> cluster #{cluster} is incomplete #{fact_cluster_size}/#{cluster_size}")
+            end
+        rescue => e
+            warning(e)
+            #warning(e.backtrace)
+            false
         end
     end
     

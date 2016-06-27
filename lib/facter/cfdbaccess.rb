@@ -2,9 +2,9 @@ require 'json'
 
 # Done this way due to some weird behavior in tests also ignoring $LOAD_PATH
 begin
-    require File.expand_path( '../../puppet_x/cf_system/provider_base', __FILE__ )
+    require File.expand_path( '../../puppet_x/cf_system', __FILE__ )
 rescue LoadError
-    require File.expand_path( '../../../../cfsystem/lib/puppet_x/cf_system/provider_base', __FILE__ )
+    require File.expand_path( '../../../../cfsystem/lib/puppet_x/cf_system', __FILE__ )
 end
 
 Facter.add('cfdbaccess') do

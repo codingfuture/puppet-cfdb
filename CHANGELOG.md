@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.9.5]
+- Changed `cfhaproxy` to `cfdbhaproxy` service name
+- Changed internal format of secrets storage
+- Updated to new internal features of `cfsystem` module
+- Fixed first-run cfdb:access support from actual state with missing facts/resources in PuppetDB
+- Added `cfdb::access::use_unix_socket` parameter to control if local TCP connection is required
+- Added `maxconn` variable to DB config produced by cfdb::access
+- Added `cfdb::role:static_access` support for special cases
+- Removed plperl from standard list of extensions as it leads to packaging issues
+- Minor changes to interface of `cfdb::access::custom_config`
+- Added support for configuring and upgrades PostgreSQL database extensions
+- Added automatic cluster status checks in provisioning
+- Added initialization from existing location `init_db_from`
+
 ## [0.9.4]
 - Fixed to support single server access for multiple local users without HAProxy involved
 - Added HAProxy `inter` & `fastinter` tune support
@@ -32,6 +46,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 Initial release
 
+[0.9.5]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.5
 [0.9.4]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.4
 [0.9.3]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.3
 [0.9.2]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.2

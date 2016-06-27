@@ -22,11 +22,18 @@ module PuppetX::CfDb::PostgreSQL::Role
         
         sql = []
         
-        if grant_mismatch or database_mismatch
-            sql << "DROP ROLE IF EXISTS #{user};"
-            cmd = 'CREATE'
-        elsif cache.has_key? user
+        if cache.has_key? user
             cmd = 'ALTER'
+            
+            if grant_mismatch or database_mismatch
+                sql += [
+                    "REVOKE ALL PRIVILEGES ON DATABASE #{database} FROM #{user};",
+                    "REVOKE ALL PRIVILEGES ON SCHEMA public FROM #{user};",
+                    "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM #{user};",
+                    "REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM #{user};",
+                    "REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM #{user};",
+                ]
+            end
         else
             cmd = 'CREATE'
         end
@@ -37,21 +44,29 @@ module PuppetX::CfDb::PostgreSQL::Role
                "CONNECTION LIMIT #{maxconn}"
                 
         if custom_grant
-            sql += custom_grant.gsub('$database', database).gsub('$user', user).split(';')
+            gsql = custom_grant.gsub('$database', database).gsub('$user', user).split(';')
         elsif readonly
-            sql << "GRANT CONNECT, TEMPORARY ON DATABASE #{database} TO #{user};"
-            sql << "GRANT USAGE ON SCHEMA public TO #{user};"
-            sql << "GRANT SELECT ON ALL TABLES IN SCHEMA public TO #{user};"
-            sql << "GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO #{user};"
-            sql << "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO #{user};"
+            gsql = [
+                "GRANT CONNECT, TEMPORARY ON DATABASE #{database} TO #{user};",
+                "GRANT USAGE ON SCHEMA public TO #{user};",
+                "GRANT SELECT ON ALL TABLES IN SCHEMA public TO #{user};",
+                "GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO #{user};",
+                "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO #{user};",
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO #{user};",
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO #{user};",
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO #{user};",
+            ]
         else
-            sql << "GRANT ALL PRIVILEGES ON DATABASE #{database} TO #{user};"
-            sql << "GRANT ALL PRIVILEGES ON SCHEMA public TO #{user};"
-            sql << "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO #{user};"
-            sql << "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO #{user};"
-            sql << "GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO #{user};"
+            gsql = [
+                "GRANT ALL PRIVILEGES ON DATABASE #{database} TO #{user} WITH GRANT OPTION;",
+                "GRANT ALL PRIVILEGES ON SCHEMA public TO #{user} WITH GRANT OPTION;",
+                "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO #{user} WITH GRANT OPTION;",
+                "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO #{user} WITH GRANT OPTION;",
+                "GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO #{user} WITH GRANT OPTION;",
+            ]
         end
 
+        sql += gsql
         
         sql.each do |s|
             sudo("#{root_dir}/bin/cfdb_psql", '-c', s)

@@ -8,26 +8,9 @@ class cfdb::haproxy(
 ) {
     assert_private()
     include cfdb
+    include cfsystem::haproxy
 
-    if !defined(Package['haproxy']) {
-        # make sure to use backports version
-        if $::facts['lsbdistcodename'] == 'jessie' {
-            apt::pin { 'haproxy':
-                codename => 'jessie-backports',
-                packages => 'haproxy',
-                priority => $cfsystem::apt_pin + 1,
-            }
-        }
-        package { 'haproxy':
-            ensure   => latest,
-        }
-        service { 'haproxy':
-            ensure => stopped,
-            enable => false,
-        }
-    }
-
-    $service_name = 'cfhaproxy'
+    $service_name = 'cfdbhaproxy'
     $user = $service_name
     $root_dir = "${cfdb::root_dir}/${user}"
     $bin_dir = "${root_dir}/bin"
@@ -55,7 +38,7 @@ class cfdb::haproxy(
     } ->
     cfsystem::puppetpki { $user: } ->
     # TODO: implement generic cfpki module
-    exec { "cfhaproxy_dhparam":
+    exec { "cfdbhaproxy_dhparam":
         command => "${openssl} dhparam -out ${dh_params} 2048",
         creates => $dh_params,
     }
@@ -66,8 +49,7 @@ class cfdb::haproxy(
         weight => $memory_weight,
         min_mb => 16,
         max_mb => $memory_max,
-    }
-    
+    } ->    
     cfdb_haproxy { $service_name:
         ensure        => present,
         memory_weight => $memory_weight,
@@ -77,17 +59,22 @@ class cfdb::haproxy(
         settings_tune => pick($settings_tune, {}),
         service_name  => $service_name,
         require       => [
+            Package[$cfsystem::haproxy::package_name],
             File[$root_dir],
             User[$user],
             Cfsystem::Puppetpki[$user],
-            Exec["cfhaproxy_dhparam"],
+            Exec["cfdbhaproxy_dhparam"],
         ],
-    } ->
-    service { $service_name:
+    }
+    
+    /*service { $service_name:
         ensure  => running,
         enable  => true,
-        require => Package['haproxy'],
-    }
+        require => [
+            Package['haproxy'],
+            Cfsystem_flush_config['commit']
+        ]
+    }*/
     
     #---
     ensure_resource('package', 'hatop', {})

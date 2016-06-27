@@ -23,8 +23,13 @@ Puppet::Type.type(:cfdb_instance).provide(
     def self.check_exists(params)
         debug('check_exists')
         begin
-            File.exists?(params[:root_dir] + '/data') and
+            check_res = File.exists?(params[:root_dir] + '/data') and
                     systemctl(['status', "#{params[:service_name]}.service"])
+            
+            db_type = params[:type]
+            self.send("check_cluster_#{db_type}", params)
+            
+            check_res
         rescue => e
             warning(e)
             #warning(e.backtrace)
@@ -36,7 +41,14 @@ Puppet::Type.type(:cfdb_instance).provide(
         debug('on_config_change')
         newconf.each do |name, conf|
             db_type = conf[:type]
-            self.send("create_#{db_type}", conf)
+            
+            begin
+                self.send("create_#{db_type}", conf)
+            rescue => e
+                warning(e)
+                #warning(e.backtrace)
+                err("Transition error in setup")
+            end
         end
     end
     

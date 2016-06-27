@@ -36,4 +36,12 @@ Puppet::Type.newtype(:cfdb_database) do
             end
         end
     end
+    
+    newproperty(:ext, :array_matching => :all) do
+        desc "Type-specific database extensions to create"
+        
+        validate do |value|
+            value.is_a? String
+        end
+    end
 end

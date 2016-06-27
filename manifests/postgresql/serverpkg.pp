@@ -10,7 +10,10 @@ class cfdb::postgresql::serverpkg {
     package { "postgresql-${ver}": }
     
     $cfdb::postgresql::extensions.each |$ext| {
-        package { "postgresql-${ver}-${ext}": }
+        ensure_resource('package', "postgresql-${ver}-${ext}", {})
+    }
+    $cfdb::postgresql::extensions2.each |$ext| {
+        ensure_resource('package', "postgresql-${ext}-${ver}", {})
     }
     
     case $ver {
@@ -41,16 +44,17 @@ class cfdb::postgresql::serverpkg {
             'repack',
             'repmgr',
         ].each |$ext| {
-            package { "postgresql-${ver}-${ext}": }
+            ensure_resource('package', "postgresql-${ver}-${ext}", {})
         }
-        
+
+        # there are known issues with perl update desync...
+        #'plperl',
         [
             'contrib',
-            'plperl',
             'plpython',
             'pltcl',
         ].each |$ext| {
-            package { "postgresql-${ext}-${ver}": }
+            ensure_resource('package', "postgresql-${ext}-${ver}", {})
         }
     }
     

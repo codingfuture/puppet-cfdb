@@ -50,7 +50,7 @@ test "$check" = "$confirm2" || exit 1
 # fail on error & be verbose
 set -ex
 
-/usr/bin/sudo -u $user bash <<EOT
+/usr/bin/sudo -H -u $user bash <<EOT
     set -ex
     /bin/rm -rf ${data_dir}
     /bin/mkdir ${data_dir}

@@ -58,6 +58,7 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
     
     newproperty(:is_secure, :boolean => true, :parent => Puppet::Property::Boolean)
     newproperty(:distribute_load, :boolean => true, :parent => Puppet::Property::Boolean)
+    newproperty(:use_unix_socket, :boolean => true, :parent => Puppet::Property::Boolean)
 
     newproperty(:cluster_addr, :array_matching => :all) do
         desc "Known cluster addresses"
@@ -90,6 +91,14 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
             
             value['addr'] = "#{ip}"
             value
+        end
+    end
+    
+    newproperty(:local_port) do
+        validate do |value|
+            unless value.is_a? Integer and value > 0
+                raise ArgumentError, "%s is not valid local_port" % value
+            end
         end
     end
 end

@@ -6,7 +6,7 @@
 
 # Make sure to run under instance user
 if test "$(/usr/bin/id -u)" = 0; then
-    exec /usr/bin/sudo -u <%= $user %> $0 "$@"
+    exec /usr/bin/sudo -H -u <%= $user %> $0 "$@"
     # should not reach here
     exit -1
 fi

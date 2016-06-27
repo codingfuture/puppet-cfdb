@@ -153,7 +153,7 @@ define cfdb::instance (
             fail('Cluster requires excplicit port')
         }
         
-        $cluster_facts_all = query_facts(
+        $cluster_facts_all = cf_query_facts(
             "cfdb.${cluster}.present=true",
             ['cfdb']
         )
@@ -169,10 +169,6 @@ define cfdb::instance (
                 
                 if $type != $cluster_fact['type'] {
                     fail("Type of ${cluster} on ${host} mismatch ${type}: ${cluster_fact}")
-                }
-                
-                if !$cluster_fact['is_secondary'] and $cluster_fact['shared_secret'] {
-                    $shared_secret = $cluster_fact['shared_secret']
                 }
                 
                 if $secure_cluster {
@@ -366,7 +362,7 @@ define cfdb::instance (
     }
     
     #---
-    $access = query_facts("cfdbaccess.${cluster}.present=true", ['cfdbaccess'])
+    $access = cf_query_facts("cfdbaccess.${cluster}.present=true", ['cfdbaccess'])
     $access_list = $access.reduce({}) |$memo, $val| {
         $host = $val[0]
         $cluster_info = $val[1]['cfdbaccess'][$cluster]
@@ -392,6 +388,8 @@ define cfdb::instance (
     }
     
     #---
+    $fact_port = cf_genport($cluster, $port)
+
     cfdb_instance { $cluster:
         ensure        => present,
         type          => $type,
@@ -416,7 +414,7 @@ define cfdb::instance (
                 cfdb => merge(
                     {
                         'listen'        => $listen,
-                        'port'          => $port,
+                        'port'          => $fact_port,
                         'shared_secret' => $shared_secret,
                     },
                     pick($settings_tune['cfdb'], {})
@@ -425,8 +423,14 @@ define cfdb::instance (
         ),
         service_name  => $service_name,
         version       => getvar("cfdb::${type}::actual_version"),
-        cluster_addr  => $cluster_addr,
-        access_list   => $access_list,
+        cluster_addr  => $cluster_addr ? {
+            undef => undef,
+            default => cf_stable_sort($cluster_addr),
+        },
+        access_list   => $access_list ? {
+            undef => undef,
+            default => cf_stable_sort($access_list),
+        },
         
         require       => [
             User[$user],
@@ -437,13 +441,13 @@ define cfdb::instance (
         ],
     }
     
-    service { $service_name:
+    /*service { $service_name:
         enable  => true,
         require => [
             Cfdb_instance[$cluster],
             Cfsystem_flush_config['commit'],
         ]
-    }
+    }*/
     
     #---
     if !$is_secondary and !$is_arbitrator {
@@ -501,8 +505,6 @@ define cfdb::instance (
     # Open firewall for clients and/or add optional haproxy endpoint
     #---
     if $access {
-        $fact_port = pick_default($port, try_get_value($::facts, "cf_persistent/ports/${cluster}"))
-        
         if $fact_port and ($fact_port != '') {
             $sec_port = cfdb_derived_port($fact_port, 'secure')
             
@@ -518,7 +520,7 @@ define cfdb::instance (
                 user => $user,
             }
             
-            $required_endpoints = query_resources(
+            $required_endpoints = cf_query_resources(
                 false,
                 ['extract', ['certname', 'parameters'],
                     ['and',

@@ -22,7 +22,7 @@ Puppet::Type.type(:cfdb_database).provide(
             return false if inst_conf.nil?
 
             db_type = inst_conf['type']
-            self.send("check_#{db_type}", inst_conf['user'], params[:database], inst_conf['root_dir'])
+            self.send("check_#{db_type}", inst_conf['user'], params[:database], inst_conf['root_dir'], params)
         rescue => e
             warning(e)
             #warning(e.backtrace)
@@ -43,7 +43,7 @@ Puppet::Type.type(:cfdb_database).provide(
             inst_conf = inst_conf_all[conf[:cluster]]
             db_type = inst_conf[:type]
             begin
-                self.send("create_#{db_type}", inst_conf[:user], conf[:database], inst_conf[:root_dir])
+                self.send("create_#{db_type}", inst_conf[:user], conf[:database], inst_conf[:root_dir], conf)
             rescue => e
                 warning(e)
                 #warning(e.backtrace)
