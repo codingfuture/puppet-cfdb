@@ -23,6 +23,7 @@ class cfdb::postgresql::serverpkg {
     }
     
     if $cfdb::postgresql::default_extensions {
+        #'repack',        
         [
             'asn1oid',
             'debversion',
@@ -41,7 +42,6 @@ class cfdb::postgresql::serverpkg {
             'powa',
             'prefix',
             'preprepare',
-            'repack',
             'repmgr',
         ].each |$ext| {
             ensure_resource('package', "postgresql-${ver}-${ext}", {})
