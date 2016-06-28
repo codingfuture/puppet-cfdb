@@ -16,7 +16,10 @@ class cfdb::mysql::serverpkg {
         package { "percona-xtrabackup-${xtrabackup_ver}": }
     }
     
-    package { 'qpress': }
+    # https://bugs.launchpad.net/percona-xtrabackup/+bug/1592089
+    if $::os['name'] != 'Ubuntu' {
+        package { 'qpress': }
+    }
     package { 'percona-toolkit': }
 
     # default instance must not run
