@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.9.8]
 - Fixed to workaround Percona bug of missing qpress in Ubuntu repos
+- Changed to use Percona Server 5.6 for Ubuntu due to Percona Repo issues
 
 ## [0.9.7]
 - Removed repack from default PostgreSQL extension list

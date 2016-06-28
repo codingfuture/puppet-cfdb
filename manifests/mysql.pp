@@ -10,10 +10,14 @@ class cfdb::mysql (
     include stdlib
     include cfdb
     
-    if  $is_cluster {
+    if $is_cluster {
         $actual_version = $cluster_version
     } else {
-        $actual_version = $version
+        if $::os['name'] != 'Ubuntu' {
+            $actual_version = $version
+        } else {
+            $actual_version = '5.6'
+        }
     }
     
     class { 'cfdb::mysql::perconaapt':

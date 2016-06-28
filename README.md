@@ -105,6 +105,10 @@ cfsystem_memory_weight { 'my_own_services':
     }
 ```
 
+## Ubuntu notes
+
+It seems current Percona's Ubuntu repos are not functional for PS 5.7. So, Ubuntu uses 5.6 by default.
+
 ## Examples
 
 Please check [codingufuture/puppet-test](https://github.com/codingfuture/puppet-test) for
