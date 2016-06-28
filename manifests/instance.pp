@@ -424,11 +424,11 @@ define cfdb::instance (
         service_name  => $service_name,
         version       => getvar("cfdb::${type}::actual_version"),
         cluster_addr  => $cluster_addr ? {
-            undef => undef,
+            undef   => undef,
             default => cf_stable_sort($cluster_addr),
         },
         access_list   => $access_list ? {
-            undef => undef,
+            undef   => undef,
             default => cf_stable_sort($access_list),
         },
         
@@ -441,13 +441,13 @@ define cfdb::instance (
         ],
     }
     
-    /*service { $service_name:
-        enable  => true,
-        require => [
-            Cfdb_instance[$cluster],
-            Cfsystem_flush_config['commit'],
-        ]
-    }*/
+    # service { $service_name:
+    #         enable  => true,
+    #         require => [
+    #             Cfdb_instance[$cluster],
+    #             Cfsystem_flush_config['commit'],
+    #         ]
+    #     }
     
     #---
     if !$is_secondary and !$is_arbitrator {
@@ -568,7 +568,7 @@ define cfdb::instance (
                     $memo + $kv[1]
                 }
                 include cfdb::haproxy
-                cfdb_haproxy_endpoint { "${cluster}":
+                cfdb_haproxy_endpoint { $cluster:
                     ensure          => present,
                     listen          => $listen,
                     sec_port        => $sec_port,

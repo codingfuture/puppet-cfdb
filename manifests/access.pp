@@ -90,7 +90,7 @@ define cfdb::access(
             include "cfdb::${type}::clientpkg"
             
             if empty($type) {
-                fail("Unable to get type from Cfdb::Instance[$cluster]")
+                fail("Unable to get type from Cfdb::Instance[${cluster}]")
             }
             
             if empty($cfg['db']) {

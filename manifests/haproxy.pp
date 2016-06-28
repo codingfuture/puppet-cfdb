@@ -38,7 +38,7 @@ class cfdb::haproxy(
     } ->
     cfsystem::puppetpki { $user: } ->
     # TODO: implement generic cfpki module
-    exec { "cfdbhaproxy_dhparam":
+    exec { 'cfdbhaproxy_dhparam':
         command => "${openssl} dhparam -out ${dh_params} 2048",
         creates => $dh_params,
     }
@@ -49,7 +49,7 @@ class cfdb::haproxy(
         weight => $memory_weight,
         min_mb => 16,
         max_mb => $memory_max,
-    } ->    
+    } ->
     cfdb_haproxy { $service_name:
         ensure        => present,
         memory_weight => $memory_weight,
@@ -63,18 +63,18 @@ class cfdb::haproxy(
             File[$root_dir],
             User[$user],
             Cfsystem::Puppetpki[$user],
-            Exec["cfdbhaproxy_dhparam"],
+            Exec['cfdbhaproxy_dhparam'],
         ],
     }
     
-    /*service { $service_name:
-        ensure  => running,
-        enable  => true,
-        require => [
-            Package['haproxy'],
-            Cfsystem_flush_config['commit']
-        ]
-    }*/
+    # service { $service_name:
+    #         ensure  => running,
+    #         enable  => true,
+    #         require => [
+    #             Package['haproxy'],
+    #             Cfsystem_flush_config['commit']
+    #         ]
+    #     }
     
     #---
     ensure_resource('package', 'hatop', {})
