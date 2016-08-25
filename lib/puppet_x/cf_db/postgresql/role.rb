@@ -1,3 +1,4 @@
+require 'digest/md5'
 
 module PuppetX::CfDb::PostgreSQL::Role
     include PuppetX::CfDb::PostgreSQL
@@ -38,10 +39,12 @@ module PuppetX::CfDb::PostgreSQL::Role
             cmd = 'CREATE'
         end
         
-        sql << "#{cmd} ROLE #{user} WITH " +
-               "LOGIN ENCRYPTED " +
-               "PASSWORD '#{pass}'"
-               "CONNECTION LIMIT #{maxconn}"
+        sql << [
+                "#{cmd} ROLE #{user} WITH",
+               "LOGIN ",
+               "ENCRYPTED PASSWORD '#{pass}'",
+               "CONNECTION LIMIT #{maxconn};"
+            ].join(' ')
                 
         if custom_grant
             gsql = custom_grant.gsub('$database', database).gsub('$user', user).split(';')
@@ -82,7 +85,7 @@ module PuppetX::CfDb::PostgreSQL::Role
                 '--tuples-only', '--no-align', '--quiet',
                 '--field-separator=,',
                 '-c',
-                'SELECT rolname, rolconnlimit FROM pg_roles ' +
+                'SELECT rolname, rolconnlimit, rolpassword FROM pg_authid ' +
                 'WHERE rolsuper = FALSE AND rolreplication = FALSE AND rolcanlogin = TRUE;'
             )
             ret = ret.split("\n")
@@ -91,7 +94,11 @@ module PuppetX::CfDb::PostgreSQL::Role
                 l = l.split(',')
                 luser = l[0]
                 maxconn = l[1]
-                cache[luser] = maxconn
+                lpass = l[2]
+                cache[luser] = {
+                    :maxconn => maxconn.to_i,
+                    :pass => lpass,
+                }
             end
             
             self.role_cache[cluster_user] = cache
@@ -99,7 +106,13 @@ module PuppetX::CfDb::PostgreSQL::Role
 
         cache_user = cache[conf[:user]]
         return false if cache_user.nil?
-        return false if cache_user == conf[:allowed_hosts].values.inject(0, :+)
+        
+        maxconn = conf[:allowed_hosts].values.inject(0, :+)
+        return false if cache_user[:maxconn] != maxconn
+
+        # note: this may change in the future
+        conf_pass = 'md5' + Digest::MD5.hexdigest(conf[:password] + conf[:user])
+        return false if cache_user[:pass] != conf_pass
         
         self.check_match_common(cluster_user, conf)
     end

@@ -1,3 +1,4 @@
+require 'digest/sha1'
 
 module PuppetX::CfDb::MySQL::Role
     include PuppetX::CfDb::MySQL
@@ -73,10 +74,20 @@ module PuppetX::CfDb::MySQL::Role
         if self.role_cache.has_key? cluster_user
             cache = self.role_cache[cluster_user]
         else
-            ret = sudo('-H', '-u', cluster_user,
+            begin
+                # before v5.7
+                ret = sudo('-H', '-u', cluster_user,
                        MYSQL, '--wait', '--batch', '--skip-column-names', '-e',
-                       'SELECT user, host, max_user_connections FROM mysql.user
+                       'SELECT User, Host, max_user_connections, Password FROM mysql.user
                         WHERE Super_priv <> "Y" ORDER BY user, host;')
+            rescue
+                # v5.7
+                ret = sudo('-H', '-u', cluster_user,
+                       MYSQL, '--wait', '--batch', '--skip-column-names', '-e',
+                       'SELECT User, Host, max_user_connections, authentication_string FROM mysql.user
+                        WHERE Super_priv <> "Y" ORDER BY user, host;')
+            end
+            
             ret = ret.split("\n")
             cache = {}
             ret.each do |l|
@@ -85,14 +96,29 @@ module PuppetX::CfDb::MySQL::Role
                 next if luser == 'mysql.sys'
                 lhost = l[1]
                 maxconn = l[2]
+                lpass = l[3]
                 cache[luser] = {} if not cache.has_key? luser
-                cache[luser][lhost] = maxconn.to_i
+                cache[luser][lhost] = {
+                    :maxconn => maxconn.to_i,
+                    :pass => lpass,
+                }
             end
             
             self.role_cache[cluster_user] = cache
         end
         
-        return false if cache.fetch(conf[:user], {}) != conf[:allowed_hosts]
+        cache_user = cache[conf[:user]]
+        return false if cache_user.nil?
+        
+        conf_pass = '*' + Digest::SHA1.hexdigest(Digest::SHA1.digest(conf[:password])).upcase
+        found_hosts = {}
+
+        cache_user.each do |h, hinfo|
+            return false if hinfo[:pass] != conf_pass
+            found_hosts[h] = hinfo[:maxconn]
+        end
+        
+        return false if found_hosts != conf[:allowed_hosts]
         
         self.check_match_common(cluster_user, conf)
     end

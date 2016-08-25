@@ -5,6 +5,8 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.9.9]
 - Removed need to use is_bootstrap for Galera cluster setup - it's automatic now
+- Fixed to check actual in-database passwords for roles for both MySQL and PostgreSQL
+- Fixed invalid check of in-database maxconn per PostgreSQL user
 
 ## [0.9.8]
 - Fixed to workaround Percona bug of missing qpress in Ubuntu repos
