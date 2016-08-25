@@ -389,6 +389,7 @@ define cfdb::instance (
     
     #---
     $fact_port = cf_genport($cluster, $port)
+    $is_first_node = $cluster_addr and (size($cluster_addr) == 0)
 
     cfdb_instance { $cluster:
         ensure        => present,
@@ -397,7 +398,7 @@ define cfdb::instance (
         user          => $user,
         is_cluster    => $is_cluster_by_fact,
         is_secondary  => $is_secondary or $is_arbitrator,
-        is_bootstrap  => $is_bootstrap and !$is_arbitrator,
+        is_bootstrap  => ($is_bootstrap or $is_first_node) and !$is_arbitrator,
         is_arbitrator => $is_arbitrator,
         
         memory_weight => $memory_weight,

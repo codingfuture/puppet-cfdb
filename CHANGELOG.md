@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.9.9]
+- Removed need to use is_bootstrap for Galera cluster setup - it's automatic now
+
 ## [0.9.8]
 - Fixed to workaround Percona bug of missing qpress in Ubuntu repos
 - Changed to use Percona Server 5.6 for Ubuntu due to Percona Repo issues
@@ -56,6 +59,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 Initial release
 
+[0.9.9]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.9
 [0.9.8]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.8
 [0.9.7]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.7
 [0.9.6]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.6

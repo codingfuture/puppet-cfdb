@@ -221,8 +221,6 @@ cfdb::instances:
                         readonly: true
             db2: {}
         port: 3306
-        # Not for production, but for vagrant bootup
-        is_bootstrap: true
     myclust2:
         type: mysql
         is_cluster: true
@@ -230,8 +228,6 @@ cfdb::instances:
             - db1
             - db2
         port: 3307
-        # Not for production, but for vagrant bootup
-        is_bootstrap: true
         settings_tune:
             cfdb:
                 secure_cluster: true
@@ -491,7 +487,8 @@ Defines and auto-configures instances.
 * `$type` - type of cluster, e.g. mysql, postgresql
 * `$is_cluster = false` - if true, configured instance with cluster in mind
 * `$is_secondary = false` - if true, secondary node is assumed
-* `$is_bootstrap = false` - if true, forces cluster bootstrap (should be used only TEMPORARY for recovery purposes)
+* `$is_bootstrap = false` - if true, forces cluster bootstrap (should be used only TEMPORARY for recovery purposes).
+    There is no need to set this during first node of cluster setup since v0.9.9
 * `$is_arbitrator = false` - if true, assumes a witness node for quorum with no data
 *
 * `$memory_weight = 100` - relative memory weight for automatic configuration based on available RAM

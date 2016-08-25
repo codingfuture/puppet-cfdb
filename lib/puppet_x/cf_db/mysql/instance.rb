@@ -412,6 +412,8 @@ module PuppetX::CfDb::MySQL::Instance
                 'gcs.sync_donor' => 'YES',
                 # support auto-heal
                 'pc.recovery' => 'TRUE',
+                'pc.wait_prim' => 'TRUE',
+                'pc.wait_prim_timeout' => 'PT60M',
                 # may lead to problems
                 'repl.commit_order' => 1,
                 'socket.checksum' => 2,
