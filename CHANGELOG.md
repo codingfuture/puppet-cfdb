@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.9.10]
+- Added "cfdb-" prefix to cluster names in automatic global memory management
+
 ## [0.9.9]
 - Removed need to use is_bootstrap for Galera cluster setup - it's automatic now
 - Fixed to check actual in-database passwords for roles for both MySQL and PostgreSQL
@@ -61,6 +64,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 Initial release
 
+[0.9.10]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.10
 [0.9.9]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.9
 [0.9.8]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.8
 [0.9.7]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.7

@@ -223,7 +223,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             target_size = disk_size(root_dir)
         end
         
-        avail_mem = cf_system.getMemory(cluster)
+        avail_mem = get_memory(cluster)
         
         #
 

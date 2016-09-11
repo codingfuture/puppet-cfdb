@@ -140,7 +140,8 @@ define cfdb::instance (
         $def_memory_min = 128
     }
     
-    cfsystem_memory_weight { $cluster:
+    $memory_mame = "cfdb-${cluster}"
+    cfsystem_memory_weight { $memory_mame:
         ensure => present,
         weight => $memory_weight,
         min_mb => $def_memory_min,
@@ -437,7 +438,7 @@ define cfdb::instance (
             User[$user],
             File[$user_dirs],
             Class["cfdb::${type}::serverpkg"],
-            Cfsystem_memory_weight[$cluster],
+            Cfsystem_memory_weight[$memory_mame],
             Cfsystem::Puppetpki[$user],
         ],
     }

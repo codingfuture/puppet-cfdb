@@ -175,7 +175,7 @@ module PuppetX::CfDb::MySQL::Instance
             max_binlog_size = gb
         end
         
-        avail_mem = cf_system.getMemory(cluster) * mb
+        avail_mem = get_memory(cluster) * mb
         
         #
         default_chunk_size = cfdb_settings.fetch('default_chunk_size', 2 * gb).to_i

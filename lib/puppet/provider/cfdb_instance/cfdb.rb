@@ -60,12 +60,16 @@ Puppet::Type.type(:cfdb_instance).provide(
         return cf_system.roundTo(to, val)
     end
     
+    def self.get_memory(cluster)
+        cf_system.getMemory("cfdb-#{cluster}")
+    end
+    
     def self.create_service(conf, service_ini, service_env, slice_name = nil, service_name = nil)
         db_type = conf[:type]
         service_name = conf[:service_name] if service_name.nil?
         user = conf[:user]
         
-        mem_limit = cf_system.getMemory(conf[:cluster])
+        mem_limit = get_memory(conf[:cluster])
         
         #---
         content_env = {
@@ -111,7 +115,7 @@ Puppet::Type.type(:cfdb_instance).provide(
     end
     
     def self.create_slice(slice_name, conf)
-        mem_limit = cf_system.getMemory(conf[:cluster])
+        mem_limit = get_memory(conf[:cluster])
         self.cf_system().createSlice({
             :slice_name => slice_name,
             :cpu_weight => conf[:cpu_weight],
