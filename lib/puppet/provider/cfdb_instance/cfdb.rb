@@ -131,7 +131,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         ret[1].strip().to_i
     end
     
-    def self.is_hdd(dir)
+    def self.is_low_iops(dir)
         ret = df('-BM', '--output=source', dir)
         ret = ret.split("\n")
         device = ret[1].strip()
@@ -149,8 +149,13 @@ Puppet::Type.type(:cfdb_instance).provide(
         device = File.basename(device)
         
         begin
-            device.gsub!(/[0-9]/, '')
-            rotational = File.read("/sys/block/#{device}/queue/rotational").to_i
+            device = "/sys/block/#{device}"
+            
+            if not File.exists? device
+                device.gsub!(/[0-9]/, '')
+            end
+            
+            rotational = File.read("#{device}/queue/rotational").to_i
             debug("Device #{device} rotational = #{rotational}")
             return rotational.to_i == 1
         rescue => e

@@ -58,7 +58,7 @@ module PuppetX::CfDb::MySQL::Instance
         if cfdb_settings.has_key? 'optimize_ssd'
             optimize_ssd = cfdb_settings['optimize_ssd']
         else
-            optimize_ssd = !is_hdd(root_dir)
+            optimize_ssd = !is_low_iops(root_dir)
         end
         
         secure_cluster = cfdb_settings.fetch('secure_cluster', false)
