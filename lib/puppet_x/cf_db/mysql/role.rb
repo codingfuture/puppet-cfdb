@@ -110,7 +110,9 @@ module PuppetX::CfDb::MySQL::Role
         cache_user = cache[conf[:user]]
         return false if cache_user.nil?
         
-        conf_pass = '*' + Digest::SHA1.hexdigest(Digest::SHA1.digest(conf[:password])).upcase
+        conf_pass = conf[:password]
+        return false if conf_pass.nil?
+        conf_pass = '*' + Digest::SHA1.hexdigest(Digest::SHA1.digest(conf_pass)).upcase
         found_hosts = {}
 
         cache_user.each do |h, hinfo|

@@ -111,7 +111,9 @@ module PuppetX::CfDb::PostgreSQL::Role
         return false if cache_user[:maxconn] != maxconn
 
         # note: this may change in the future
-        conf_pass = 'md5' + Digest::MD5.hexdigest(conf[:password] + conf[:user])
+        conf_pass = conf[:password]
+        return false if conf_pass.nil?
+        conf_pass = 'md5' + Digest::MD5.hexdigest(conf_pass + conf[:user])
         return false if cache_user[:pass] != conf_pass
         
         self.check_match_common(cluster_user, conf)

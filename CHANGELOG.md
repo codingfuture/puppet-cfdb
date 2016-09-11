@@ -6,6 +6,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.9.10]
 - Added "cfdb-" prefix to cluster names in automatic global memory management
 - Fixed issues in rotational drive auto-detection
+- Fixed exception in existing user password check under some circumstances
 
 ## [0.9.9]
 - Removed need to use is_bootstrap for Galera cluster setup - it's automatic now
