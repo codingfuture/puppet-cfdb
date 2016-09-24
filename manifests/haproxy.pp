@@ -39,7 +39,7 @@ class cfdb::haproxy(
     cfsystem::puppetpki { $user: } ->
     # TODO: implement generic cfpki module
     exec { 'cfdbhaproxy_dhparam':
-        command => "${openssl} dhparam -out ${dh_params} 2048",
+        command => "${openssl} dhparam -out ${dh_params} -rand /dev/urandom 2048",
         creates => $dh_params,
     }
     
