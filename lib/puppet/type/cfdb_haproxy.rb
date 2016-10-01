@@ -1,11 +1,6 @@
 Puppet::Type.newtype(:cfdb_haproxy) do
     desc "DO NOT USE DIRECTLY."
     
-    VALID_DB_TYPES = [
-        'mysql',
-        'postgresql',
-    ] unless defined? VALID_DB_TYPES
-    
     autorequire(:cfsystem_flush_config) do
         ['begin']
     end

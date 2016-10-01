@@ -17,6 +17,17 @@ Puppet::Type.type(:cfdb_haproxy).provide(
     def self.get_generator_version
         cf_system().makeVersion(__FILE__)
     end
+    
+    def self.check_exists(params)
+        debug('check_exists')
+        begin
+            systemctl(['status', "#{params[:service_name]}.service"])
+        rescue => e
+            warning(e)
+            #warning(e.backtrace)
+            false
+        end
+    end
 
     def self.on_config_change(newconf)
         newconf = newconf[newconf.keys[0]]
@@ -379,7 +390,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
         
         if config_changed or service_changed
             warning(">> reloading #{service_name}")
-            systemctl('reload', "#{service_name}.service")
+            systemctl('reload-or-restart', "#{service_name}.service")
         end
     end
 end

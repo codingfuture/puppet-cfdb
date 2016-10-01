@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.9.12]
+- Fixed to check running cfdbhaproxy
+
 ## [0.9.11]
 - Changed to use /dev/urandom for DH params generation to avoid possible
     hang on deployment with low entropy
@@ -70,6 +73,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 Initial release
 
+[0.9.12]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.12
 [0.9.11]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.11
 [0.9.10]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.10
 [0.9.9]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.9
