@@ -67,15 +67,17 @@ module PuppetX::CfDb::MySQL::Instance
         fqdn = Facter['fqdn'].value()
         
         #---
+        ver_parts = version.split('.')
+        is_56 = (ver_parts[0] == '5' and ver_parts[1] == '6')
+        is_57 = (ver_parts[0] == '5' and ver_parts[1] == '7')
+        
+        if !is_56 and !is_57
+            fail('At the moment, only MySQL v5.6 and v5.7 are supported')
+        end
+        
         if is_arbitrator
-            is_56 = true
-            is_57 = false
             upgrade_ver = 'NONE'
         else
-            ver_parts = version.split('.')
-            is_56 = (ver_parts[0] == '5' and ver_parts[1] == '6')
-            is_57 = (ver_parts[0] == '5' and ver_parts[1] == '7')
-            
             if is_57
                 upgrade_ver = sudo('-H', '-u', user, MYSQL_UPGRADE, '--version')
             else
@@ -338,7 +340,7 @@ module PuppetX::CfDb::MySQL::Instance
                 mysqld_settings['wsrep_cluster_address'] = 'gcomm://'
             end
             mysqld_settings['wsrep_forced_binlog_format'] = 'ROW'
-            mysqld_settings['wsrep_replicate_myisam'] = 'ON'
+            mysqld_settings['wsrep_replicate_myisam'] = 'OFF'
             mysqld_settings['wsrep_retry_autocommit'] = 1
             mysqld_settings['wsrep_slave_threads'] = innodb_thread_concurrency
             mysqld_settings['wsrep_sst_auth'] = "root:#{root_pass}"
@@ -393,6 +395,7 @@ module PuppetX::CfDb::MySQL::Instance
             'socket' => sock_file,
             'tmpdir' => tmp_dir,
             'user' => user,
+            '# major version' => version,
         }
         
         if is_cluster
@@ -472,9 +475,9 @@ module PuppetX::CfDb::MySQL::Instance
         mysqld_settings.merge! forced_settings
         
         if is_arbitrator
-            config_changed = cf_system.atomicWriteEnv(garbd_conf_file, garbd_settings, { :user => user})
+            config_file_changed = cf_system.atomicWriteEnv(garbd_conf_file, garbd_settings, { :user => user})
         else
-            config_changed = cf_system.atomicWriteIni(conf_file, conf_settings, { :user => user})
+            config_file_changed = cf_system.atomicWriteIni(conf_file, conf_settings, { :user => user})
         end
         
         # Prepare service file
@@ -500,7 +503,7 @@ module PuppetX::CfDb::MySQL::Instance
             service_changed = create_service(conf, service_ini, service_env)
         end
         
-        config_changed ||= service_changed
+        config_changed = config_file_changed || service_changed
         
         # Prepare data dir
         #---
@@ -526,16 +529,31 @@ module PuppetX::CfDb::MySQL::Instance
                 warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
             end
         elsif data_exists
-            if !is_secondary
-                if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
+            if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
+                if config_file_changed or File.exists?(restart_required_file)
+                    warning("#{user} please restart before mysql_upgrade can run!")
+                    warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
+                    
+                    if is_cluster
+                        # There is a possible security issue, if rogue users run on the same host
+                        service_ini['ExecStartPre'] = "/bin/chmod 700 #{run_dir}"
+                        service_env['MYSQLD_OPTS'] = [
+                            '--skip-networking',
+                            '--skip-grant-tables',
+                            '--wsrep-provider=none',
+                            '--init-file=',
+                        ].join(' ')
+                        create_service(conf, service_ini, service_env)
+                    end
+                else
                     systemctl('start', "#{service_name}.service")
                     wait_sock(service_name, sock_file)
                     
-                    if not is_secondary
-                        warning('> running mysql upgrade')
-                        sudo('-H', '-u', user, MYSQL_UPGRADE, '--force')
-                    end
+                    warning('> running mysql upgrade')
+                    sudo('-H', '-u', user, MYSQL_UPGRADE, '--force')
+
                     cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
+                    config_changed = true
                 end
             end
             
