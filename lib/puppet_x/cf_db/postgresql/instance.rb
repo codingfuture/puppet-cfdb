@@ -612,7 +612,6 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 )
                 
                 warning('> cloning standby')
-                FileUtils.touch(unclean_state_file)
                 
                 sudo('-H', '-u', user,
                     "#{root_dir}/bin/cfdb_repmgr",
@@ -627,6 +626,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 )
                 
                 warning("> starting #{service_name}")
+                FileUtils.touch(unclean_state_file)
                 systemctl('start', "#{service_name}.service")
                 
                 wait_sock(service_name, sock_file)
@@ -642,6 +642,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 systemctl('start', "#{repmgr_service_name}.service")
                 
                 cf_system.atomicWrite(active_version_file, version)
+                self.atomicWritePG(conf_file, pgsettings, {:user => user})
                 FileUtils.rm_f(unclean_state_file)
             rescue => e
                 warning("Failed to clone/setup standby: #{e}")

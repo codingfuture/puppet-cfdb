@@ -577,11 +577,14 @@ module PuppetX::CfDb::MySQL::Instance
         elsif is_secondary
             if is_cluster
                 # do nothing, to be copied on startup
-                FileUtils.mkdir(data_dir, :mode => 0750)
-                FileUtils.chown(user, user, data_dir)
+                #FileUtils.mkdir(data_dir, :mode => 0750)
+                #FileUtils.chown(user, user, data_dir)
+                service_ini['ExecStartPre'] = "/bin/mkdir #{data_dir}"
+                create_service(conf, service_ini, service_env)
                 
                 FileUtils.touch(restart_required_file)
                 FileUtils.chown(user, user, restart_required_file)
+                cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
                 
                 warning("JOINER node must be started manually AFTER firewall is configured on active nodes")
                 warning("Please run when safe: /bin/systemctl start #{service_name}.service")

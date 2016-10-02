@@ -7,6 +7,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed to check running cfdbhaproxy
 - Updated PXC default to 5.7 (please read official upgrade procedure)
 - Changed PXC mysql_upgrade handling to aid official steps
+- Minor improvements to secondary server deployment
 
 ## [0.9.11]
 - Changed to use /dev/urandom for DH params generation to avoid possible
