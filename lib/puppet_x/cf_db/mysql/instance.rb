@@ -365,7 +365,7 @@ module PuppetX::CfDb::MySQL::Instance
                 })
                     
                 local_pem = File.read("#{pki_dir}/local.key") + File.read("#{pki_dir}/local.crt")
-                cf_system.atomicWrite(socat_pem_file, local_pem, {:user => user})
+                cf_system.atomicWrite(socat_pem_file, local_pem, {:user => user, :show_diff => false})
             end
         end
         

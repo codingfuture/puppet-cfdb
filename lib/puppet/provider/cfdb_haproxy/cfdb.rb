@@ -66,7 +66,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             File.read("#{pki_dir}/dh.pem"),
         ].join
         cert_file = "#{pki_dir}/haproxy.pem"
-        cf_system.atomicWrite(cert_file, local_pem, {:user => user})
+        cf_system.atomicWrite(cert_file, local_pem, {:user => user, :show_diff => false})
         
         # HAProxy config
         #==================================================
