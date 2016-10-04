@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.9.13]
+- Attempt to workaround issue of percona server upgrades requiring
+    to shutdown all "mysqld" processes in system
+
 ## [0.9.12]
 - Fixed to check running cfdbhaproxy
 - Updated PXC default to 5.7 (please read official upgrade procedure)
@@ -76,6 +80,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 Initial release
 
+[0.9.13]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.13
 [0.9.12]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.12
 [0.9.11]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.11
 [0.9.10]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.10

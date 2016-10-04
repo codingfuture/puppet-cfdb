@@ -27,4 +27,10 @@ class cfdb::mysql::serverpkg {
         ensure => stopped,
         enable => false,
     }
+    
+    # Workaround for stupid MySQL pre-inst script
+    file { '/usr/sbin/cfmysqld':
+        ensure => link,
+        target => '/usr/sbin/mysqld',
+    }
 }

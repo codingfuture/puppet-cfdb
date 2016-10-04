@@ -3,7 +3,7 @@ module PuppetX::CfDb::MySQL
     ROOT_PASS_LEN = PuppetX::CfDb::ROOT_PASS_LEN
     MYSQL = '/usr/bin/mysql'
     MYSQLADMIN = '/usr/bin/mysqladmin'
-    MYSQLD = '/usr/sbin/mysqld'
+    MYSQLD = '/usr/sbin/cfmysqld'
     MYSQL_INSTALL_DB = '/usr/bin/mysql_install_db'
     MYSQL_UPGRADE = '/usr/bin/mysql_upgrade'
     GARBD = '/usr/bin/garbd'
