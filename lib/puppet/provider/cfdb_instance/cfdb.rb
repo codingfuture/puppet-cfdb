@@ -39,6 +39,10 @@ Puppet::Type.type(:cfdb_instance).provide(
    
     def self.on_config_change(newconf)
         debug('on_config_change')
+        
+        @new_services = []
+        @new_slices = []
+        
         newconf.each do |name, conf|
             db_type = conf[:type]
             
@@ -50,6 +54,9 @@ Puppet::Type.type(:cfdb_instance).provide(
                 err("Transition error in setup")
             end
         end
+        
+        cf_system.cleanupSystemD('cfdb-', @new_services)
+        cf_system.cleanupSystemD('system-cfdb_', @new_slices, 'slice')
     end
     
     def self.fit_range(min, max, val)
@@ -112,6 +119,7 @@ Puppet::Type.type(:cfdb_instance).provide(
         
         #---
         self.cf_system().createService(opts)
+        @new_services << service_name
     end
     
     def self.create_slice(slice_name, conf)
@@ -123,6 +131,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             :mem_limit => mem_limit,
             :mem_lock => true,
         })
+        @new_slices << slice_name
     end
     
     def self.disk_size(dir)
