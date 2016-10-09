@@ -671,6 +671,16 @@ define cfdb::instance (
                     ensure => link,
                     target => $sysbench_script,
                 }
+                
+                if $is_cluster_by_fact {
+                    $bootstrap_script = "${cfdb::bin_dir}/cfdb_${cluster}_bootstrap"
+                    file { $bootstrap_script:
+                        mode    => '0755',
+                        content => epp('cfdb/cfdb_mysql_bootstrap.epp', {
+                            service_name => $service_name,
+                        })
+                    }
+                }
             }
         }
         'postgresql': {

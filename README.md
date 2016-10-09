@@ -577,6 +577,7 @@ TLS tunnel is NOT created in the following cases:
 * `~/.my.cnf` is properly configured for `mysql` client to work without parameters.
 * `/db/bin/cfdb_{cluster}_mysql` is installed to properly invoke mysql
 * `/db/bin/cfdb_{cluster}_sysbench` is installed for easy sysbench invocation
+* `/db/bin/cfdb_{cluster}_bootstrap` is installed for easy Galera bootstrap
 
 ## PostgreSQL
 
