@@ -587,8 +587,8 @@ define cfdb::instance (
     # setup backup & misc.
     #---
     if $backup_support {
-        $backup_script = "${root_dir}/bin/cfdb_backup"
-        $restore_script = "${root_dir}/bin/cfdb_restore"
+        $backup_script = "${cfdb::bin_dir}/cfdb_${cluster}_backup"
+        $restore_script = "${cfdb::bin_dir}/cfdb_${cluster}_restore"
         $backup_script_auto ="${backup_script}_auto"
         
         file { $backup_dir:
@@ -607,6 +607,10 @@ define cfdb::instance (
             }, $backup_tune)),
             require => File[$backup_dir],
             notify  => Cfdb_instance[$cluster],
+        } ->
+        file { "${root_dir}/bin/cfdb_backup":
+            ensure => link,
+            target => $backup_script,
         }
         
         file { $restore_script:
@@ -619,6 +623,10 @@ define cfdb::instance (
             }),
             require => File[$backup_dir],
             notify  => Cfdb_instance[$cluster],
+        } ->
+        file { "${root_dir}/bin/cfdb_restore":
+            ensure => link,
+            target => $restore_script,
         }
         
         if $backup == false {
@@ -639,36 +647,52 @@ define cfdb::instance (
     case $type {
         'mysql': {
             if !$is_arbitrator {
-                file { "${root_dir}/bin/cfdb_mysql":
+                $mysql_script = "${cfdb::bin_dir}/cfdb_${cluster}_mysql"
+                file { $mysql_script:
                     mode    => '0755',
                     content => epp('cfdb/cfdb_mysql.epp', {
                         user => $user,
                     }),
                     notify  => Cfdb_instance[$cluster],
+                } ->
+                file { "${root_dir}/bin/cfdb_mysql":
+                    ensure => link,
+                    target => $mysql_script,
                 }
                 
-                file { "${root_dir}/bin/cfdb_sysbench":
+                $sysbench_script = "${cfdb::bin_dir}/cfdb_${cluster}_sysbench"
+                file { $sysbench_script:
                     mode    => '0755',
                     content => epp('cfdb/cfdb_sysbench.epp', {
                         user => $user,
                     }),
+                } ->
+                file { "${root_dir}/bin/cfdb_sysbench":
+                    ensure => link,
+                    target => $sysbench_script,
                 }
             }
         }
         'postgresql': {
             if !$is_arbitrator {
-                file { "${root_dir}/bin/cfdb_psql":
+                $psql_script = "${cfdb::bin_dir}/cfdb_${cluster}_psql"
+                file { $psql_script:
                     mode    => '0755',
                     content => epp('cfdb/cfdb_psql.epp', {
                         user         => $user,
                         service_name => $service_name,
                     }),
                     notify  => Cfdb_instance[$cluster],
+                } ->
+                file { "${root_dir}/bin/cfdb_psql":
+                    ensure => link,
+                    target => $psql_script,
                 }
             }
             
             if $is_cluster_by_fact {
-                file { "${root_dir}/bin/cfdb_repmgr":
+                $repmgr_script = "${cfdb::bin_dir}/cfdb_${cluster}_repmgr"
+                file { $repmgr_script:
                     mode    => '0755',
                     content => epp('cfdb/cfdb_repmgr.epp', {
                         root_dir     => $root_dir,
@@ -676,6 +700,10 @@ define cfdb::instance (
                         service_name => $service_name,
                     }),
                     notify  => Cfdb_instance[$cluster],
+                } ->
+                file { "${root_dir}/bin/cfdb_repmgr":
+                    ensure => link,
+                    target => $repmgr_script,
                 }
             }
         }

@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.9.14]
 - Added automatic cleanup of cfdb instance systemd files
+- Security improvement to move root-executed scripts out of DB instance home folders
 
 ## [0.9.13]
 - Attempt to workaround issue of percona server upgrades requiring

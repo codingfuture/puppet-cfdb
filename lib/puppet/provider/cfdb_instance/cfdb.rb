@@ -55,8 +55,15 @@ Puppet::Type.type(:cfdb_instance).provide(
             end
         end
         
-        cf_system.cleanupSystemD('cfdb-', @new_services)
-        cf_system.cleanupSystemD('system-cfdb_', @new_slices, 'slice')
+        begin
+            prefix = PuppetX::CfDb::CFDB_TYPES.join(',').downcase
+            cf_system.cleanupSystemD("cf{#{prefix}}-", @new_services)
+            cf_system.cleanupSystemD('system-cfdb_', @new_slices, 'slice')
+        rescue => e
+            warning(e)
+            warning(e.backtrace)
+            err("Transition error in setup")
+        end
     end
     
     def self.fit_range(min, max, val)

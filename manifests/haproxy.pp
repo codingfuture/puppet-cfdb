@@ -78,7 +78,7 @@ class cfdb::haproxy(
     
     #---
     ensure_resource('package', 'hatop', {})
-    file { "${bin_dir}/cfdb_hatop":
+    file { "${cfdb::bin_dir}/cfdb_hatop":
         mode    => '0555',
         content => [
             '#!/bin/dash',

@@ -527,7 +527,7 @@ Define and auto-configures roles per database in specified cluster.
 
 # Backup & restore
 
-Each instance has `~/bin/cfdb_backup` and `~/bin/cfdb_restore` scripts installed to
+Each instance has `/db/bin/cfdb_{cluster}_backup` and `/db/bin/cfdb_{cluster}_restore` scripts installed to
 perform manual backup and manual restore from backup respectively. Of course,
 restore will ask to input two different phrases for safety reasons.
 
@@ -575,19 +575,19 @@ TLS tunnel is NOT created in the following cases:
 ## MySQL
 
 * `~/.my.cnf` is properly configured for `mysql` client to work without parameters.
-* `~/bin/cfdb_mysql` is installed to properly invoke mysql
-* `~/bin/cfdb_sysbench` is installed for easy sysbench invocation
+* `/db/bin/cfdb_{cluster}_mysql` is installed to properly invoke mysql
+* `/db/bin/cfdb_{cluster}_sysbench` is installed for easy sysbench invocation
 
 ## PostgreSQL
 
-* `~/bin/cfdb_psql` is installed to properly invoke psql with required parameters.
-* `~/bin/cfdb_repmgr` is installed to properly invoke with required parameters
+* `/db/bin/cfdb_{cluster}_psql` is installed to properly invoke psql with required parameters.
+* `/db/bin/cfdb_{cluster}_repmgr` is installed to properly invoke with required parameters
 * `~/.pgpass` is properly configured for superuser and repmgr
 * `~/.pg_service.conf` is properly configured to be used with `~/bin/cfdb_psql`
 
 ## HAProxy
 
-* `~/bin/cfdb_hatop` is installed to properly invoke hatop
+* `/db/bin/cfdb_hatop` is installed to properly invoke hatop
 
 
 # `$settings_tune` magic
