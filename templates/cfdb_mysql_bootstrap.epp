@@ -1,0 +1,20 @@
+<% |
+    String[1] $service_name
+| -%>
+#!/bin/bash
+
+echo 'Enabling bootstrap mode...'
+
+/bin/sed -i \
+    -e 's,^MYSQLD_OPTS.*$,MYSQLD_OPTS="--wsrep_cluster_address=gcomm://",g' \
+    /etc/default/<%= $service_name %>.conf
+
+echo '...restarting...'
+/bin/systemctl restart <%= $service_name %>.service
+
+echo '...restoring back...'
+/bin/sed -i \
+    -e 's,^MYSQLD_OPTS.*$,MYSQLD_OPTS="",g' \
+    /etc/default/<%= $service_name %>.conf
+
+echo '...done!'
