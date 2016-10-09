@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.9.15]
+- Updated `cfsystem` dependency
+
 ## [0.9.14]
 - Added automatic cleanup of cfdb instance systemd files
 - Security improvement to move root-executed scripts out of DB instance home folders
@@ -85,6 +88,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 Initial release
 
+[0.9.15]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.15
 [0.9.14]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.14
 [0.9.13]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.13
 [0.9.12]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.12
