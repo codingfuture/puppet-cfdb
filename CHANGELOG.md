@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.9.16]
 - Fixed to properly install repmgr ext with specific postgresql version
+- Added installation of new Percona PGP key
 
 ## [0.9.15]
 - Updated `cfsystem` dependency
@@ -91,6 +92,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 Initial release
 
+[0.9.16]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.16
 [0.9.15]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.15
 [0.9.14]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.14
 [0.9.13]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.13
