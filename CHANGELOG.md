@@ -13,6 +13,8 @@ project adheres to [Semantic Versioning](http://semver.org/).
  > Fixed to check all slave nodes are down on cluster upgrade
 - Upgraded to PostgreSQL 9.6 by default
 - Fixed previously introduced bug requiring instance node restart
+- Removed 'partman' from default extension list due to incompatibility with PostgreSQL 9.6
+- Removed 'pgespresso' as deprecated with PostgreSQL 9.6
 
 ## [0.9.15]
 - Updated `cfsystem` dependency

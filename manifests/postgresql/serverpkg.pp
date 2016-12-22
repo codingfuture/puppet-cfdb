@@ -23,13 +23,13 @@ class cfdb::postgresql::serverpkg {
     }
     
     if $cfdb::postgresql::default_extensions {
-        #'repack',        
+        #'repack',
+        #'partman',
+        # 'pgespresso' - deprecated with 9.6,
         [
             'asn1oid',
             'debversion',
             'ip4r',
-            'partman',
-            'pgespresso',
             'pgextwlist',
             'pgmp',
             'pgrouting',

@@ -442,11 +442,11 @@ This class is included automatically on demand.
 
 * `$version = '9.5'` - version of postgresql to use
 * `$default_extensions = true` - install default extension list, if true.
-    * Default list: *'asn1oid', 'debversion', 'ip4r', 'partman', 'pgespresso', 'pgextwlist', 'pgmp',
+    * Default list: *'asn1oid', 'debversion', 'ip4r', 'pgextwlist', 'pgmp',
             'pgrouting', 'pllua', 'plproxy', 'plr', 'plv8', "postgis-${postgis_ver}", 'postgis-scripts',
             'powa', 'prefix', 'preprepare', 'repmgr', 'contrib',
             'plpython', 'pltcl'*.
-    * Note: 'plperl' and 'repack' are disabled as they causes troubles with packaging.
+    * Note: 'plperl', 'repack' and 'partman' are disabled as they causes troubles with packaging.
 * `$extensions = []` - custom list of extensions to install
 * `$apt_repo = 'http://apt.postgresql.org/pub/repos/apt/'` - PostgreSQL APT repository location
 
