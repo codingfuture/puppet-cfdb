@@ -154,8 +154,7 @@ cfdb::instances:
 
     pgclust1:
         type: postgresql
-        # there are repmgr issues
-        #is_arbitrator: true
+        is_arbitrator: true
         is_secondary: true
         port: 5300
         settings_tune:
@@ -163,8 +162,7 @@ cfdb::instances:
                 node_id: 3
     pgclust2:
         type: postgresql
-        # there are repmgr issues
-        #is_arbitrator: true
+        is_arbitrator: true
         is_secondary: true
         port: 5301
         settings_tune:
