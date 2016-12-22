@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.9.16]
+- Fixed to properly install repmgr ext with specific postgresql version
+
 ## [0.9.15]
 - Updated `cfsystem` dependency
 

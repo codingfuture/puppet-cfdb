@@ -42,7 +42,6 @@ class cfdb::postgresql::serverpkg {
             'powa',
             'prefix',
             'preprepare',
-            'repmgr',
         ].each |$ext| {
             ensure_resource('package', "postgresql-${ver}-${ext}", {})
         }
@@ -58,11 +57,13 @@ class cfdb::postgresql::serverpkg {
         }
     }
     
-    #package { 'barman': }
-    package { 'postgresql-filedump': }
-    package { 'pgtop': }
-    ensure_resource('package', 'repmgr')
-    package { 'pg-backup-ctl': }
+    ensure_packages([
+        'postgresql-filedump',
+        'pgtop',
+        'repmgr',
+        "postgresql-${ver}-repmgr",
+        'pg-backup-ctl'
+    ])
     
 
     # default instance must not run
