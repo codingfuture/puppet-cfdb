@@ -17,8 +17,14 @@ class cfdb::postgresql::serverpkg {
     }
     
     case $ver {
-        default: {
+        '9.5': {
             $postgis_ver = '2.2'
+        }
+        '9.6': {
+            $postgis_ver = '2.3'
+        }
+        default: {
+            $postgis_ver = '2.3'
         }
     }
     
