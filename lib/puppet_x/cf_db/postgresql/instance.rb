@@ -83,6 +83,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         ver_parts = version.split('.')
         is_94 = (ver_parts[0] == '9' and ver_parts[1] == '4')
         is_95 = (ver_parts[0] == '9' and ver_parts[1] == '5')
+        is_96 = (ver_parts[0] == '9' and ver_parts[1] == '6')
         
         fqdn = Facter['fqdn'].value()
         
@@ -401,7 +402,19 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     'failover' => 'automatic',
                     'promote_command' => "#{root_dir}/bin/cfdb_repmgr standby promote",
                     'follow_command' => "#{root_dir}/bin/cfdb_repmgr standby follow",
+                    'service_start_command' => "/usr/bin/sudo /bin/systemctl start #{service_name}.service",
+                    'service_stop_command' => "/usr/bin/sudo /bin/systemctl stop #{service_name}.service",
+                    'service_restart_command ' => "/usr/bin/sudo /bin/systemctl restart #{service_name}.service",
+                    'service_reload_command ' => "/usr/bin/sudo /bin/systemctl reload #{service_name}.service",
                 })
+                
+                sudo_content = [
+                    "#{user} ALL=(ALL) NOPASSWD: /bin/systemctl start #{service_name}.service",
+                    "#{user} ALL=(ALL) NOPASSWD: /bin/systemctl stop #{service_name}.service",
+                    "#{user} ALL=(ALL) NOPASSWD: /bin/systemctl restart #{service_name}.service",
+                    "#{user} ALL=(ALL) NOPASSWD: /bin/systemctl reload #{service_name}.service",
+                ]                
+                cf_system.atomicWrite("/etc/sudoers.d/#{user}", sudo_content, {:mode => 0400})
             end
             
             if is_secondary
@@ -447,12 +460,12 @@ module PuppetX::CfDb::PostgreSQL::Instance
         #==================================================
         # config
         config_changed = self.atomicWritePG(conf_file, pgsettings, {:user => user})
+
         # hba
         hba_content = (hba_content.map{ |v| v.join(' ') }).join("\n")
         hba_changed = cf_system.atomicWrite(hba_file, hba_content, {:user => user})
         config_changed ||= hba_changed
 
-        
         slice_name = "system-cfdb_#{cluster}"
         create_slice(slice_name, conf)
         
@@ -468,7 +481,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             }
         
             service_changed = create_service(conf, service_ini, {}, slice_name, repmgr_service_name)
-            config_changed ||= service_changed
+            repmgr_changed ||= service_changed
         end
         
         #service
@@ -486,7 +499,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
     
         service_changed = create_service(conf, service_ini, service_env, slice_name)
         config_changed ||= service_changed
-        
+
         #---
         if !File.exists? root_data_dir
             warning('> creating root data dir')
@@ -497,7 +510,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         #---
         if File.exists?(unclean_state_file)
             warning("Something has gone wrong in previous runs!")
-            warning("Please manually fix issues in #{root_dir} and then remove #{unclean_state_file}.")
+            warning("Please manually fix issues in #{root_dir} and then remove #{unclean_state_file} .")
             
         elsif data_exists
             if config_changed
@@ -512,14 +525,14 @@ module PuppetX::CfDb::PostgreSQL::Instance
                         warning("Failed to reload instance: #{e}")
                     end
                 end
-                
-                if is_cluster and repmgr_changed
-                    begin
-                        warning("> restarting #{repmgr_service_name}")
-                        systemctl('restart', "#{repmgr_service_name}.service")
-                    rescue => e
-                        warning("Failed to reload instance: #{e}")
-                    end
+            end
+            
+            if is_cluster and repmgr_changed
+                begin
+                    warning("> restarting #{repmgr_service_name}")
+                    systemctl('restart', "#{repmgr_service_name}.service")
+                rescue => e
+                    warning("Failed to reload instance: #{e}")
                 end
             end
             
@@ -654,9 +667,9 @@ module PuppetX::CfDb::PostgreSQL::Instance
             warning('> running initdb')
             FileUtils.touch(unclean_state_file)
             #--
-            do_migrate = true
+            previously_configured = File.exists?(active_version_file)
 
-            if init_db_from and !init_db_from.empty?
+            if init_db_from and !init_db_from.empty? and !previously_configured
                 old_version, init_data = init_db_from.split(':')
                 
                 if !old_version or !init_data
@@ -699,24 +712,36 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     {:user => user}
                 )
             end
-
-            if File.exists? data_dir
-                do_migrate = false
-            else
-                sudo('-H', '-u', user,
-                    "#{pg_bin_dir}/initdb",
-                    '--locale', cfdb_settings.fetch('locale', 'en_US.UTF-8'),
-                    '--pwfile', pgpass_file,
-                    '-D', data_dir,
-                    '-U', superuser)
-            end
             
-            if File.exists?(active_version_file) and do_migrate
+            # recheck
+            data_exists = File.exists? data_dir
+            do_migrate = previously_configured and !data_exists
+            
+            # prepare migrate
+            if do_migrate
                 warning('> migrating old data')
                 old_version = File.read(active_version_file).strip()
                 old_data = "#{root_data_dir}/#{old_version}"
                 old_pg_bin_dir = "/usr/lib/postgresql/#{old_version}/bin"
 
+                if is_cluster
+                    fact_cluster_size, res = get_cluster_postgresql(conf)
+                    fqdn = Facter['fqdn'].value()
+                    
+                    if res[fqdn] != '* master'
+                        fail([
+                              'Please make sure the current node is active master!',
+                              "Hint: #{root_dir}/bin/cfdb_repmgr cluster switchover"].join("/n"))
+                    end
+                    
+                    if fact_cluster_size != 1
+                        fail('All slave nodes must be stopped before major upgrade!')
+                    end
+
+                    warning("> stopping #{repmgr_service_name}")
+                    systemctl('stop', "#{repmgr_service_name}.service")
+                end
+                
                 begin
                     sudo('-H', '-u', user,
                         "#{old_pg_bin_dir}/pg_ctl",
@@ -724,10 +749,22 @@ module PuppetX::CfDb::PostgreSQL::Instance
                         'stop')
                 rescue
                 end
-                
+
                 warning("> stopping #{service_name}")
                 systemctl('stop', "#{service_name}.service")
+            end
 
+            if !data_exists
+                sudo('-H', '-u', user,
+                    "#{pg_bin_dir}/initdb",
+                    '--locale', cfdb_settings.fetch('locale', 'en_US.UTF-8'),
+                    '--pwfile', pgpass_file,
+                    '-D', data_dir,
+                    '-U', superuser)
+            end
+                
+            # complete migrate
+            if do_migrate
                 sudo('-H', '-u', user, '/bin/sh', '-c',
                     "cd /tmp && #{pg_bin_dir}/pg_upgrade " +
                         "-d #{old_data} -D #{data_dir} " +
@@ -736,7 +773,8 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 FileUtils.mv(old_data, "#{old_data}.bak")
             end
             
-            if is_cluster and !is_secondary
+            # register master
+            if is_cluster and !is_secondary and !previously_configured
                 warning('> running repmgr configuration')
                 
                 warning("> starting #{service_name}")
@@ -761,14 +799,16 @@ module PuppetX::CfDb::PostgreSQL::Instance
                      '-f', repmgr_file,
                      'master', 'register'
                 )
-                
-                warning("> starting #{repmgr_service_name}")
-                systemctl('start', "#{repmgr_service_name}.service")
             end
             
             cf_system.atomicWrite(active_version_file, version)
             #--
             FileUtils.rm_f(unclean_state_file)
+            
+            if is_cluster
+                warning("> starting #{repmgr_service_name}")
+                systemctl('start', "#{repmgr_service_name}.service")
+            end
             
             warning("> starting #{service_name}")
             systemctl('start', "#{service_name}.service")
@@ -802,25 +842,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         cluster_size = 1  + conf[:cluster_addr].size()
     
         begin
-            res = sudo('-H', '-u', conf[:user],
-                    "#{root_dir}/bin/cfdb_repmgr",
-                    '-f', "#{root_dir}/conf/repmgr.conf",
-                    'cluster', 'show'
-            )
-            
-            fact_cluster_size = 0 
-            
-            res = res.split("\n").drop(2).reduce({}) do |m, l|
-                l = l.split('|')
-                status = l[0].strip()
-                host = l[1].strip()
-                
-                fact_cluster_size += 1 if ['* master', 'standby'].include? status
-                
-                m[host] = status
-                m
-            end
-            
+            fact_cluster_size, res = get_cluster_postgresql(conf)
             fqdn = Facter['fqdn'].value()
             
             if is_secondary
@@ -841,6 +863,31 @@ module PuppetX::CfDb::PostgreSQL::Instance
             #warning(e.backtrace)
             false
         end
+    end
+    
+    def get_cluster_postgresql(conf)
+        root_dir = conf[:root_dir]
+        
+        res = sudo('-H', '-u', conf[:user],
+                "#{root_dir}/bin/cfdb_repmgr",
+                '-f', "#{root_dir}/conf/repmgr.conf",
+                'cluster', 'show'
+        )
+        
+        fact_cluster_size = 0 
+        
+        res = res.split("\n").drop(2).reduce({}) do |m, l|
+            l = l.split('|')
+            status = l[0].strip()
+            host = l[1].strip()
+            
+            fact_cluster_size += 1 if ['* master', 'standby'].include? status
+            
+            m[host] = status
+            m
+        end
+        
+        return fact_cluster_size, res
     end
     
     def atomicWritePG(file, settings, opts={})

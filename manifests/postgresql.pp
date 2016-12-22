@@ -1,6 +1,6 @@
 
 class cfdb::postgresql (
-    $version = '9.5',
+    $version = '9.6',
     $default_extensions = true,
     $extensions = [],
     $extensions2 = [],
