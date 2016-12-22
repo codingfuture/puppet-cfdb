@@ -125,8 +125,8 @@ Puppet::Type.type(:cfdb_instance).provide(
         end
         
         #---
-        self.cf_system().createService(opts)
         @new_services << service_name
+        self.cf_system().createService(opts)
     end
     
     def self.create_slice(slice_name, conf)
