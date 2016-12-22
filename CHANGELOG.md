@@ -15,6 +15,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed previously introduced bug requiring instance node restart
 - Removed 'partman' from default extension list due to incompatibility with PostgreSQL 9.6
 - Removed 'pgespresso' as deprecated with PostgreSQL 9.6
+- Added `repmgr` arbitrator (`witness`) support (repmgr 3.2+ is required)
 
 ## [0.9.15]
 - Updated `cfsystem` dependency

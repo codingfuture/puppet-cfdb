@@ -9,7 +9,4 @@ class cfdb::postgresql::arbitratorpkg {
         ensure => stopped,
         enable => false,
     })
-    
-    fail("There is an open repmgr issue #186: https://github.com/2ndQuadrant/repmgr/issues/186
-          PostgreSQL witness server is not supported yet")
 }

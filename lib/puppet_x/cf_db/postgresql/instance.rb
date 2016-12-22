@@ -372,14 +372,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             
             pgpass_content << "*:*:*:#{REPMGR_USER}:#{root_pass}"
             
-            pgsettings.merge!({
-                'wal_level' => 'hot_standby',
-                'wal_log_hints' => 'on',
-                'hot_standby' => 'on',
-                'archive_mode' => 'on',
-                'max_wal_senders' => cluster_addr.size + 2,
-                'shared_preload_libraries' => 'repmgr_funcs',
-            })
+            pgsettings['shared_preload_libraries'] ='repmgr_funcs'
             
             repmgr_conf = {
                 'cluster' => cluster,
@@ -392,10 +385,20 @@ module PuppetX::CfDb::PostgreSQL::Instance
             }
             
             if is_arbitrator
-                repmgr_conf.merge!({
-                    'pg_ctl_options' => "$(test -e #{active_version_file} && echo \"\" -o \"--config_file=#{conf_file}\")",
+                pgsettings.merge!({
+                    'wal_level' => 'minimal',
+                    'archive_mode' => 'off',
+                    'archive_command' => '',
                 })
             else
+                pgsettings.merge!({
+                    'wal_level' => 'hot_standby',
+                    'wal_log_hints' => 'on',
+                    'hot_standby' => 'on',
+                    'archive_mode' => 'on',
+                    'max_wal_senders' => cluster_addr.size + 2,
+                })
+
                 repmgr_conf.merge!({
                     'use_replication_slots' => 1,
                     'pg_basebackup_options' => '--xlog-method=stream',
@@ -546,7 +549,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             begin
                 warning("> testing master connection #{master_node['addr']}")
                 
-                sudo('-H', '-u', user,
+                sudo('-H', '-s', '-u', user,
                     "#{pg_bin_dir}/pg_isready",
                     '-h', master_node['addr'],
                     '-p', master_node['port'],
@@ -555,7 +558,6 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     '-d', REPMGR_USER,
                 )
                 
-                warning('> register witness')
                 begin
                     sudo('-H', '-u', user,
                          "#{pg_bin_dir}/pg_ctl", '-s', '-D', "#{data_dir}", 'stop'
@@ -564,41 +566,51 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 end
 
                 FileUtils.rm_rf data_dir
-                
-                # workaround for repmgr issues
-                def_postgres_run_dir = "/run/postgresql"
-                FileUtils.mkdir_p(def_postgres_run_dir, :mode => 0755)
-                FileUtils.chown(user, user, def_postgres_run_dir)
-                
+
                 sudo('-H', '-u', user,
-                    "#{root_dir}/bin/cfdb_repmgr",
-                    '-h', master_node['addr'],
-                    '-p', master_node['port'],
-                    '-U', REPMGR_USER,
-                    '-d', REPMGR_USER,
-                    '-R', user.sub(/_arb$/, ''),
+                    "#{pg_bin_dir}/initdb",
+                    '--locale', cfdb_settings.fetch('locale', 'en_US.UTF-8'),
+                    '--pwfile', pgpass_file,
                     '-D', data_dir,
-                    '-f', repmgr_file,
-                     '--force',
-                    'witness', 'create'
-                )
+                    '-U', superuser)
+
                 
-                sudo('-H', '-u', user,
-                     "#{pg_bin_dir}/pg_ctl", '-s', '-D', "#{data_dir}", 'stop'
-                )
-                
-                FileUtils.rm_rf(def_postgres_run_dir)
-                
-                cf_system.atomicWrite(active_version_file, version)
+                warning('> running repmgr configuration')
                 
                 warning("> starting #{service_name}")
                 systemctl('start', "#{service_name}.service")
                 
                 wait_sock(service_name, sock_file)
                 
+                sudo('-H', '-u', user,
+                     "#{root_dir}/bin/cfdb_psql", '-c',
+                     "CREATE USER #{REPMGR_USER} SUPERUSER PASSWORD '#{root_pass}';")
+                
+                sudo('-H', '-u', user,
+                     "#{root_dir}/bin/cfdb_psql", '-c',
+                     "CREATE DATABASE #{REPMGR_USER} WITH OWNER = #{REPMGR_USER};")
+                
+                sudo('-H', '-u', user,
+                     "#{root_dir}/bin/cfdb_psql", '-c',
+                     "ALTER USER #{REPMGR_USER} SET search_path TO repmgr_#{cluster}, \"$user\", public;")
+                
+
+                warning('> register witness')                
+                sudo('-H', '-u', user,
+                    "#{root_dir}/bin/cfdb_repmgr",
+                    '-h', master_node['addr'],
+                    '-p', master_node['port'],
+                    '-U', REPMGR_USER,
+                    '-d', REPMGR_USER,
+                    '-R', user,
+                    '-D', data_dir,                     
+                    'witness', 'register'
+                )
+                
                 warning("> starting #{repmgr_service_name}")
                 systemctl('start', "#{repmgr_service_name}.service")
                 
+                cf_system.atomicWrite(active_version_file, version)
             rescue => e
                 warning("Failed to setup witness: #{e}")
                 warning("Master server needs to be re-provisioned after this host facts are known. Then run again")
@@ -615,7 +627,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 
                 warning("> testing master connection #{master_node['addr']}")
                 
-                sudo('-H', '-u', user,
+                sudo('-H', '-s', '-u', user,
                     "#{pg_bin_dir}/pg_isready",
                     '-h', master_node['addr'],
                     '-p', master_node['port'],
@@ -838,21 +850,22 @@ module PuppetX::CfDb::PostgreSQL::Instance
         
         cluster = conf[:cluster]
         root_dir = conf[:root_dir]
-        is_secondary = conf[:is_secondary]
         cluster_size = 1  + conf[:cluster_addr].size()
     
         begin
             fact_cluster_size, res = get_cluster_postgresql(conf)
             fqdn = Facter['fqdn'].value()
-            
-            if is_secondary
-                if res[fqdn] != 'standby'
-                    warning("> cluster #{cluster}: this peer #{fqdn} is in invalid mode #{res[fqdn]} != standby")
-                end
+
+            if conf[:is_arbitrator]
+                mode = 'witness'
+            elsif conf[:is_secondary]
+                mode = 'standby'
             else
-                if res[fqdn] != '* master'
-                    warning("> cluster #{cluster}: this peer #{fqdn} is in invalid mode #{res[fqdn]} != master")
-                end
+                mode = '* master'
+            end
+            
+            if res[fqdn] != mode
+                warning("> cluster #{cluster}: this peer #{fqdn} is in invalid mode #{res[fqdn]} != #{mode}")
             end
             
             if fact_cluster_size != cluster_size
@@ -881,7 +894,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             status = l[0].strip()
             host = l[1].strip()
             
-            fact_cluster_size += 1 if ['* master', 'standby'].include? status
+            fact_cluster_size += 1 if ['* master', 'standby', 'witness'].include? status
             
             m[host] = status
             m

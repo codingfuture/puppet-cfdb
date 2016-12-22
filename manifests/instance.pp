@@ -684,20 +684,18 @@ define cfdb::instance (
             }
         }
         'postgresql': {
-            if !$is_arbitrator {
-                $psql_script = "${cfdb::bin_dir}/cfdb_${cluster}_psql"
-                file { $psql_script:
-                    mode    => '0755',
-                    content => epp('cfdb/cfdb_psql.epp', {
-                        user         => $user,
-                        service_name => $service_name,
-                    }),
-                    notify  => Cfdb_instance[$cluster],
-                } ->
-                file { "${root_dir}/bin/cfdb_psql":
-                    ensure => link,
-                    target => $psql_script,
-                }
+            $psql_script = "${cfdb::bin_dir}/cfdb_${cluster}_psql"
+            file { $psql_script:
+                mode    => '0755',
+                content => epp('cfdb/cfdb_psql.epp', {
+                    user         => $user,
+                    service_name => $service_name,
+                }),
+                notify  => Cfdb_instance[$cluster],
+            } ->
+            file { "${root_dir}/bin/cfdb_psql":
+                ensure => link,
+                target => $psql_script,
             }
             
             if $is_cluster_by_fact {
