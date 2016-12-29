@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 define cfdb::database (
     $cluster,
@@ -11,12 +15,12 @@ define cfdb::database (
         database => $database,
         ext      => $ext,
     }
-    
+
     cfdb::role { $title:
         cluster  => $cluster,
         database => $database,
     }
-    
+
     if $roles {
         if is_hash($roles) {
             $roles.each |$subname, $cfg| {
@@ -38,7 +42,7 @@ define cfdb::database (
             fail('$roles must be a hash')
         }
     }
-    
+
     # if !defined(Cfdb::Cfdb_instance[$cluster]) {
     #         fail("Cfdb::Cfdb_instance[$cluster] must be defined")
     #     }

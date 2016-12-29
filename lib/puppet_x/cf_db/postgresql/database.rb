@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 module PuppetX::CfDb::PostgreSQL::Database
     include PuppetX::CfDb::PostgreSQL

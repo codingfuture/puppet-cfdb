@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 module PuppetX::CfDb::PostgreSQL
     ROOT_PASS_LEN = PuppetX::CfDb::ROOT_PASS_LEN

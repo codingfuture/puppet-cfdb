@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 module PuppetX::CfDb::MySQL::Instance
     include PuppetX::CfDb::MySQL

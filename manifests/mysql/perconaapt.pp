@@ -1,9 +1,13 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 class cfdb::mysql::perconaapt {
     assert_private()
-    
+
     include cfsystem
-    
+
     case $::facts['lsbdistcodename'] {
         'xenial', 'yakkety': {
             $percona_release = 'wily'
@@ -15,7 +19,7 @@ class cfdb::mysql::perconaapt {
             $percona_release = $::facts['lsbdistcodename']
         }
     }
-    
+
     apt::key {'percona-old':
         id      => '430BDF5C56E7C94E848EE60C1C4CBDCDCD2EFD2A',
         content => '
@@ -51,7 +55,7 @@ eMTmmQCfXRLIoNjJa20VEwJDzR7YVdBEiQI=
 -----END PGP PUBLIC KEY BLOCK-----
 ',
         }
-        
+
     apt::key {'percona':
         id      => '4D1BB29D63D98E422B2113B19334A25F8507EFA5',
         content => '
@@ -131,7 +135,7 @@ Qrl8e8liJLJXU/lIqvjvbYLyNYKjZhxL4ixmBUUW5jVsboe2Iiak/vkgzQbeDW7J
 -----END PGP PUBLIC KEY BLOCK-----
 ',
         }
-    
+
     apt::source { 'percona':
         location => $cfdb::mysql::percona_apt_repo,
         release  => $percona_release,

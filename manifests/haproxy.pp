@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 class cfdb::haproxy(
     $memory_weight = 1,
@@ -16,11 +20,11 @@ class cfdb::haproxy(
     $bin_dir = "${root_dir}/bin"
     $dh_params = "${root_dir}/pki/dh.pem"
     $openssl = '/usr/bin/openssl'
-    
+
     group { $user:
         ensure => present,
     }
-    
+
     user { $user:
         ensure  => present,
         gid     => $user,
@@ -29,7 +33,7 @@ class cfdb::haproxy(
         shell   => '/bin/sh',
         require => Group[$user],
     }
-    
+
     file { [$root_dir, $bin_dir, "${root_dir}/conf"]:
         ensure => directory,
         owner  => $user,
@@ -42,8 +46,8 @@ class cfdb::haproxy(
         command => "${openssl} dhparam -out ${dh_params} -rand /dev/urandom 2048",
         creates => $dh_params,
     }
-    
-    
+
+
     cfsystem_memory_weight { $service_name:
         ensure => present,
         weight => $memory_weight,
@@ -66,7 +70,7 @@ class cfdb::haproxy(
             Exec['cfdbhaproxy_dhparam'],
         ],
     }
-    
+
     # service { $service_name:
     #         ensure  => running,
     #         enable  => true,
@@ -75,7 +79,7 @@ class cfdb::haproxy(
     #             Cfsystem_flush_config['commit']
     #         ]
     #     }
-    
+
     #---
     ensure_resource('package', 'hatop', {})
     file { "${cfdb::bin_dir}/cfdb_hatop":

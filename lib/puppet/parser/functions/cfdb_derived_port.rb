@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 # Done this way due to some weird behavior in tests also ignoring $LOAD_PATH
 require File.expand_path( '../../../../puppet_x/cf_db', __FILE__ )

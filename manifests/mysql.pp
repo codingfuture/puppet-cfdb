@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 class cfdb::mysql (
     $is_cluster = false,
@@ -6,10 +10,10 @@ class cfdb::mysql (
     $cluster_version = '5.7',
 ) {
     #assert_private()
-    
+
     include stdlib
     include cfdb
-    
+
     if $is_cluster {
         $actual_version = $cluster_version
     } else {
@@ -19,7 +23,7 @@ class cfdb::mysql (
             $actual_version = '5.6'
         }
     }
-    
+
     class { 'cfdb::mysql::perconaapt':
         stage => setup
     }

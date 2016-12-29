@@ -1,9 +1,13 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 class cfdb::postgresql::aptrepo {
     assert_private()
-    
+
     include cfsystem
-    
+
     case $::facts['lsbdistcodename'] {
         'stretch': {
             $postgresql_release = 'jessie'
@@ -12,7 +16,7 @@ class cfdb::postgresql::aptrepo {
             $postgresql_release = $::facts['lsbdistcodename']
         }
     }
-    
+
     apt::key {'postgresql':
         id      => 'B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8',
         content => '
@@ -84,7 +88,7 @@ IIP9up4xwgje9LB7fMxsSkCDTHOk
 -----END PGP PUBLIC KEY BLOCK-----
 ',
         }
-    
+
     apt::source { 'postgresql':
         location => $cfdb::postgresql::apt_repo,
         release  => "${postgresql_release}-pgdg",

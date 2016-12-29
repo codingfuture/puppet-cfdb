@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 Puppet::Type.newtype(:cfdb_haproxy) do
     desc "DO NOT USE DIRECTLY."
     

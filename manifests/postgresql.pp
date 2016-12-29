@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 class cfdb::postgresql (
     $version = '9.6',
@@ -7,13 +11,13 @@ class cfdb::postgresql (
     $apt_repo = 'http://apt.postgresql.org/pub/repos/apt/',
 ) {
     #assert_private()
-    
+
     include stdlib
     include cfdb
-    
+
     $actual_version = $version
     $is_cluster = true
-    
+
     class { 'cfdb::postgresql::aptrepo':
         stage => setup
     }

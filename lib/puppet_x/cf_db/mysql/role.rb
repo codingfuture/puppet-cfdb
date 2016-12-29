@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 require 'digest/sha1'
 
 module PuppetX::CfDb::MySQL::Role

@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 
 define cfdb::access(
     $cluster,
@@ -21,7 +25,7 @@ define cfdb::access(
         mode    => '0555',
         content => file('cfdb/cfdb_access_checker.py'),
     })
-    
+
     #---
     $resource_title = $distribute_load ? {
         true    => "${cluster}:${role}:${local_user}:dl",
@@ -32,7 +36,7 @@ define cfdb::access(
         default => 'localhost',
     }
     $max_connections_reserve = $max_connections + 2
-    
+
     #---
     if $iface == 'any' {
         $client_host = undef
@@ -41,7 +45,7 @@ define cfdb::access(
     } else {
         $client_host = $iface
     }
-    
+
     #---
     if $use_proxy == 'auto' {
         $use_proxy_detected = (size(cf_query_facts(
@@ -51,13 +55,13 @@ define cfdb::access(
     } else {
         $use_proxy_detected = $use_proxy
     }
-    
+
     #---
     $cluster_facts_all = cf_query_facts(
         "cfdb.${cluster}.is_secondary=false and cfdb.${cluster}.roles.${role}.present=true",
         ['cfdb']
     )
-    
+
     if empty($cluster_facts_all) {
         if defined(Cfdb::Instance[$cluster]) {
             # the only known instance is local
@@ -66,7 +70,7 @@ define cfdb::access(
             #       to use $static_access parameter for role definition!
             $port = cf_genport($cluster, getparam(Cfdb::Instance[$cluster], 'port'))
             $type = getparam(Cfdb::Instance[$cluster], 'type')
-            
+
             $cfg = {
                 'host'    => $localhost,
                 'port'    => $port,
@@ -77,7 +81,7 @@ define cfdb::access(
                 'type'    => $type,
                 'maxconn' => $max_connections,
             }
-            
+
             $fw_service = "cfdb_${cluster}_${port}"
             ensure_resource('cfnetwork::describe_service', $fw_service, {
                 server => "tcp/${port}",
@@ -86,13 +90,13 @@ define cfdb::access(
             ensure_resource('cfnetwork::client_port', "local:${fw_service}:${local_user}", {
                 user => $local_user,
             })
-            
+
             include "cfdb::${type}::clientpkg"
-            
+
             if empty($type) {
                 fail("Unable to get type from Cfdb::Instance[${cluster}]")
             }
-            
+
             if empty($cfg['db']) {
                 fail("Unable to get database from Cfdb::Role[${cluster}/${role}]")
             }
@@ -106,21 +110,21 @@ define cfdb::access(
                 fail("Unknown \$use_proxy parameter: ${use_proxy_detected}")
             }
         }
-        
+
         $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
         $role_fact = $cluster_fact['roles'][$role]
         $type = $cluster_fact['type']
-        
+
         $port = cf_genport("cfha/${resource_title}")
         $port_name = "${type}_${cluster}_${role}_${local_user}"
-        
+
         if $use_unix_socket {
             $host = 'localhost'
             case $type {
                 'postgresql' : {
                     $cfg_socket = "/var/lib/${port_name}"
                     $socket = "${cfg_socket}/.s.PGSQL.${port}"
-                    
+
                     # HAProxy creates socket in this folder
                     file { $cfg_socket:
                         ensure => directory,
@@ -137,7 +141,7 @@ define cfdb::access(
             $host = '127.0.0.1'
             $socket = ''
             $cfg_socket = ''
-            
+
             $fw_service = "cfdb_${cluster}_${port}"
             ensure_resource('cfnetwork::describe_service', $fw_service, {
                 server => "tcp/${port}",
@@ -147,7 +151,7 @@ define cfdb::access(
                 user => $local_user,
             })
         }
-        
+
         cfdb::haproxy::frontend{ $resource_title:
             type            => $type,
             cluster         => $cluster,
@@ -160,7 +164,7 @@ define cfdb::access(
             use_unix_socket => $use_unix_socket,
             local_port      => $port,
         }
-        
+
         $cfg = {
             'host'    => $host,
             'port'    => $port,
@@ -176,12 +180,12 @@ define cfdb::access(
         $role_fact = $cluster_fact['roles'][$role]
         $host = keys($cluster_facts_all)[0]
         $port = $cluster_fact['port']
-        
+
         $fw_service = "cfdb_${cluster}_${port}"
         ensure_resource('cfnetwork::describe_service', $fw_service, {
             server => "tcp/${port}",
         })
-        
+
         if $host == $::trusted['certname'] {
             $cfg = {
                 'host'    => $localhost,
@@ -193,9 +197,9 @@ define cfdb::access(
                 'type'    => $cluster_fact['type'],
                 'maxconn' => $max_connections,
             }
-            
+
             $fw_port = "local:${fw_service}:${local_user}"
-            
+
             ensure_resource('cfnetwork::client_port', $fw_port, {
                 user => $local_user,
             })
@@ -211,14 +215,14 @@ define cfdb::access(
                 'type'    => $cluster_fact['type'],
                 'maxconn' => $max_connections,
             }
-            
+
             $fw_port = "any:${fw_service}:${local_user}"
-            
+
             ensure_resource('cfnetwork::client_port', $fw_port, {
                 dst  => $addr,
                 user => $local_user,
             })
-            
+
             cfdb::require_endpoint{ "${resource_title}:${host}":
                 cluster => $cluster,
                 host    => $host,
@@ -227,7 +231,7 @@ define cfdb::access(
                 secure  => false,
             }
         }
-        
+
         $type = $cluster_fact['type']
         include "cfdb::${type}::clientpkg"
     } else {
@@ -264,7 +268,7 @@ define cfdb::access(
             $cfg_all = $cfg
         }
     }
-    
+
     #---
     $cfg_all.each |$var, $val| {
         cfsystem::dotenv { "${resource_title}:${var}":
@@ -274,7 +278,7 @@ define cfdb::access(
             env_file => $env_file,
         }
     }
-    
+
     #---
     cfdb_access { $title:
         ensure          => present,

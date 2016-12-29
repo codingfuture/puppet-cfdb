@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 Puppet::Type.newtype(:cfdb_database) do
     desc "DO NOT USE DIRECTLY."
     

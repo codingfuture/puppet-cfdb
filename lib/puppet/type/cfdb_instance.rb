@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 require 'puppet/property/boolean'
 
 Puppet::Type.newtype(:cfdb_instance) do

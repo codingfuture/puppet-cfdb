@@ -1,3 +1,7 @@
+#
+# Copyright 2016 (c) Andrey Galkin
+#
+
 require 'digest/md5'
 
 module PuppetX::CfDb::PostgreSQL::Role
