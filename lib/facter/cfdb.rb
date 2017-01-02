@@ -1,5 +1,5 @@
 #
-# Copyright 2016 (c) Andrey Galkin
+# Copyright 2016-2017 (c) Andrey Galkin
 #
 
 require 'json'
