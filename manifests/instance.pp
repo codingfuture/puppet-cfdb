@@ -86,13 +86,7 @@ define cfdb::instance (
     if $iface == 'any' {
         $listen = undef
     } elsif defined(Cfnetwork::Iface[$iface]) {
-        $iface_addr = pick_default(getparam(Cfnetwork::Iface[$iface], 'address'), undef)
-
-        if $iface_addr and is_string($iface_addr) {
-            $listen = $iface_addr.split('/')[0]
-        } else {
-            $listen = undef
-        }
+        $listen = cf_get_iface_address(Cfnetwork::Iface[$iface])[0]
     } else {
         $listen = undef
     }

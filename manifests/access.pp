@@ -41,7 +41,7 @@ define cfdb::access(
     if $iface == 'any' {
         $client_host = undef
     } elsif defined(Cfnetwork::Iface[$iface]) {
-        $client_host = pick_default(getparam(Cfnetwork::Iface[$iface], 'address'), undef)
+        $client_host = cf_get_iface_address(Cfnetwork::Iface[$iface])[0]
     } else {
         $client_host = $iface
     }

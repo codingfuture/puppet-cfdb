@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.10.0]
+- Updated to cfnetwork 0.10.0 API changes
+
 ## [0.9.16]
 - Fixed to properly install repmgr ext with specific postgresql version
 - Added installation of new Percona PGP key
@@ -102,6 +105,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 Initial release
 
+[0.10.0]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.10.0
 [0.9.16]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.16
 [0.9.15]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.15
 [0.9.14]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.14
