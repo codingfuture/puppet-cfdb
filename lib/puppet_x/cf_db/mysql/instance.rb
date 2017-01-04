@@ -409,6 +409,7 @@ module PuppetX::CfDb::MySQL::Instance
                 'evs.user_send_window' => 512,
                 'evs.version' => 1,
                 'gcache.size' => gcache_size,
+                'gcache.recover' => 'YES',
                 # testing is required
                 #'gcomm.thread_prio' => 'rr:2',
                 'gcs.fc_factor' => '1.0',
@@ -499,6 +500,8 @@ module PuppetX::CfDb::MySQL::Instance
                 'LimitNOFILE' => open_file_limit * 2,
                 'ExecStart' => "#{MYSQLD} --defaults-file=#{conf_dir}/mysql.cnf $MYSQLD_OPTS",
                 'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
+                'ExecReload' => "#{MYSQLADMIN} refresh",
+                'ExecStop' => "#{MYSQLADMIN} shutdown",
                 'OOMScoreAdjust' => -200,
             }
             service_env = {
@@ -635,7 +638,7 @@ module PuppetX::CfDb::MySQL::Instance
             
             wait_sock(service_name, sock_file)
             
-            if not File.exists? data_dir or not File.exists? sock_file
+            if !File.exists? data_dir or !File.exists? sock_file
                 raise Puppet::DevError, "Failed to initialize #{data_dir}"
             end
             
@@ -662,6 +665,8 @@ module PuppetX::CfDb::MySQL::Instance
                 cluster = conf[:cluster]
                 warning("> cluster #{cluster} is incomplete #{fact_cluster_size}/#{cluster_size}")
             end
+            
+            true
         rescue => e
             warning(e)
             #warning(e.backtrace)

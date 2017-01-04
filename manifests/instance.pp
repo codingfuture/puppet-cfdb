@@ -603,10 +603,6 @@ define cfdb::instance (
             }, $backup_tune)),
             require => File[$backup_dir],
             notify  => Cfdb_instance[$cluster],
-        } ->
-        file { "${root_dir}/bin/cfdb_backup":
-            ensure => link,
-            target => $backup_script,
         }
 
         file { $restore_script:
@@ -619,10 +615,14 @@ define cfdb::instance (
             }),
             require => File[$backup_dir],
             notify  => Cfdb_instance[$cluster],
-        } ->
+        }
+
+        # Remove insecure artifacts
+        file { "${root_dir}/bin/cfdb_backup":
+            ensure => absent,
+        }
         file { "${root_dir}/bin/cfdb_restore":
-            ensure => link,
-            target => $restore_script,
+            ensure => absent,
         }
 
         if $backup == false {
@@ -650,22 +650,29 @@ define cfdb::instance (
                         user => $user,
                     }),
                     notify  => Cfdb_instance[$cluster],
-                } ->
-                file { "${root_dir}/bin/cfdb_mysql":
-                    ensure => link,
-                    target => $mysql_script,
                 }
 
-                $sysbench_script = "${cfdb::bin_dir}/cfdb_${cluster}_sysbench"
-                file { $sysbench_script:
+                file { "${cfdb::bin_dir}/cfdb_${cluster}_mysqladmin":
+                    mode    => '0755',
+                    content => epp('cfdb/cfdb_mysqladmin.epp', {
+                        user => $user,
+                    }),
+                    notify  => Cfdb_instance[$cluster],
+                }
+
+                file { "${cfdb::bin_dir}/cfdb_${cluster}_sysbench":
                     mode    => '0755',
                     content => epp('cfdb/cfdb_sysbench.epp', {
                         user => $user,
                     }),
-                } ->
+                }
+
+                # Remove insecure artifacts
+                file { "${root_dir}/bin/cfdb_mysql":
+                    ensure => absent,
+                }
                 file { "${root_dir}/bin/cfdb_sysbench":
-                    ensure => link,
-                    target => $sysbench_script,
+                    ensure => absent,
                 }
 
                 if $is_cluster_by_fact {

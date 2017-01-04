@@ -875,6 +875,8 @@ module PuppetX::CfDb::PostgreSQL::Instance
             if fact_cluster_size != cluster_size
                 warning("> cluster #{cluster} is incomplete #{fact_cluster_size}/#{cluster_size}")
             end
+            
+            true
         rescue => e
             warning(e)
             #warning(e.backtrace)

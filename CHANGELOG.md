@@ -6,6 +6,10 @@ project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.10.0]
 - Updated to cfnetwork 0.10.0 API changes
 - Fixed puppet-lint issues
+- Removed obsolete insecure helper tools under /db/{user}/bin/ -> use /db/bin/
+- Minor improvements
+- Added per-instance mysqladmin support
+- Implemented reload & shutdown for mysqld through mysqladmin
 
 ## [0.9.16]
 - Fixed to properly install repmgr ext with specific postgresql version
