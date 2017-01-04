@@ -1,0 +1,10 @@
+#!/bin/bash
+#--------------------------------------
+# This script is designed to help restart
+# all pending services
+#--------------------------------------
+for f in $(/usr/bin/find <%= $cfdb::root_dir %> -name restart_required); do
+    svc="cf$(basename $(dirname $(dirname $f)) | sed -e 's/_/-/g')"
+    echo "Restarting ${svc}.service"
+    /bin/systemctl restart ${svc}.service
+done

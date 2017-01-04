@@ -29,4 +29,15 @@ class cfdb (
 
     create_resources(cfdb::instance, $instances)
     create_resources(cfdb::access, $access)
+
+    #---
+    include cfsystem
+    include cfsystem::custombin
+    $restart_pending_script = "${cfsystem::custombin::bin_dir}/cfdb_restart_pending"
+
+    file { $restart_pending_script:
+        mode    => '0700',
+        content => epp('cfdb/cfdb_restart_pending.sh.epp'),
+    }
+
 }

@@ -10,6 +10,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Minor improvements
 - Added per-instance mysqladmin support
 - Implemented reload & shutdown for mysqld through mysqladmin
+- Added cfdb_restart_pending helper
 
 ## [0.9.16]
 - Fixed to properly install repmgr ext with specific postgresql version
