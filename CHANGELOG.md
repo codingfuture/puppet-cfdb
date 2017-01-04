@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.10.0]
 - Updated to cfnetwork 0.10.0 API changes
+- Fixed puppet-lint issues
 
 ## [0.9.16]
 - Fixed to properly install repmgr ext with specific postgresql version

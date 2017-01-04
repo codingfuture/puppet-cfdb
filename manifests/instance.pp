@@ -360,6 +360,10 @@ define cfdb::instance (
         $shared_secret = ''
     }
 
+    # TODO: remove
+    $memo = 'puppet-lint-warning-fix'
+    $ival = 'puppet-lint-warning-fix'
+
     #---
     $access = cf_query_facts("cfdbaccess.${cluster}.present=true", ['cfdbaccess'])
     $access_list = $access.reduce({}) |$memo, $val| {
@@ -423,14 +427,8 @@ define cfdb::instance (
         ),
         service_name  => $service_name,
         version       => getvar("cfdb::${type}::actual_version"),
-        cluster_addr  => $cluster_addr ? {
-            undef   => undef,
-            default => cf_stable_sort($cluster_addr),
-        },
-        access_list   => $access_list ? {
-            undef   => undef,
-            default => cf_stable_sort($access_list),
-        },
+        cluster_addr  => cf_stable_sort(pick_default($cluster_addr, [])),
+        access_list   => cf_stable_sort(pick_default($access_list, [])),
 
         require       => [
             User[$user],
