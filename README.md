@@ -618,6 +618,7 @@ special keys:
 * `wsrep_provider_options = {}` - overrides for some of `wsrep_provider_options` of Galera Cluster
 * `init_db_from` - "{pgver}:{orig_dara_dir}" - copies initial data from specified path
     expecting specific PostgreSQL version and then upgrades
+* `joiner_timeout = 600` - how long to wait for initial sync of joiner node
 
 
 

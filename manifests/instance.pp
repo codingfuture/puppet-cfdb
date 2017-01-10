@@ -55,7 +55,7 @@ define cfdb::instance (
 
     #---
     case $type {
-        'postgresql': {
+        'postgresql', 'mysql': {
             $ssh_access = $is_cluster_by_fact
         }
         default: {
@@ -162,7 +162,7 @@ define cfdb::instance (
         } else {
             $secure_cluster = try_get_value($settings_tune, 'cfdb/secure_cluster')
 
-            $cluster_addr = (keys($cluster_facts_all).sort().map |$host| {
+            $cluster_addr = delete_undef_values(keys($cluster_facts_all).sort().map |$host| {
                 $cfdb_facts = $cluster_facts_all[$host]
                 $cluster_fact = $cfdb_facts['cfdb'][$cluster]
 
@@ -262,7 +262,7 @@ define cfdb::instance (
                     }
                     $ret
                 }
-            }).filter |$v| { $v != undef }
+            })
         }
 
         $peer_addr_list = $cluster_addr.map |$v| {

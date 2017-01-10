@@ -330,6 +330,8 @@ module PuppetX::CfDb::MySQL::Instance
             mysqld_settings['wsrep_provider'] = '/usr/lib/libgalera_smm.so'
             if (data_exists or is_secondary) and !is_bootstrap
                 cluster_addr_mapped = cluster_addr.map do |v|
+                    next if v['is_arbitrator'] && !is_arbitrator
+                    
                     peer_addr = v['addr']
                     peer_port = v['port'].to_i + GALERA_PORT_OFFSET
                     
@@ -339,6 +341,7 @@ module PuppetX::CfDb::MySQL::Instance
                         "#{peer_addr}:#{peer_port}"
                     end
                 end
+                cluster_addr_mapped.reject! { |v| v.nil? }
                 mysqld_settings['wsrep_cluster_address'] = 'gcomm://' + cluster_addr_mapped.sort().join(',')
             else
                 mysqld_settings['wsrep_cluster_address'] = 'gcomm://'
@@ -528,8 +531,6 @@ module PuppetX::CfDb::MySQL::Instance
                 FileUtils.touch(restart_required_file)
                 FileUtils.chown(user, user, restart_required_file)
                 
-                warning("JOINER arbitrator must be started manually AFTER firewall is configured on active nodes")
-                warning("Please run when safe: /bin/systemctl start #{service_name}.service")
                 systemctl('start', "#{service_name}.service")
             elsif File.exists?(restart_required_file)
                 warning("#{user} configuration update. Service restart is required!")
@@ -586,15 +587,31 @@ module PuppetX::CfDb::MySQL::Instance
                 # do nothing, to be copied on startup
                 #FileUtils.mkdir(data_dir, :mode => 0750)
                 #FileUtils.chown(user, user, data_dir)
-                service_ini['ExecStartPre'] = "/bin/mkdir #{data_dir}"
+                service_ini['ExecStartPre'] = "/bin/mkdir -p #{data_dir}"
                 create_service(conf, service_ini, service_env)
                 
                 FileUtils.touch(restart_required_file)
                 FileUtils.chown(user, user, restart_required_file)
                 cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
                 
-                warning("JOINER node must be started manually AFTER firewall is configured on active nodes")
-                warning("Please run when safe: /bin/systemctl start #{service_name}.service")
+                fw_configured = cluster_addr.reduce(true) do |m, v|
+                    begin
+                        unless v['is_arbitrator']
+                            sudo('-H', '-u', user, '/usr/bin/ssh', v['addr'], 'hostname')
+                        end
+                        m
+                    rescue => e
+                        false
+                    end
+                end
+                
+                if fw_configured
+                    warning("> starting JOINER node (this may take time)")
+                    systemctl('start', "#{service_name}.service")
+                    wait_sock(service_name, sock_file, cfdb_settings.fetch('joiner_timeout', 600))
+                else
+                    warning("JOINER node can start AFTER firewall is configured on active nodes. Please re-provision them.")
+                end
             else
                 # need to manually initialize data_dir from master
                 raise Puppet::DevError, "MySQL slave is not supported.\nPlease use more reliable is_cluster setup."

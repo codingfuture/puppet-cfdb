@@ -185,8 +185,8 @@ Puppet::Type.type(:cfdb_instance).provide(
         end
     end
     
-    def self.wait_sock(service_name, sock_file)
-        for i in 1..60
+    def self.wait_sock(service_name, sock_file, timeout=60)
+        for i in 1..timeout
             return true if File.exists? sock_file
             warning("Waiting #{service_name} startup (#{i})!")
             sleep 1
