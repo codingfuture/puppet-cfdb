@@ -8,16 +8,17 @@ class cfdb::mysql::perconaapt {
 
     include cfsystem
 
-    case $::facts['lsbdistcodename'] {
-        'xenial', 'yakkety': {
-            $percona_release = 'wily'
-        }
-        'stretch': {
-            $percona_release = 'jessie'
-        }
-        default: {
-            $percona_release = $::facts['lsbdistcodename']
-        }
+    $lsbdistcodename = $::facts['lsbdistcodename']
+    $percona_release = $::facts['operatingsystem'] ? {
+        'Debian' => (versioncmp($::facts['operatingsystemrelease'], '9') >= 0) ? {
+            true    => 'jessie',
+            default => $lsbdistcodename
+        },
+        'Ubuntu' => (versioncmp($::facts['operatingsystemrelease'], '16.10') >= 0) ? {
+            true    => 'yakkety',
+            default => $lsbdistcodename
+        },
+        default  => $lsbdistcodename
     }
 
     apt::key {'percona-old':

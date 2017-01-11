@@ -8,13 +8,17 @@ class cfdb::postgresql::aptrepo {
 
     include cfsystem
 
-    case $::facts['lsbdistcodename'] {
-        'stretch': {
-            $postgresql_release = 'jessie'
-        }
-        default: {
-            $postgresql_release = $::facts['lsbdistcodename']
-        }
+    $lsbdistcodename = $::facts['lsbdistcodename']
+    $postgresql_release = $::facts['operatingsystem'] ? {
+        'Debian' => (versioncmp($::facts['operatingsystemrelease'], '9') >= 0) ? {
+            true    => 'jessie',
+            default => $lsbdistcodename
+        },
+        'Ubuntu' => (versioncmp($::facts['operatingsystemrelease'], '16.04') >= 0) ? {
+            true    => 'xenial',
+            default => $lsbdistcodename
+        },
+        default  => $lsbdistcodename
     }
 
     apt::key {'postgresql':
