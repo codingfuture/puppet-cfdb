@@ -541,18 +541,20 @@ module PuppetX::CfDb::MySQL::Instance
                 if config_file_changed or File.exists?(restart_required_file)
                     warning("#{user} please restart before mysql_upgrade can run!")
                     warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
+
+                    # There is a possible security issue, if rogue users run on the same host
+                    service_ini['ExecStartPre'] = "/bin/chmod 700 #{run_dir}"
+                    service_env['MYSQLD_OPTS'] = [
+                        '--skip-networking',
+                        '--skip-grant-tables',
+                        '--init-file=',
+                    ].join(' ')
                     
                     if is_cluster
-                        # There is a possible security issue, if rogue users run on the same host
-                        service_ini['ExecStartPre'] = "/bin/chmod 700 #{run_dir}"
-                        service_env['MYSQLD_OPTS'] = [
-                            '--skip-networking',
-                            '--skip-grant-tables',
-                            '--wsrep-provider=none',
-                            '--init-file=',
-                        ].join(' ')
-                        create_service(conf, service_ini, service_env)
+                        service_env['MYSQLD_OPTS'] += ' --wsrep-provider=none'
                     end
+                    
+                    create_service(conf, service_ini, service_env)
                 else
                     systemctl('start', "#{service_name}.service")
                     wait_sock(service_name, sock_file)

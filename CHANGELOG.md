@@ -8,6 +8,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Changed to filter out Galera arbitrators from normal node gcomm://
 - Converted to support Debian/Ubuntu based on LSB versions, but not codenames
 - Fixed Debian Stretch support
+- Fixed upgrade procedure for standalone MySQL instance
 
 ## [0.10.0]
 - Updated to cfnetwork 0.10.0 API changes
