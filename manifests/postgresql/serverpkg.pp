@@ -78,12 +78,14 @@ class cfdb::postgresql::serverpkg {
 
     # default instance must not run
     service { ['postgresql', "postgresql@${ver}-main"]:
-        ensure => stopped,
-        enable => false,
+        ensure   => stopped,
+        enable   => false,
+        provider => 'systemd',
     }
 
     ensure_resource( service, 'repmgrd', {
-        ensure => stopped,
-        enable => false,
+        ensure   => stopped,
+        enable   => false,
+        provider => 'systemd',
     })
 }

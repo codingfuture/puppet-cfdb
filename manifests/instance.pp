@@ -440,8 +440,9 @@ define cfdb::instance (
     }
 
     # service { $service_name:
-    #         enable  => true,
-    #         require => [
+    #         enable   => true,
+    #         provider => 'systemd',
+    #         require  => [
     #             Cfdb_instance[$cluster],
     #             Cfsystem_flush_config['commit'],
     #         ]

@@ -7,6 +7,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Improved to support automatic Galera joiner startup (based on SSH check)
 - Changed to filter out Galera arbitrators from normal node gcomm://
 - Converted to support Debian/Ubuntu based on LSB versions, but not codenames
+- Fixed Debian Stretch support
 
 ## [0.10.0]
 - Updated to cfnetwork 0.10.0 API changes

@@ -72,9 +72,10 @@ class cfdb::haproxy(
     }
 
     # service { $service_name:
-    #         ensure  => running,
-    #         enable  => true,
-    #         require => [
+    #         ensure   => running,
+    #         enable   => true,
+    #         provider => 'systemd',
+    #         require  => [
     #             Package['haproxy'],
     #             Cfsystem_flush_config['commit']
     #         ]

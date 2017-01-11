@@ -10,7 +10,8 @@ class cfdb::mysql::arbitratorpkg {
 
     # default instance must not run
     service { 'garbd':
-        ensure => stopped,
-        enable => false,
+        ensure   => stopped,
+        enable   => false,
+        provider => 'systemd',
     }
 }

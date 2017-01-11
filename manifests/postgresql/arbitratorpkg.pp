@@ -10,7 +10,8 @@ class cfdb::postgresql::arbitratorpkg {
 
     ensure_resource('package', 'repmgr')
     ensure_resource( service, 'repmgrd', {
-        ensure => stopped,
-        enable => false,
+        ensure   => stopped,
+        enable   => false,
+        provider => 'systemd',
     })
 }

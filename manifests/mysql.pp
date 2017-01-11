@@ -17,11 +17,7 @@ class cfdb::mysql (
     if $is_cluster {
         $actual_version = $cluster_version
     } else {
-        if $::os['name'] != 'Ubuntu' {
-            $actual_version = $version
-        } else {
-            $actual_version = '5.6'
-        }
+        $actual_version = $version
     }
 
     class { 'cfdb::mysql::perconaapt':

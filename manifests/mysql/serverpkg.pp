@@ -20,16 +20,14 @@ class cfdb::mysql::serverpkg {
         package { "percona-xtrabackup-${xtrabackup_ver}": }
     }
 
-    # https://bugs.launchpad.net/percona-xtrabackup/+bug/1592089
-    if $::os['name'] != 'Ubuntu' {
-        package { 'qpress': }
-    }
+    package { 'qpress': }
     package { 'percona-toolkit': }
 
     # default instance must not run
     service { 'mysql':
-        ensure => stopped,
-        enable => false,
+        ensure   => stopped,
+        enable   => false,
+        provider => 'systemd',
     }
 
     # Workaround for stupid MySQL pre-inst script
