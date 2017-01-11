@@ -11,7 +11,7 @@ class cfdb::postgresql::aptrepo {
     $lsbdistcodename = $::facts['lsbdistcodename']
     $postgresql_release = $::facts['operatingsystem'] ? {
         'Debian' => (versioncmp($::facts['operatingsystemrelease'], '9') >= 0) ? {
-            true    => 'jessie',
+            true    => 'sid',
             default => $lsbdistcodename
         },
         'Ubuntu' => (versioncmp($::facts['operatingsystemrelease'], '16.04') >= 0) ? {
