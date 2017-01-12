@@ -9,6 +9,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Converted to support Debian/Ubuntu based on LSB versions, but not codenames
 - Fixed Debian Stretch support
 - Fixed upgrade procedure for standalone MySQL instance
+- Updated to cfsystem:0.10.1
 
 ## [0.10.0]
 - Updated to cfnetwork 0.10.0 API changes
