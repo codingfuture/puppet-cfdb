@@ -58,7 +58,7 @@
 ## Technical Support
 
 * [Example configuration](https://github.com/codingfuture/puppet-test)
-* Commercial support: [support@codingfuture.net](mailto:support@codingfuture.net)
+* Free & Commercial support: [support@codingfuture.net](mailto:support@codingfuture.net)
 
 ## Setup
 
@@ -104,10 +104,6 @@ cfsystem_memory_weight { 'my_own_services':
         max_mb => 1024
     }
 ```
-
-## Ubuntu notes
-
-It seems current Percona's Ubuntu repos are not functional for PS 5.7. So, Ubuntu uses 5.6 by default.
 
 ## Examples
 
