@@ -34,6 +34,9 @@ class cfdb::haproxy(
         require => Group[$user],
     }
 
+    # Required for dhparam
+    require cfsystem::randomfeed
+
     file { [$root_dir, $bin_dir, "${root_dir}/conf"]:
         ensure => directory,
         owner  => $user,
@@ -41,7 +44,6 @@ class cfdb::haproxy(
         mode   => '0750',
     } ->
     cfsystem::puppetpki { $user: } ->
-    # TODO: implement generic cfpki module
     exec { 'cfdbhaproxy_dhparam':
         command => "${openssl} dhparam -out ${dh_params} -rand /dev/urandom 2048",
         creates => $dh_params,
