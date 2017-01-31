@@ -154,7 +154,10 @@ define cfdb::haproxy::frontend(
         cluster_addr    => $cluster_addr,
         use_unix_socket => $use_unix_socket,
         local_port      => $local_port,
-        require         => Cfdb_haproxy[$cfdb::haproxy::service_name],
+        require         => [
+            Cfdb_haproxy[$cfdb::haproxy::service_name],
+            Anchor['cfnetwork:firewall'],
+        ]
     }
 
     #---
@@ -181,6 +184,7 @@ define cfdb::haproxy::frontend(
             max_connections => 2,
             client_host     => $client_host,
             config_info     => {},
+            require         => Anchor['cfnetwork:firewall'],
         }
 
 

@@ -436,6 +436,7 @@ define cfdb::instance (
             Class["cfdb::${type}::serverpkg"],
             Cfsystem_memory_weight[$memory_mame],
             Cfsystem::Puppetpki[$user],
+            Anchor['cfnetwork:firewall'],
         ],
     }
 
