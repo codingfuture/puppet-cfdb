@@ -10,7 +10,7 @@ define cfdb::access(
         $role,
     String[1]
         $local_user,
-    Variant[Boolean, Enum['auto']]
+    Variant[Boolean, Enum['auto', 'secure', 'insecure']]
         $use_proxy = 'auto',
     Integer[1]
         $max_connections = $cfdb::max_connections_default,
