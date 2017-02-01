@@ -4,10 +4,14 @@
 
 
 define cfdb::database (
-    $cluster,
-    $database,
-    $roles = undef,
-    $ext = [],
+    String[1]
+        $cluster,
+    String[1]
+        $database,
+    Optional[Hash]
+        $roles = undef,
+    Array[String[1]]
+        $ext = [],
 ) {
     cfdb_database { $title:
         ensure   => present,

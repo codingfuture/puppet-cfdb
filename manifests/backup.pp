@@ -4,8 +4,10 @@
 
 
 class cfdb::backup(
-    $cron = {},
-    $root_dir = '/mnt/backup',
+    Hash
+        $cron = {},
+    String[1]
+        $root_dir = '/mnt/backup',
 ) {
     assert_private()
     include cfsystem::custombin

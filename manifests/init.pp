@@ -4,12 +4,18 @@
 
 
 class cfdb (
-    $instances = {},
-    $access = {},
-    $iface = 'any',
-    $root_dir = '/db',
-    $max_connections_default = 10,
-    $backup = true,
+    Hash
+        $instances = {},
+    Hash
+        $access = {},
+    String[1]
+        $iface = 'any',
+    String[1]
+        $root_dir = '/db',
+    Integer[1]
+        $max_connections_default = 10,
+    Boolean
+        $backup = true,
 ) {
     # global healthcheck db/role names
     $healthcheck = 'cfdbhealth'

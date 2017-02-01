@@ -4,11 +4,16 @@
 
 
 class cfdb::postgresql (
-    $version = '9.6',
-    $default_extensions = true,
-    $extensions = [],
-    $extensions2 = [],
-    $apt_repo = 'http://apt.postgresql.org/pub/repos/apt/',
+    String[1]
+        $version = '9.6',
+    Boolean
+        $default_extensions = true,
+    Array[String[1]]
+        $extensions = [],
+    Array[String[1]]
+        $extensions2 = [],
+    String[1]
+        $apt_repo = 'http://apt.postgresql.org/pub/repos/apt/',
 ) {
     #assert_private()
 

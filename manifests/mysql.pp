@@ -4,10 +4,14 @@
 
 
 class cfdb::mysql (
-    $is_cluster = false,
-    $percona_apt_repo = 'http://repo.percona.com/apt',
-    $version = '5.7',
-    $cluster_version = '5.7',
+    Boolean
+        $is_cluster = false,
+    String[1]
+        $percona_apt_repo = 'http://repo.percona.com/apt',
+    String[1]
+        $version = '5.7',
+    String[1]
+        $cluster_version = '5.7',
 ) {
     #assert_private()
 

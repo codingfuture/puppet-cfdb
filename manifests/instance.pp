@@ -4,29 +4,51 @@
 
 
 define cfdb::instance (
-    $type,
-    $is_cluster = false,
-    $is_secondary = false,
-    $is_bootstrap = false,
-    $is_arbitrator = false,
+    Enum[
+        'mysql',
+        'postgresql'
+    ]
+        $type,
+    Boolean
+        $is_cluster = false,
+    Boolean
+        $is_secondary = false,
+    Boolean
+        $is_bootstrap = false,
+    Boolean
+        $is_arbitrator = false,
 
-    $memory_weight = 100,
-    $memory_max = undef,
-    $cpu_weight = 100,
-    $io_weight = 100,
-    $target_size = 'auto',
+    Integer[1]
+        $memory_weight = 100,
+    Optional[Integer[1]]
+        $memory_max = undef,
+    Integer[1,25600]
+        $cpu_weight = 100,
+    Integer[1,200]
+        $io_weight = 100,
 
-    $settings_tune = {},
-    $databases = undef,
+    Variant[Enum['auto'], Integer[1]]
+        $target_size = 'auto',
 
-    $iface = $cfdb::iface,
-    $port = undef,
+    Hash[String[1], Any]
+        $settings_tune = {},
+    Optional[Variant[Array[String[1]], Hash]]
+        $databases = undef,
 
-    $backup = $cfdb::backup,
-    $backup_tune = {},
+    String[1]
+        $iface = $cfdb::iface,
+    Optional[Integer[1,65535]]
+        $port = undef,
 
-    $ssh_key_type = 'ed25519',
-    $ssh_key_bits = 2048, # for rsa
+    Boolean
+        $backup = $cfdb::backup,
+    Hash
+        $backup_tune = {},
+
+    Enum['rsa', 'ed25519']
+        $ssh_key_type = 'ed25519',
+    Integer[2048]
+        $ssh_key_bits = 2048, # for rsa
 ) {
     include stdlib
     include cfnetwork

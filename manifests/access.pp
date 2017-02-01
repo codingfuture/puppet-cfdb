@@ -4,18 +4,30 @@
 
 
 define cfdb::access(
-    $cluster,
-    $role,
-    $local_user,
-    $use_proxy = 'auto',
-    $max_connections = $cfdb::max_connections_default,
-    $config_prefix = 'DB_',
-    $env_file = '.env',
-    $iface = $cfdb::iface,
-    $custom_config = undef,
-    $use_unix_socket = true,
-    $fallback_db = undef,
-    $distribute_load = undef,
+    String[1]
+        $cluster,
+    String[1]
+        $role,
+    String[1]
+        $local_user,
+    Variant[Boolean, Enum['auto']]
+        $use_proxy = 'auto',
+    Integer[1]
+        $max_connections = $cfdb::max_connections_default,
+    String[1]
+        $config_prefix = 'DB_',
+    String[1]
+        $env_file = '.env',
+    String[1]
+        $iface = $cfdb::iface,
+    Optional[String[1]]
+        $custom_config = undef,
+    Boolean
+        $use_unix_socket = true,
+    Optional[String[1]]
+        $fallback_db = undef,
+    Optional[Boolean]
+        $distribute_load = undef,
 ) {
     include cfnetwork
     include cfsystem::custombin

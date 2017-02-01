@@ -4,11 +4,17 @@
 
 
 class cfdb::haproxy(
-    $memory_weight = 1,
-    $memory_max = undef,
-    $cpu_weight = 100,
-    $io_weight = 100,
-    $settings_tune = {},
+    Integer[1]
+        $memory_weight = 1,
+    Optional[Integer[1]]
+        $memory_max = undef,
+    Integer[1,25600]
+        $cpu_weight = 100,
+    Integer[1,200]
+        $io_weight = 100,
+
+    Hash[String[1], Any]
+        $settings_tune = {},
 ) {
     assert_private()
     include cfdb

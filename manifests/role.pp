@@ -4,13 +4,20 @@
 
 
 define cfdb::role(
-    $cluster,
-    $database,
-    $password = undef,
-    $subname = '',
-    $readonly = false,
-    $custom_grant = undef,
-    $static_access = {},
+    String[1]
+        $cluster,
+    String[1]
+        $database,
+    Optional[String[1]]
+        $password = undef,
+    String[0]
+        $subname = '',
+    Boolean
+        $readonly = false,
+    Optional[String[1]]
+        $custom_grant = undef,
+    Hash[String[1], Integer[1]]
+        $static_access = {},
 ) {
     $role = "${database}${subname}"
     # Note: there is a limitation of PuppetDB query: filter by single parameter only
