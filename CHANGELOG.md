@@ -6,6 +6,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.10.2]
 - Added dependency on cfnetwork:firewall anchor where applicable
 - Added dependency on cfsystem::randomfeed for HAProxy dhparam generation
+- Updated to new 'cf_get_bind_address' API
 
 ## [0.10.1]
 - Improved to support automatic Galera joiner startup (based on SSH check)

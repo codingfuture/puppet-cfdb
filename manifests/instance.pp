@@ -85,10 +85,8 @@ define cfdb::instance (
 
     if $iface == 'any' {
         $listen = undef
-    } elsif defined(Cfnetwork::Iface[$iface]) {
-        $listen = cf_get_iface_address(Cfnetwork::Iface[$iface])[0]
     } else {
-        $listen = undef
+        $listen = cf_get_bind_address($iface)
     }
 
     #---
