@@ -56,7 +56,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
         endpoint_index = Puppet::Type.type(:cfdb_haproxy_endpoint).provider(:cfdb).get_config_index
         endpoints = cf_system().config.get_new(endpoint_index) || {}
 
-        inter = cfdb_settings.fetch('inter', '1000ms')
+        inter = cfdb_settings.fetch('inter', '3s')
         fastinter = cfdb_settings.fetch('fastinter', '500ms')
 
         open_files = 100

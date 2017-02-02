@@ -9,6 +9,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Updated to new 'cf_get_bind_address' API
 - Enforced public parameter types
 - Updated to work with /etc/sudoers.d cleanup
+- Changed default HAProxy inter tune from 1s to 3s (better fits Python-based checkers)
 
 ## [0.10.1]
 - Improved to support automatic Galera joiner startup (based on SSH check)
