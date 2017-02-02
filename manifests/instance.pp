@@ -738,6 +738,18 @@ define cfdb::instance (
                     ensure => link,
                     target => $repmgr_script,
                 }
+
+                if !$is_arbitrator {
+                    cfauth::sudoentry { $user:
+                        command => [
+                            "/bin/systemctl start ${service_name}.service",
+                            "/bin/systemctl stop ${service_name}.service",
+                            "/bin/systemctl restart ${service_name}.service",
+                            "/bin/systemctl reload ${service_name}.service",
+                        ],
+                    } ->
+                    Cfdb_instance[$cluster]
+                }
             }
         }
         default: {

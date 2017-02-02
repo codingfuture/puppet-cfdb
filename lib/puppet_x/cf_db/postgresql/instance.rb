@@ -414,14 +414,6 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     'service_restart_command ' => "/usr/bin/sudo /bin/systemctl restart #{service_name}.service",
                     'service_reload_command ' => "/usr/bin/sudo /bin/systemctl reload #{service_name}.service",
                 })
-                
-                sudo_content = [
-                    "#{user} ALL=(ALL) NOPASSWD: /bin/systemctl start #{service_name}.service",
-                    "#{user} ALL=(ALL) NOPASSWD: /bin/systemctl stop #{service_name}.service",
-                    "#{user} ALL=(ALL) NOPASSWD: /bin/systemctl restart #{service_name}.service",
-                    "#{user} ALL=(ALL) NOPASSWD: /bin/systemctl reload #{service_name}.service",
-                ]                
-                cf_system.atomicWrite("/etc/sudoers.d/#{user}", sudo_content, {:mode => 0400})
             end
             
             if is_secondary

@@ -3,11 +3,12 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.10.2]
+## [0.11.0]
 - Added dependency on cfnetwork:firewall anchor where applicable
 - Added dependency on cfsystem::randomfeed for HAProxy dhparam generation
 - Updated to new 'cf_get_bind_address' API
 - Enforced public parameter types
+- Updated to work with /etc/sudoers.d cleanup
 
 ## [0.10.1]
 - Improved to support automatic Galera joiner startup (based on SSH check)
@@ -126,7 +127,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 Initial release
 
-[0.10.2]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.10.2
+[0.11.0]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.11.0
 [0.10.1]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.10.1
 [0.10.0]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.10.0
 [0.9.16]: https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.9.16
