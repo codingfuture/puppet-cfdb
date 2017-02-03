@@ -538,6 +538,7 @@ module PuppetX::CfDb::MySQL::Instance
             end
         elsif data_exists
             if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
+                # if version comment changed or second run 
                 if config_file_changed or File.exists?(restart_required_file)
                     warning("#{user} please restart before mysql_upgrade can run!")
                     warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
@@ -560,7 +561,7 @@ module PuppetX::CfDb::MySQL::Instance
                     wait_sock(service_name, sock_file)
                     
                     warning('> running mysql upgrade')
-                    sudo('-H', '-u', user, MYSQL_UPGRADE, '--force')
+                    sudo('-H', '-u', user, MYSQL_UPGRADE, '--force', '--skip-version-check')
 
                     cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
                     config_changed = true
