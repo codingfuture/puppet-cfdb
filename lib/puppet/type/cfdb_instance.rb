@@ -174,4 +174,10 @@ Puppet::Type.newtype(:cfdb_instance) do
             value.is_a? Hash
         end
     end
+
+    newproperty(:location) do
+        validate do |value|
+            value.is_a? String
+        end
+    end
 end

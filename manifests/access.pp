@@ -39,6 +39,37 @@ define cfdb::access(
     })
 
     #---
+    $cluster_instance_q = "cfdb_instance[${cluster}]{ is_arbitrator = false }"
+    $cluster_instances = cf_query_resources(false, $cluster_instance_q, false)
+
+    $cluster_info = $cluster_instances.reduce(undef) |$memo, $val| {
+        $params = $val['parameters']
+
+        if !$params['is_secondary'] {
+            $type = $params['type']
+            $service_name = $params['service_name']
+            $cfdb = $params['settings_tune']['cfdb']
+            $socket = $type ? {
+                'postgresql' => "/run/${service_name}",
+                default      => "/run/${service_name}/service.sock"
+            }
+
+            $res = {
+                'certname' => $val['certname'],
+                'type'     => $params['type'],
+                'host'     => pick(
+                    $cfdb['listen'],
+                    $val['certname']
+                ),
+                'port'     => $cfdb['port'],
+                'socket'   => $socket,
+            }
+        } else {
+            $memo
+        }
+    }
+
+    #---
     $resource_title = $distribute_load ? {
         true    => "${cluster}:${role}:${local_user}:dl",
         default => "${cluster}:${role}:${local_user}",
@@ -50,36 +81,45 @@ define cfdb::access(
     $max_connections_reserve = $max_connections + 2
 
     #---
-    if $iface == 'any' {
-        $client_host = undef
-    } else {
-        $client_host = cf_get_bind_address($iface)
+    $client_host = $iface ? {
+        'any'   => undef,
+        default => cf_get_bind_address($iface)
     }
 
     #---
-    if $use_proxy == 'auto' {
-        $use_proxy_detected = (size(cf_query_facts(
-            "cfdb.${cluster}.present=true",
-            ['cfdb']
-        )) > 1)
-    } else {
-        $use_proxy_detected = $use_proxy
+    $use_proxy_detected = $use_proxy ? {
+        'auto'  => size($cluster_instances) > 1,
+        default => $use_proxy
     }
 
     #---
-    $cluster_facts_all = cf_query_facts(
-        "cfdb.${cluster}.is_secondary=false and cfdb.${cluster}.roles.${role}.present=true",
-        ['cfdb']
+    $role_info_raw = cf_query_resources(
+        false,
+        ['extract', ['certname', 'parameters'],
+            ['and',
+                ['=', 'type', 'Cfdb_role'],
+                ['=', ['parameter', 'cluster'], $cluster],
+                ['=', ['parameter', 'user'], $role],
+            ],
+        ],
+        false,
     )
 
-    if empty($cluster_facts_all) {
-        if defined(Cfdb::Instance[$cluster]) {
+    $role_info = size($role_info_raw) ? {
+        0       => undef,
+        default => $role_info_raw[0]['parameters']
+    }
+
+    if !$role_info or !$cluster_info {
+        $cluster_rsc = Cfdb_instance[$cluster]
+
+        if defined($cluster_rsc) {
             # the only known instance is local
             # give it a chance
             # NOTE: in case access is critical after the first Puppet run, please make sure
             #       to use $static_access parameter for role definition!
-            $port = cf_genport($cluster, getparam(Cfdb::Instance[$cluster], 'port'))
-            $type = getparam(Cfdb::Instance[$cluster], 'type')
+            $port = cf_genport($cluster, getparam($cluster_rsc, 'port'))
+            $type = getparam($cluster_rsc, 'type')
 
             $cfg = {
                 'host'    => $localhost,
@@ -87,7 +127,7 @@ define cfdb::access(
                 'socket'  => '',
                 'user'    => $role,
                 'pass'    => cf_genpass("cfdb/${cluster}@${role}", 16),
-                'db'      => pick(getparam(Cfdb::Role["${cluster}/${role}"], 'database'), $fallback_db, $role),
+                'db'      => pick(getparam(Cfdb_role["${cluster}/${role}"], 'database'), $fallback_db, $role),
                 'type'    => $type,
                 'maxconn' => $max_connections,
             }
@@ -111,7 +151,7 @@ define cfdb::access(
                 fail("Unable to get database from Cfdb::Role[${cluster}/${role}]")
             }
         } else {
-            fail("Unknown cluster ${cluster} or associated role ${role}: ${cluster_facts_all}")
+            fail("Unknown cluster ${cluster} or associated role ${role}")
         }
     } elsif $use_proxy_detected != false {
         case $use_proxy_detected {
@@ -121,12 +161,16 @@ define cfdb::access(
             }
         }
 
-        $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
-        $role_fact = $cluster_fact['roles'][$role]
-        $type = $cluster_fact['type']
+        $type = $cluster_info['type']
 
-        $port = cf_genport("cfha/${resource_title}")
+        $port_persist = "cfha/${resource_title}"
         $port_name = "${type}_${cluster}_${role}_${local_user}"
+        $port = cf_genport($port_persist)
+        cfsystem_persist { "ports:${port_persist}":
+            section => 'ports',
+            key     => $port_persist,
+            value   => $port,
+        }
 
         if $use_unix_socket {
             $host = 'localhost'
@@ -169,7 +213,7 @@ define cfdb::access(
             access_user     => $local_user,
             socket          => $socket,
             secure_mode     => $use_proxy_detected,
-            distribute_load => pick($distribute_load, $role_fact['readonly']),
+            distribute_load => pick($distribute_load, $role_info['readonly']),
             client_host     => $client_host,
             use_unix_socket => $use_unix_socket,
             local_port      => $port,
@@ -180,33 +224,23 @@ define cfdb::access(
             'port'    => $port,
             'socket'  => $cfg_socket,
             'user'    => $role,
-            'pass'    => $role_fact['password'],
-            'db'      => $role_fact['database'],
+            'pass'    => $role_info['password'],
+            'db'      => $role_info['database'],
             'type'    => $type,
             'maxconn' => $max_connections,
         }
     } elsif $use_proxy_detected == false {
-        $cluster_fact = values($cluster_facts_all)[0]['cfdb'][$cluster]
-        $role_fact = $cluster_fact['roles'][$role]
-        $host = keys($cluster_facts_all)[0]
-        $port = $cluster_fact['port']
+        $type = $cluster_info['type']
+        $port = $cluster_info['port']
 
         $fw_service = "cfdb_${cluster}_${port}"
         ensure_resource('cfnetwork::describe_service', $fw_service, {
             server => "tcp/${port}",
         })
 
-        if $host == $::trusted['certname'] {
-            $cfg = {
-                'host'    => $localhost,
-                'port'    => $cluster_fact['port'],
-                'socket'  => $cluster_fact['socket'],
-                'user'    => $role,
-                'pass'    => $role_fact['password'],
-                'db'      => $role_fact['database'],
-                'type'    => $cluster_fact['type'],
-                'maxconn' => $max_connections,
-            }
+        if $cluster_info['certname'] == $::trusted['certname'] {
+            $host = $localhost
+            $socket = $cluster_info['socket']
 
             $fw_port = "local:${fw_service}:${local_user}"
 
@@ -214,35 +248,42 @@ define cfdb::access(
                 user => $local_user,
             })
         } else {
-            $addr = pick($cluster_fact['host'], $host)
-            $cfg = {
-                'host'    => $addr,
-                'port'    => $port,
-                'socket'  => '',
-                'user'    => $role,
-                'pass'    => $role_fact['password'],
-                'db'      => $role_fact['database'],
-                'type'    => $cluster_fact['type'],
-                'maxconn' => $max_connections,
-            }
+            $host = $cluster_info['host']
+            $socket = ''
 
             $fw_port = "any:${fw_service}:${local_user}"
 
             ensure_resource('cfnetwork::client_port', $fw_port, {
-                dst  => $addr,
+                dst  => $cluster_info['host'],
                 user => $local_user,
             })
 
             cfdb::require_endpoint{ "${resource_title}:${host}":
                 cluster => $cluster,
-                host    => $host,
+                host    => $cluster_info['certname'],
                 source  => $::trusted['certname'],
                 maxconn => $max_connections_reserve,
                 secure  => false,
             }
+
+            ensure_resource('cfdb::healthcheck', $cluster, {
+                type        => $type,
+                cluster     => $cluster,
+                client_host => $client_host,
+            })
         }
 
-        $type = $cluster_fact['type']
+        $cfg = {
+            'host'    => $host,
+            'port'    => $port,
+            'socket'  => $socket,
+            'user'    => $role,
+            'pass'    => $role_info['password'],
+            'db'      => $role_info['database'],
+            'type'    => $cluster_info['type'],
+            'maxconn' => $max_connections,
+        }
+
         include "cfdb::${type}::clientpkg"
     } else {
         fail('Invalid value for $use_proxy')

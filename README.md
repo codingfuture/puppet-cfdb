@@ -299,7 +299,6 @@ cfnetwork::service_port:
         src: $client_hosts
         
 # for each Galera cluster (inter-node comms)
-# > access to local instance ports
 cfnetwork::describe_service:
     "cfdb_${cluster}_peer":
         server: "tcp/${port}"
@@ -311,39 +310,31 @@ cfnetwork::describe_service:
         server: "tcp/${sst_port}"
     "cfdb_${cluster}_ist":
         server: "tcp/${ist_port}"
-cfnetwork::service_port:
+cfnetwork::ipset:
+    cfdb_${cluster}:
+        type: ip
+        addr: $peer_addr_list
+cfnetwork::service_ports:
     "${iface}:cfdb_${cluster}_peer":
-        src: $peer_addr_list
+        src: 'ipset:cfdb_${cluster}'
     "${iface}:cfdb_${cluster}_galera":
-        src: $peer_addr_list
+        src: 'ipset:cfdb_${cluster}'
     "${iface}:cfdb_${cluster}_sst":
-        src: $peer_addr_list
+        src: 'ipset:cfdb_${cluster}'
     "${iface}:cfdb_${cluster}_ist":
-        src: $peer_addr_list
-# > access to remote cluster instances
-cfnetwork::describe_service:
-    "cfdb_${cluster}_peer_${host_under}":
-        server: "tcp/${peer_port}"
-    "cfdb_${cluster}_galera_${host_under}":
-        server:
-            - "tcp/${galera_port}"
-            - "udp/${galera_port}"
-    "cfdb_${cluster}_sst_${host_under}":
-        server: "tcp/${sst_port}"
-    "cfdb_${cluster}_ist_${host_under}":
-        server: "tcp/${ist_port}"
-cfnetwork::client_port:
-    "${iface}:cfdb_${cluster}_peer_${host_underscore}":
-        dst: $peer_addr
+        src: 'ipset:cfdb_${cluster}'
+cfnetwork::client_ports:
+    "${iface}:cfdb_${cluster}_peer":
+        dst: 'ipset:cfdb_${cluster}'
         user: $user
-    "${iface}:cfdb_${cluster}_galera_${host_underscore}":
-        dst: $peer_addr
+    "${iface}:cfdb_${cluster}_galera":
+        dst: 'ipset:cfdb_${cluster}'
         user: $user
-    "${iface}:cfdb_${cluster}_sst_${host_underscore}":
-        dst: $peer_addr
+    "${iface}:cfdb_${cluster}_sst":
+        dst: 'ipset:cfdb_${cluster}'
         user: $user
-    "${iface}:cfdb_${cluster}_ist_${host_underscore}":
-        dst: $peer_addr
+    "${iface}:cfdb_${cluster}_ist":
+        dst: 'ipset:cfdb_${cluster}'
         user: $user
 
 # for each repmgr PostgreSQL cluster (inter-node comms)
@@ -354,24 +345,14 @@ cfnetwork::describe_service:
 cfnetwork::service_port:
     "${iface}:cfdb_${cluster}_peer":
         src: $peer_addr_list
-        
-# > access to remote cluster instances
-cfnetwork::describe_service:
-    "cfdb_${cluster}_peer_${host_underscore}":
-        server: "tcp/${peer_port}"
-cfnetwork::client_port:
-    "${iface}:cfdb_${cluster}_peer_${host_underscore}":
-        dst: $peer_addr
+cfnetwork::service_ports:
+    "${iface}:cfdb_${cluster}_peer":
+        src: 'ipset:cfdb_${cluster}'
+cfnetwork::client_ports:
+    "${iface}:cfdb_${cluster}_peer":
+        dst: 'ipset:cfdb_${cluster}'
         user: $user
 
-# for each cluster node requiring SSH access (e.g. repmgr)
-cfnetwork::client_port:
-    "${iface}:cfssh:cfdb_${cluster}_${host_underscore}":
-        dst: $peer_addr
-        user: $user
-cfnetwork::service_port:
-    "${iface}:cfssh:cfdb_${cluster}_${host_underscore}":
-        src: $peer_addr
 
 
 # for every cfdb::access when HAProxy is NOT used
@@ -401,6 +382,7 @@ This is a full featured class to use with Hiera
 * `$instances = {}` - configurations for `cfdb::instance` resources (Hiera-friendly)
 * `$access = {}` - configurations for `cfdb::access` resources (Hiera-friendly)
 * `$iface = 'any'` - database network facing interface
+* `$cluster_face = 'main'` - cluster comms network facing interface
 * `$root_dir = '/db'` - root to create instance home folders
 * `$max_connections_default = 10` - default value for `$cfdb::access::max_connections`
 * `$backup = true` - default value for `$cfdb::instance::backup`
@@ -495,6 +477,7 @@ Defines and auto-configures instances.
 * `$databases = undef` - configuration for `cfdb::database` resources
 *
 * `$iface = $cfdb::iface` - DB network facing interface
+* `$cluster_face = $cfdb::cluster_face` - cluster comms network facing interface
 * `$port = undef` - force specific network port (mandatory, if `$is_cluster`)
 *
 * `$backup = $cfdb::backup` - if true, automatic scheduled backup gets enabled
@@ -603,7 +586,8 @@ special keys:
 * `shared_secret` - DO NOT USE, for internal cluster purposes.
 * `max_connections_roundto = 100` - ceil max_connections to multiple of that
 * `listen = 0.0.0.0` - address to listen on, if external connections are detected based
-    on `cfdb::access` or `$is_cluster`
+    on `cfdb::access`
+* `cluster_listen` - address to listen for cluster communication based on '$cluster_face'
 * `inodes_min = 1000` and `inodes_max = 10000` - set gates for automatic calculation of
     `mysqld.table_definition_cache` and `mysqld.table_open_cache`
 * `open_file_limit_roundto = 10000` - ceil `mysqld.open_file_limit` to multiple of that
@@ -632,7 +616,8 @@ However, there is also a special "cfdb" section:
     provided by MySQL.
 * `max_connections_roundto = 100` - ceil max_connections to multiple of that
 * `listen = 0.0.0.0` - address to listen on, if external connections are detected based
-    on `cfdb::access` or `$is_cluster`
+    on `cfdb::access`
+* `cluster_listen` - address to listen for cluster communication based on '$cluster_face'
 * `inodes_min = 1000` and `inodes_max = 10000` - set gates for automatic calculation of
     `inodes_used` participating in:
     `postgresql.max_files_per_process = 3 * (max_connections + inodes_used)`

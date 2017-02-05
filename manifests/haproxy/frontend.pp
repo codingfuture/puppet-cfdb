@@ -45,33 +45,35 @@ define cfdb::haproxy::frontend(
         min_mb => ceiling($extra_mem_kb / 1024.0),
     }
 
-    # connect only to DB nodes in same DC
-    $cf_location = $::facts['cf_location']
-    $cluster_facts_try = cf_query_facts(
-        "cfdb.${cluster}.present=true and cfdb.${cluster}.is_arbitrator=false and cf_location='${cf_location}'",
-        ['cfdb', 'cf_location']
+    #---
+    $cluster_instance_q = "cfdb_instance[${cluster}]{ is_arbitrator = false }"
+
+    # try connect only to DB nodes in same DC
+    $cluster_instance_filter_q = "cfdb_instance[${cluster}]{ location = '${cfdb::location}' }"
+    $cluster_instances_try = cf_query_resources(
+        $cluster_instance_filter_q,
+        $cluster_instance_q,
+        false
     )
 
-    if size($cluster_facts_try) > 0 {
-        $cluster_facts_all = $cluster_facts_try
-    } else {
+    $cluster_instances = size($cluster_instances_try) ? {
         # fallback to connect to any possible DC
-        $cluster_facts_all = cf_query_facts(
-            "cfdb.${cluster}.present=true and cfdb.${cluster}.is_arbitrator=false",
-            ['cfdb', 'cf_location']
-        )
+        0       => cf_query_resources(false, $cluster_instance_q, false),
+        default => $cluster_instances_try
     }
 
-    if empty($cluster_facts_all) {
+    if empty($cluster_instances) {
         $cluster_addr = []
     } else {
-        $cluster_addr = (keys($cluster_facts_all).sort.map |$host| {
-            $cfdb_facts = $cluster_facts_all[$host]
-            $cluster_fact = $cfdb_facts['cfdb'][$cluster]
+        $cluster_addr = cf_stable_sort($cluster_instances.map |$cluster_info| {
+            $host = $cluster_info['certname']
+            $params = $cluster_info['parameters']
+
+            $cfdb = $params['settings_tune']['cfdb']
             $is_local = ($::trusted['certname'] == $host)
 
-            if $type != $cluster_fact['type'] {
-                fail("Type of ${cluster} on ${host} mismatch ${type}: ${cluster_fact}")
+            if $type != $params['type'] {
+                fail("Type of ${cluster} on ${host} mismatch ${type}: ${cluster_info}")
             }
 
             # it does not really work with database protocols :(
@@ -82,21 +84,32 @@ define cfdb::haproxy::frontend(
             } elsif $force_insecure {
                 $secure_host = false
             } else {
-                $secure_host = ($cf_location != $cfdb_facts['cf_location'])
+                $secure_host = (
+                    ($cfdb::location != $params['location']) and
+                    # for migration from older versions
+                    pick($params['location'], '') != '' and
+                    $cfdb::location != ''
+                )
             }
 
             $addr = $is_local ? {
                 true    => '127.0.0.1',
-                default => pick($cluster_fact['host'], $host),
+                default => pick(
+                    $cfdb['listen'] ? {
+                        'undef' => undef,
+                        default => $cfdb['listen']
+                    },
+                    $host
+                ),
             }
 
             $port = $secure_host ? {
-                true    => cfdb_derived_port($cluster_fact['port'], 'secure'),
-                default => $cluster_fact['port'],
+                true    => cfdb_derived_port($cfdb['port'], 'secure'),
+                default => $cfdb['port'],
             }
 
             if !$addr or !$port {
-                fail("Invalid host/port for ${host}: ${cluster_fact}")
+                fail("Invalid host/port for ${host}: ${cluster_info}")
             }
 
             $host_under = regsubst($host, '\.', '_', 'G')
@@ -134,7 +147,7 @@ define cfdb::haproxy::frontend(
                 host   => $host,
                 addr   => $addr,
                 port   => $port,
-                backup => $cluster_fact['is_secondary'],
+                backup => $params['is_secondary'],
                 secure => $secure_host,
             }
             $ret
@@ -161,45 +174,10 @@ define cfdb::haproxy::frontend(
     }
 
     #---
-    $healthcheck = $cfdb::healthcheck
-    $healthcheck_access_title = "${cluster}/${healthcheck}"
-
-    if !defined(Cfdb_access[$healthcheck_access_title]) {
-        $health_check_facts = cf_query_facts(
-            "cfdb.${cluster}.is_secondary=false and cfdb.${cluster}.roles.${healthcheck}.present=true",
-            ['cfdb']
-        )
-        if size($health_check_facts) > 0 {
-            $healthcheck_password = values($health_check_facts)[0]['cfdb'][$cluster]['roles'][$healthcheck]['password']
-        } else {
-            # temporary
-            $healthcheck_password = $healthcheck
-        }
-
-        cfdb_access{ $healthcheck_access_title:
-            ensure          => present,
-            cluster         => $cluster,
-            role            => $healthcheck,
-            local_user      => undef,
-            max_connections => 2,
-            client_host     => $client_host,
-            config_info     => {},
-            require         => Anchor['cfnetwork:firewall'],
-        }
-
-
-        #---
-        file { "${cfdb::haproxy::bin_dir}/check_${cluster}":
-            ensure  => present,
-            owner   => $cfdb::haproxy::user,
-            group   => $cfdb::haproxy::user,
-            mode    => '0750',
-            content => epp("cfdb/health_check_${type}", {
-                service_name => $cfdb::haproxy::service_name,
-                role         => $healthcheck,
-                password     => $healthcheck_password,
-                database     => $healthcheck,
-            }),
-        }
-    }
+    ensure_resource('cfdb::healthcheck', $cluster, {
+        type        => $type,
+        cluster     => $cluster,
+        client_host => $client_host,
+        add_haproxy => true,
+    })
 }

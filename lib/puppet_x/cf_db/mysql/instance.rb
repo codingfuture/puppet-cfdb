@@ -118,6 +118,7 @@ module PuppetX::CfDb::MySQL::Instance
         #---
         if have_external_conn or is_cluster
             bind_address = cfdb_settings.fetch('listen', '0.0.0.0')
+            cluster_bind_address = cfdb_settings.fetch('cluster_listen', '0.0.0.0')
         else
             bind_address = '127.0.0.1'
         end
@@ -442,7 +443,7 @@ module PuppetX::CfDb::MySQL::Instance
                 wsrep_provider_options['socket.ssl_cipher'] = 'AES128-SHA'
                 wsrep_addr = Puppet[:certname]
             else
-                wsrep_addr = bind_address
+                wsrep_addr = cluster_bind_address
             end
             
             wsrep_provider_options['ist.recv_addr'] = "#{wsrep_addr}:#{ist_port}"
@@ -458,7 +459,7 @@ module PuppetX::CfDb::MySQL::Instance
             
             forced_settings['wsrep_cluster_name'] = cluster
             forced_settings['wsrep_node_address'] = "#{wsrep_addr}:#{galera_port}"
-            forced_settings['wsrep_node_incoming_address'] = "#{bind_address}:#{port}"
+            forced_settings['wsrep_node_incoming_address'] = "#{cluster_bind_address}:#{port}"
             forced_settings['wsrep_sst_receive_address'] = "#{wsrep_addr}:#{sst_port}"
             forced_settings['wsrep_provider_options'] = wsrep_provider_options.map{|k,v| "#{k}=#{v}"}.join('; ')
             

@@ -37,6 +37,8 @@ define cfdb::instance (
 
     String[1]
         $iface = $cfdb::iface,
+    String[1]
+        $cluster_face = $cfdb::cluster_face,
     Optional[Integer[1,65535]]
         $port = undef,
 
@@ -65,6 +67,7 @@ define cfdb::instance (
     #---
     $backup_support = !$is_arbitrator
     $is_cluster_by_fact = $is_cluster or $is_secondary or $is_arbitrator
+    $is_primary_node = !$is_secondary and !$is_arbitrator
 
     if ($is_cluster or $is_secondary) and !getvar("cfdb::${type}::is_cluster") {
         # that's mostly specific to MySQL
@@ -105,10 +108,22 @@ define cfdb::instance (
     $root_dir = "${cfdb::root_dir}/${user}"
     $backup_dir = "${cfdb::backup::root_dir}/${user}"
 
-    if $iface == 'any' {
+    # Listen parameter auto-detection
+    # We need to listen on all ifaces, if clients and cluster mismatch
+    #---
+    if $iface == 'any' or
+        ($is_cluster_by_fact and $iface != $cluster_face)
+    {
         $listen = undef
     } else {
         $listen = cf_get_bind_address($iface)
+    }
+
+    # Listen for cluster-only comms
+    #---
+    $cluster_listen = $is_cluster_by_fact ? {
+        true    => cf_get_bind_address($cluster_face),
+        default => undef,
     }
 
     #---
@@ -172,247 +187,165 @@ define cfdb::instance (
             fail('Cluster requires excplicit port')
         }
 
-        $cluster_facts_all = cf_query_facts(
-            "cfdb.${cluster}.present=true",
-            ['cfdb']
-        )
+        $cluster_q = "cfdb_instance[${cluster}]"
+        $cluster_instances = cf_query_resources($cluster_q, $cluster_q, false)
 
-        if empty($cluster_facts_all) {
+        if empty($cluster_instances) {
             $cluster_addr = []
         } else {
             $secure_cluster = try_get_value($settings_tune, 'cfdb/secure_cluster')
 
-            $cluster_addr = delete_undef_values(keys($cluster_facts_all).sort().map |$host| {
-                $cfdb_facts = $cluster_facts_all[$host]
-                $cluster_fact = $cfdb_facts['cfdb'][$cluster]
+            $cluster_addr_raw = $cluster_instances.map |$host_info| {
+                $host = $host_info['certname']
+                $params = $host_info['parameters']
+                $cfdb = $params['settings_tune']['cfdb']
 
-                if $type != $cluster_fact['type'] {
-                    fail("Type of ${cluster} on ${host} mismatch ${type}: ${cluster_fact}")
+                if $type != $params['type'] {
+                    fail("Type of ${cluster} on ${host} mismatch ${type}: ${host_info}")
                 }
 
-                if $secure_cluster {
-                    # we need hostname for commonName checking
-                    $peer_addr = $host
-                } else {
-                    $peer_addr = pick($cluster_fact['host'], $host)
+                $peer_addr = $secure_cluster ? {
+                    true => $host,
+                    default => pick(
+                        $cfdb['cluster_listen'] ? {
+                            'undef' => undef,
+                            default => $cfdb['cluster_listen']
+                        },
+                        $cfdb['listen'] ? {
+                            'undef' => undef,
+                            default => $cfdb['listen']
+                        },
+                        $host
+                    ),
                 }
-                $peer_port = $cluster_fact['port']
+                $peer_port = $cfdb['port']
 
-                if $host == $::trusted['certname'] {
+                if $peer_port != $port {
+                    if !$is_primary_node and !$params['is_secondary'] {
+                        fail("Port ${port} mismatch primary ${peer_port} for ${cluster}")
+                    }
+                    undef
+                } elsif $host == $::trusted['certname'] {
                     undef
                 } else {
                     if !$peer_addr or !$peer_port {
-                        fail("Invalid host/port for ${host}: ${cluster_fact}")
-                    }
-
-                    $host_under = regsubst($host, '\.', '_', 'G')
-
-                    if $ssh_access {
-                        cfnetwork::client_port { "${iface}:cfssh:cfdb_${cluster}_${host_under}":
-                            dst  => $peer_addr,
-                            user => $user,
-                        }
-                        cfnetwork::service_port { "${iface}:cfssh:cfdb_${cluster}_${host_under}":
-                            src => $peer_addr,
-                        }
-
-                        pick($cluster_fact['ssh_keys'], {}).each |$kn, $kv| {
-                            ssh_authorized_key { "${user}:${kn}@${host_under}":
-                                user    => $user,
-                                type    => $kv['type'],
-                                key     => $kv['key'],
-                                require => User[$user],
-                            }
-                        }
-                    }
-
-                    if $type == 'mysql' {
-                        $galera_port = cfdb_derived_port($peer_port, 'galera')
-                        $sst_port = cfdb_derived_port($peer_port, 'galera_sst')
-                        $ist_port = cfdb_derived_port($peer_port, 'galera_ist')
-
-                        cfnetwork::describe_service { "cfdb_${cluster}_peer_${host_under}":
-                            server => "tcp/${peer_port}",
-                        }
-                        cfnetwork::describe_service { "cfdb_${cluster}_galera_${host_under}":
-                            server => [
-                                "tcp/${galera_port}",
-                                "udp/${galera_port}"
-                            ],
-                        }
-                        cfnetwork::describe_service { "cfdb_${cluster}_sst_${host_under}":
-                            server => "tcp/${sst_port}",
-                        }
-                        cfnetwork::describe_service { "cfdb_${cluster}_ist_${host_under}":
-                            server => "tcp/${ist_port}",
-                        }
-
-                        cfnetwork::client_port { "${iface}:cfdb_${cluster}_peer_${host_under}":
-                            dst  => $peer_addr,
-                            user => $user,
-                        }
-                        cfnetwork::client_port { "${iface}:cfdb_${cluster}_galera_${host_under}":
-                            dst  => $peer_addr,
-                            user => $user,
-                        }
-                        cfnetwork::client_port { "${iface}:cfdb_${cluster}_sst_${host_under}":
-                            dst  => $peer_addr,
-                            user => $user,
-                        }
-                        cfnetwork::client_port { "${iface}:cfdb_${cluster}_ist_${host_under}":
-                            dst  => $peer_addr,
-                            user => $user,
-                        }
-                    } elsif $type == 'postgresql' {
-                        cfnetwork::describe_service { "cfdb_${cluster}_peer_${host_under}":
-                            server => "tcp/${peer_port}",
-                        }
-
-                        cfnetwork::client_port { "${iface}:cfdb_${cluster}_peer_${host_under}":
-                            dst  => $peer_addr,
-                            user => $user,
-                        }
+                        fail("Invalid host/port for ${host}: ${host_info}")
                     }
 
                     $ret = {
                         addr          => $peer_addr,
                         port          => $peer_port,
-                        is_secondary  => $cluster_fact['is_secondary'],
-                        is_arbitrator => $cluster_fact['is_arbitrator'],
+                        is_secondary  => $params['is_secondary'],
+                        is_arbitrator => $params['is_arbitrator'],
                     }
                     $ret
                 }
-            })
+            }
+            $cluster_addr = cf_stable_sort(delete_undef_values($cluster_addr_raw))
         }
 
         $peer_addr_list = $cluster_addr.map |$v| {
             $v['addr']
         }
 
-        if $type == 'mysql' {
-            $galera_port = cfdb_derived_port($port, 'galera')
-            $sst_port = cfdb_derived_port($port, 'galera_sst')
-            $ist_port = cfdb_derived_port($port, 'galera_ist')
-
-            cfnetwork::describe_service { "cfdb_${cluster}_peer":
-                server => "tcp/${port}",
-            }
-            cfnetwork::describe_service { "cfdb_${cluster}_galera":
-                server => [
-                    "tcp/${galera_port}",
-                    "udp/${galera_port}"
-                ],
-            }
-            cfnetwork::describe_service { "cfdb_${cluster}_sst":
-                server => "tcp/${sst_port}",
-            }
-            cfnetwork::describe_service { "cfdb_${cluster}_ist":
-                server => "tcp/${ist_port}",
-            }
-
-            if size($peer_addr_list) > 0 {
-                cfnetwork::service_port { "${iface}:cfdb_${cluster}_peer":
-                    src => $peer_addr_list,
-                }
-                cfnetwork::service_port { "${iface}:cfdb_${cluster}_galera":
-                    src => $peer_addr_list,
-                }
-                cfnetwork::service_port { "${iface}:cfdb_${cluster}_sst":
-                    src => $peer_addr_list,
-                }
-                cfnetwork::service_port { "${iface}:cfdb_${cluster}_ist":
-                    src => $peer_addr_list,
-                }
-            }
-        } elsif $type == 'postgresql' {
-            cfnetwork::describe_service { "cfdb_${cluster}_peer":
-                server => "tcp/${port}",
-            }
-
-            if size($peer_addr_list) > 0 {
-                cfnetwork::service_port { "${iface}:cfdb_${cluster}_peer":
-                    src => $peer_addr_list,
-                }
-            }
-
-            # a workaround for ignorant PostgreSQL devs
-            #---
-            cfnetwork::service_port { "local:alludp:${cluster}-stats": }
-            cfnetwork::client_port { "local:alludp:${cluster}-stats":
-                user => $user,
-            }
-            #---
+        $cluster_ipset = "cfdb_${cluster}"
+        cfnetwork::ipset { $cluster_ipset:
+            type => 'ip',
+            addr => cf_stable_sort($peer_addr_list),
         }
+
+        create_resources("cfdb::${type}::clusterports", {
+            $title => {
+                iface     => $cluster_face,
+                cluster   => $cluster,
+                user      => $user,
+                ipset     => $cluster_ipset,
+                peer_port => $port,
+            }
+        })
 
         if $ssh_access {
-            $ssh_dir = "${root_dir}/.ssh"
-            $ssh_idkey = "${ssh_dir}/id_${ssh_key_type}"
-
-            exec { "cfdb_genkey@${user}":
-                command => "/usr/bin/ssh-keygen -q -t ${ssh_key_type} -b ${ssh_key_bits} -P '' -f ${ssh_idkey}",
-                creates => $ssh_idkey,
-                user    => $user,
-                group   => $user,
-                require => User[$user],
-            } ->
-            file { "${ssh_dir}/config":
-                owner   => $user,
-                group   => $user,
-                content => [
-                    'StrictHostKeyChecking no',
-                    "IdentityFile ${ssh_idkey}",
-                ].join("\n")
+            cfsystem::clusterssh { "cfdb:${cluster}":
+                namespace  => 'cfdb',
+                cluster    => $cluster,
+                user       => $user,
+                is_primary => $is_primary_node,
+                key_type   => $ssh_key_type,
+                key_bits   => $ssh_key_bits,
+                peers      => ["ipset:${cluster_ipset}"],
             }
         }
 
-        $shared_secret = keys($cluster_facts_all).reduce('') |$memo, $host| {
-            $cfdb_facts = $cluster_facts_all[$host]
-            $cluster_fact = $cfdb_facts['cfdb'][$cluster]
+        $secret_title = "cfdb/${cluster}"
 
-            if !$cluster_fact['is_secondary'] and $cluster_fact['shared_secret'] {
-                $cluster_fact['shared_secret']
-            } else {
-                $memo
+        if $is_primary_node {
+            $shared_secret_tune = try_get_value($settings_tune, 'cfdb/shared_secret')
+            $shared_secret = cf_genpass($secret_title, 24, $shared_secret_tune)
+        } else {
+            $shared_secret = $cluster_instances.reduce('') |$memo, $host_info| {
+                $host = $host_info['certname']
+                $params = $host_info['parameters']
+                $shared_secret_param = try_get_value($params['settings_tune'], 'cfdb/shared_secret')
+
+                if !$params['is_secondary'] and $shared_secret_param {
+                    $shared_secret_param
+                } else {
+                    $memo
+                }
             }
         }
     } else {
-        $cluster_addr = undef
-        $shared_secret = ''
+        $cluster_addr = []
+
+        $secret_title = "cfdb/${cluster}"
+        $shared_secret_tune = try_get_value($settings_tune, 'cfdb/shared_secret')
+        $shared_secret = cf_genpass($secret_title, 24, $shared_secret_tune)
     }
 
-    # TODO: remove
-    $memo = 'puppet-lint-warning-fix'
-    $ival = 'puppet-lint-warning-fix'
+    cfsystem_persist { "secrets:${secret_title}":
+        section => 'secrets',
+        key     => $secret_title,
+        value   => $shared_secret,
+    }
 
     #---
-    $access = cf_query_facts("cfdbaccess.${cluster}.present=true", ['cfdbaccess'])
-    $access_list = $access.reduce({}) |$memo, $val| {
-        $host = $val[0]
-        $cluster_info = $val[1]['cfdbaccess'][$cluster]
-        $cluster_info['roles'].reduce($memo) |$imemo, $ival| {
-            $role = $ival[0]
-            $role_info = $ival[1]['client'].map |$v| {
-                {
-                    host    => pick($v['host'], $host).split('/')[0],
-                    maxconn => $v['max_connections'],
-                }
-            }
+    $q = "Cfdb_access[~'.*']{ cluster = '${cluster}' }"
+    $access = cf_query_resources($q, $q, false)
 
-            if $imemo[$role] {
-                merge($imemo, {
-                    "${role}" => $imemo[$role] + $role_info
-                })
-            } else {
-                merge($imemo, {
-                    "${role}" => $role_info
-                })
-            }
+    $access_list = $access.reduce({}) |$memo, $val| {
+        $certname = $val['certname']
+        $params = $val['parameters']
+
+        $maxconn = pick($params['max_connections'], $cfdb::max_connections_default)
+        $host = pick($params['host'], $certname).split('/')[0]
+        $role = $params['role']
+
+        $role_info = [{
+            host    => $host,
+            maxconn => $maxconn,
+        }]
+
+        if $memo[$role] {
+            merge($memo, {
+                "${role}" => $memo[$role] + $role_info
+            })
+        } else {
+            merge($memo, {
+                "${role}" => $role_info
+            })
         }
     }
 
     #---
     $fact_port = cf_genport($cluster, $port)
-    $is_first_node = $cluster_addr and (size($cluster_addr) == 0)
+    cfsystem_persist { "ports:${cluster}":
+        section => 'ports',
+        key     => $cluster,
+        value   => $fact_port,
+    }
+
+    #---
+    $is_first_node = $is_cluster_by_fact and (size($cluster_addr) == 0)
 
     cfdb_instance { $cluster:
         ensure        => present,
@@ -420,7 +353,7 @@ define cfdb::instance (
         cluster       => $cluster,
         user          => $user,
         is_cluster    => $is_cluster_by_fact,
-        is_secondary  => $is_secondary or $is_arbitrator,
+        is_secondary  => !$is_primary_node,
         is_bootstrap  => ($is_bootstrap or $is_first_node) and !$is_arbitrator,
         is_arbitrator => $is_arbitrator,
 
@@ -437,18 +370,22 @@ define cfdb::instance (
             {
                 cfdb => merge(
                     {
-                        'listen'        => $listen,
+                        'listen'         => $listen,
+                        'cluster_listen' => $cluster_listen,
+                    },
+                    pick($settings_tune['cfdb'], {}),
+                    {
                         'port'          => $fact_port,
                         'shared_secret' => $shared_secret,
                     },
-                    pick($settings_tune['cfdb'], {})
                 )
             }
         ),
         service_name  => $service_name,
         version       => getvar("cfdb::${type}::actual_version"),
-        cluster_addr  => cf_stable_sort(pick_default($cluster_addr, [])),
-        access_list   => cf_stable_sort(pick_default($access_list, [])),
+        cluster_addr  => $cluster_addr,
+        access_list   => cf_stable_sort($access_list),
+        location      => $cfdb::location,
 
         require       => [
             User[$user],
@@ -470,7 +407,7 @@ define cfdb::instance (
     #     }
 
     #---
-    if !$is_secondary and !$is_arbitrator {
+    if $is_primary_node {
         $healthcheck = $cfdb::healthcheck
         cfdb::database { "${cluster}/${healthcheck}":
             cluster  => $cluster,
@@ -480,7 +417,7 @@ define cfdb::instance (
 
     #---
     if $databases {
-        if $is_secondary or $is_arbitrator {
+        if !$is_primary_node {
             fail("It's not allowed to defined databases on secondary server")
         }
 
@@ -660,100 +597,15 @@ define cfdb::instance (
         }
     }
 
-    # exta tools
+    # extra tools
     #---
-    case $type {
-        'mysql': {
-            if !$is_arbitrator {
-                $mysql_script = "${cfdb::bin_dir}/cfdb_${cluster}_mysql"
-                file { $mysql_script:
-                    mode    => '0755',
-                    content => epp('cfdb/cfdb_mysql.epp', {
-                        user => $user,
-                    }),
-                    notify  => Cfdb_instance[$cluster],
-                }
-
-                file { "${cfdb::bin_dir}/cfdb_${cluster}_mysqladmin":
-                    mode    => '0755',
-                    content => epp('cfdb/cfdb_mysqladmin.epp', {
-                        user => $user,
-                    }),
-                    notify  => Cfdb_instance[$cluster],
-                }
-
-                file { "${cfdb::bin_dir}/cfdb_${cluster}_sysbench":
-                    mode    => '0755',
-                    content => epp('cfdb/cfdb_sysbench.epp', {
-                        user => $user,
-                    }),
-                }
-
-                # Remove insecure artifacts
-                file { "${root_dir}/bin/cfdb_mysql":
-                    ensure => absent,
-                }
-                file { "${root_dir}/bin/cfdb_sysbench":
-                    ensure => absent,
-                }
-
-                if $is_cluster_by_fact {
-                    $bootstrap_script = "${cfdb::bin_dir}/cfdb_${cluster}_bootstrap"
-                    file { $bootstrap_script:
-                        mode    => '0755',
-                        content => epp('cfdb/cfdb_mysql_bootstrap.epp', {
-                            service_name => $service_name,
-                        })
-                    }
-                }
-            }
-        }
-        'postgresql': {
-            $psql_script = "${cfdb::bin_dir}/cfdb_${cluster}_psql"
-            file { $psql_script:
-                mode    => '0755',
-                content => epp('cfdb/cfdb_psql.epp', {
-                    user         => $user,
-                    service_name => $service_name,
-                }),
-                notify  => Cfdb_instance[$cluster],
-            } ->
-            file { "${root_dir}/bin/cfdb_psql":
-                ensure => link,
-                target => $psql_script,
-            }
-
-            if $is_cluster_by_fact {
-                $repmgr_script = "${cfdb::bin_dir}/cfdb_${cluster}_repmgr"
-                file { $repmgr_script:
-                    mode    => '0755',
-                    content => epp('cfdb/cfdb_repmgr.epp', {
-                        root_dir     => $root_dir,
-                        user         => $user,
-                        service_name => $service_name,
-                    }),
-                    notify  => Cfdb_instance[$cluster],
-                } ->
-                file { "${root_dir}/bin/cfdb_repmgr":
-                    ensure => link,
-                    target => $repmgr_script,
-                }
-
-                if !$is_arbitrator {
-                    cfauth::sudoentry { $user:
-                        command => [
-                            "/bin/systemctl start ${service_name}.service",
-                            "/bin/systemctl stop ${service_name}.service",
-                            "/bin/systemctl restart ${service_name}.service",
-                            "/bin/systemctl reload ${service_name}.service",
-                        ],
-                    } ->
-                    Cfdb_instance[$cluster]
-                }
-            }
-        }
-        default: {
-            fail("${type} - not supported type")
-        }
-    }
+    create_resources("cfdb::${type}::instancebin", { $title => {
+        cluster       => $cluster,
+        user          => $user,
+        root_dir      => $root_dir,
+        service_name  => $service_name,
+        is_cluster    => $is_cluster_by_fact,
+        is_arbitrator => $is_arbitrator,
+        is_primary    => $is_primary_node,
+    }})
 }

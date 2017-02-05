@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.11.0]
+- Major refactoring of internals
+    - Got rid of facts processing in favor of resources
+    - cfdb_access is noy recreated. but only shows error on healthcheck
+    - Added a difference between cluster and client interfaces
+    - All cluster instances must use the same port now (firewall optimization with ipsets)
+    - Switch to cfsystem::clusterssh instead of custom SSH setup
+    - Improved of persistent ports & secrets handling based on cfsystem_persist
+    - Fixed healthcheck cfdb_access without haproxy case
+    - Split DB type-specific features into sub-resources
+    - Misc. improvements
 - Added dependency on cfnetwork:firewall anchor where applicable
 - Added dependency on cfsystem::randomfeed for HAProxy dhparam generation
 - Updated to new 'cf_get_bind_address' API

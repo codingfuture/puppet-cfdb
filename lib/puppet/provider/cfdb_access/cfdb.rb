@@ -37,9 +37,12 @@ Puppet::Type.type(:cfdb_access).provide(
             )
         
         rescue => e
-            warning(e)
+            warning("CFDB connection health-check failed for: #{params[:local_user]}:#{config_info['prefix']}")
+            info(e)
             #warning(e.backtrace)
-            false
+            
+            # Do not re-create declarative resource
+            true
         end
     end
 
@@ -57,7 +60,8 @@ Puppet::Type.type(:cfdb_access).provide(
                     config_info['prefix']
                 )
             rescue => e
-                warning(e)
+                warning("CFDB connection health-check failed for: #{conf[:local_user]}:#{config_info['prefix']}")
+                info(e)
                 #warning(e.backtrace)
                 err("Transition error in setup")
             end

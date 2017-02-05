@@ -11,14 +11,23 @@ class cfdb (
     String[1]
         $iface = 'any',
     String[1]
+        $cluster_face = 'main',
+    String[1]
         $root_dir = '/db',
     Integer[1]
         $max_connections_default = 10,
     Boolean
         $backup = true,
 ) {
+    include cfsystem
+
     # global healthcheck db/role names
     $healthcheck = 'cfdbhealth'
+    $location = pick(
+        $::facts['cf_location'],
+        $cfsystem::hierapool::location,
+        ''
+    )
 
     $bin_dir = "${root_dir}/bin"
 
