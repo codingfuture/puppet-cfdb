@@ -187,14 +187,18 @@ define cfdb::instance (
             fail('Cluster requires excplicit port')
         }
 
+        $secure_cluster = try_get_value($settings_tune, 'cfdb/secure_cluster')
+
+        if $secure_cluster and $cluster_face != 'main' {
+            fail('Unfortunately, secure_cluster supports only "main" cluster_face')
+        }
+
         $cluster_q = "cfdb_instance[${cluster}]"
         $cluster_instances = cf_query_resources($cluster_q, $cluster_q, false)
 
         if empty($cluster_instances) {
             $cluster_addr = []
         } else {
-            $secure_cluster = try_get_value($settings_tune, 'cfdb/secure_cluster')
-
             $cluster_addr_raw = $cluster_instances.map |$host_info| {
                 $host = $host_info['certname']
                 $params = $host_info['parameters']
@@ -205,14 +209,20 @@ define cfdb::instance (
                 }
 
                 $peer_addr = $secure_cluster ? {
-                    true => $host,
+                    true => $cfdb['cluster_addr'] ? {
+                        'undef' => $host,
+                        '' => $host,
+                        default => $cfdb['cluster_addr']
+                    },
                     default => pick(
                         $cfdb['cluster_listen'] ? {
                             'undef' => undef,
+                            '' => undef,
                             default => $cfdb['cluster_listen']
                         },
                         $cfdb['listen'] ? {
                             'undef' => undef,
+                            '' => undef,
                             default => $cfdb['listen']
                         },
                         $host

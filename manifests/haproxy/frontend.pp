@@ -94,13 +94,11 @@ define cfdb::haproxy::frontend(
 
             $addr = $is_local ? {
                 true    => '127.0.0.1',
-                default => pick(
-                    $cfdb['listen'] ? {
-                        'undef' => undef,
-                        default => $cfdb['listen']
-                    },
-                    $host
-                ),
+                default => $cfdb['listen'] ? {
+                    'undef' => $host,
+                    ''      => $host,
+                    default => $cfdb['listen']
+                }
             }
 
             $port = $secure_host ? {

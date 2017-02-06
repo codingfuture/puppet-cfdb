@@ -90,7 +90,7 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
             begin
                 ip = IPAddr.new(value['addr'])
             rescue
-                ip = Resolv.getaddress res[0]
+                ip = Resolv.getaddress(value['addr'])
             end
             
             value['addr'] = "#{ip}"
