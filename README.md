@@ -452,7 +452,9 @@ This type must be used only on primary instance of cluster.
 
 * `$cluster` - unique cluster name
 * `$database` - database name
-* `$roles = undef` - configuration for `cfdb::role` resources (Hiera-friendly)
+* `$password = undef` - force password instead of auto-generated for default user
+* `$roles = undef` - configuration for extra `cfdb::role` resources (Hiera-friendly).
+    * Note: database name is automatically prefixed
 * `$ext = []` - database-specific extensions. Genereral format "{name}" or "{name}:{version}".
     If version is omitted then the latest one is used.
 

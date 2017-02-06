@@ -21,6 +21,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Updated to work with /etc/sudoers.d cleanup
 - Changed default HAProxy inter tune from 1s to 3s (better fits Python-based checkers)
 - Added "--skip-version-check" to mysql_upgrade
+- Added 'password' parameter for default user of cfdb::database
 
 ## [0.10.1]
 - Improved to support automatic Galera joiner startup (based on SSH check)

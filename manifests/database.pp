@@ -8,6 +8,8 @@ define cfdb::database (
         $cluster,
     String[1]
         $database,
+    Optional[String[1]]
+        $password = undef,
     Optional[Hash]
         $roles = undef,
     Array[String[1]]
@@ -23,6 +25,7 @@ define cfdb::database (
     cfdb::role { $title:
         cluster  => $cluster,
         database => $database,
+        password => $password,
     }
 
     if $roles {
