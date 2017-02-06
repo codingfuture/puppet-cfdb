@@ -190,6 +190,7 @@ define cfdb::instance (
         $secure_cluster = try_get_value($settings_tune, 'cfdb/secure_cluster')
 
         if $secure_cluster and $cluster_face != 'main' {
+            # TODO: custom PKI to support extra hostnames
             fail('Unfortunately, secure_cluster supports only "main" cluster_face')
         }
 
@@ -209,15 +210,18 @@ define cfdb::instance (
                 }
 
                 $peer_addr = $secure_cluster ? {
-                    true => $cfdb['cluster_addr'] ? {
-                        'undef' => $host,
-                        '' => $host,
-                        default => $cfdb['cluster_addr']
-                    },
+                    true => pick(
+                        $cfdb['cluster_addr'] ? {
+                            'undef' => undef,
+                            ''      => undef,
+                            default => $cfdb['cluster_addr']
+                        },
+                        $host
+                    ),
                     default => pick(
                         $cfdb['cluster_listen'] ? {
                             'undef' => undef,
-                            '' => undef,
+                            ''      => undef,
                             default => $cfdb['cluster_listen']
                         },
                         $cfdb['listen'] ? {
@@ -239,7 +243,7 @@ define cfdb::instance (
                     undef
                 } else {
                     if !$peer_addr or !$peer_port {
-                        fail("Invalid host/port for ${host}: ${host_info}")
+                        fail("Invalid host/port ${peer_addr}/${peer_port} for ${host}: ${host_info}")
                     }
 
                     $ret = {

@@ -94,11 +94,14 @@ define cfdb::haproxy::frontend(
 
             $addr = $is_local ? {
                 true    => '127.0.0.1',
-                default => $cfdb['listen'] ? {
-                    'undef' => $host,
-                    ''      => $host,
-                    default => $cfdb['listen']
-                }
+                default => pick(
+                    $cfdb['listen'] ? {
+                        'undef' => undef,
+                        ''      => undef,
+                        default => $cfdb['listen']
+                    },
+                    $host
+                )
             }
 
             $port = $secure_host ? {
@@ -107,7 +110,7 @@ define cfdb::haproxy::frontend(
             }
 
             if !$addr or !$port {
-                fail("Invalid host/port for ${host}: ${cluster_info}")
+                fail("Invalid host/port ${addr}/${port} for ${host}: ${cluster_info}")
             }
 
             $host_under = regsubst($host, '\.', '_', 'G')

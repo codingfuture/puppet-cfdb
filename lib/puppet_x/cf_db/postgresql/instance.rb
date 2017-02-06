@@ -90,6 +90,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         is_96 = (ver_parts[0] == '9' and ver_parts[1] == '6')
         
         fqdn = Facter['fqdn'].value()
+        cluster_listen = cfdb_settings.fetch('cluster_listen', fqdn)
         
         
         # calculate based on user access list x limit
@@ -121,7 +122,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         if is_cluster
             cluster_addr = cluster_addr.clone
             cluster_addr << {
-                'addr' => fqdn,
+                'addr' => cluster_listen,
                 'port' => port,
             }
             
@@ -382,7 +383,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 'cluster' => cluster,
                 'node' => node_id,
                 'node_name' => fqdn,
-                'conninfo' => "host=#{fqdn} port=#{port} user=#{REPMGR_USER} dbname=#{REPMGR_USER} #{sslrequire}",
+                'conninfo' => "host=#{cluster_listen} port=#{port} user=#{REPMGR_USER} dbname=#{REPMGR_USER} #{sslrequire}",
                 # repmgr uses the same for initdb
                 'pg_ctl_options' => "-o \"--config_file=#{conf_file}\"",
                 'pg_bindir' => pg_bin_dir,
