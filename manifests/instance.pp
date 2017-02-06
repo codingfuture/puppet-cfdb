@@ -294,9 +294,8 @@ define cfdb::instance (
 
         if $is_primary_node {
             $shared_secret_tune = try_get_value($settings_tune, 'cfdb/shared_secret')
-            $shared_secret = cf_genpass($secret_title, 24, $shared_secret_tune)
         } else {
-            $shared_secret = $cluster_instances.reduce('') |$memo, $host_info| {
+            $shared_secret_tune = $cluster_instances.reduce(undef) |$memo, $host_info| {
                 $host = $host_info['certname']
                 $params = $host_info['parameters']
                 $shared_secret_param = try_get_value($params['settings_tune'], 'cfdb/shared_secret')
@@ -313,14 +312,9 @@ define cfdb::instance (
 
         $secret_title = "cfdb/${cluster}"
         $shared_secret_tune = try_get_value($settings_tune, 'cfdb/shared_secret')
-        $shared_secret = cf_genpass($secret_title, 24, $shared_secret_tune)
     }
-
-    cfsystem_persist { "secrets:${secret_title}":
-        section => 'secrets',
-        key     => $secret_title,
-        value   => $shared_secret,
-    }
+    
+    $shared_secret = cf_genpass($secret_title, 24, $shared_secret_tune)
 
     #---
     $q = "Cfdb_access[~'.*']{ cluster = '${cluster}' }"
@@ -352,11 +346,6 @@ define cfdb::instance (
 
     #---
     $fact_port = cf_genport($cluster, $port)
-    cfsystem_persist { "ports:${cluster}":
-        section => 'ports',
-        key     => $cluster,
-        value   => $fact_port,
-    }
 
     #---
     $is_first_node = $is_cluster_by_fact and (size($cluster_addr) == 0)

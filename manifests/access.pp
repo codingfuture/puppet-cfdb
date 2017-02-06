@@ -166,11 +166,6 @@ define cfdb::access(
         $port_persist = "cfha/${resource_title}"
         $port_name = "${type}_${cluster}_${role}_${local_user}"
         $port = cf_genport($port_persist)
-        cfsystem_persist { "ports:${port_persist}":
-            section => 'ports',
-            key     => $port_persist,
-            value   => $port,
-        }
 
         if $use_unix_socket {
             $host = 'localhost'

@@ -27,13 +27,6 @@ define cfdb::role(
     $secret_title = "cfdb/${cluster}@${role}"
     $q_password = cf_genpass($secret_title, 16, $password)
 
-    cfsystem_persist { "secrets:${secret_title}":
-        section => 'secrets',
-        key     => $secret_title,
-        value   => $q_password,
-    }
-
-
     #---
     $allowed_hosts = merge(
         {
