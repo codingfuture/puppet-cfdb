@@ -525,7 +525,21 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     end
                 end
             end
-            
+
+            #---
+            if !is_secondary
+                sudo('-H', '-u', user,
+                        "#{root_dir}/bin/cfdb_psql", '-c',
+                        "ALTER ROLE #{superuser} PASSWORD '#{root_pass}';")
+                
+                if is_cluster
+                    sudo('-H', '-u', user,
+                        "#{root_dir}/bin/cfdb_psql", '-c',
+                        "ALTER ROLE #{REPMGR_USER} PASSWORD '#{root_pass}';")
+                end
+            end
+
+            #---
             if is_cluster and repmgr_changed
                 begin
                     warning("> restarting #{repmgr_service_name}")
@@ -872,6 +886,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         rescue => e
             warning(e)
             #warning(e.backtrace)
+            conf[:settings_tune]['need_setup'] = true
             false
         end
     end
