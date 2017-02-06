@@ -414,10 +414,10 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     'failover' => 'automatic',
                     'promote_command' => "#{root_dir}/bin/cfdb_repmgr standby promote",
                     'follow_command' => "#{root_dir}/bin/cfdb_repmgr standby follow",
-                    'service_start_command' => "/usr/bin/sudo /bin/systemctl start #{service_name}.service",
-                    'service_stop_command' => "/usr/bin/sudo /bin/systemctl stop #{service_name}.service",
-                    'service_restart_command ' => "/usr/bin/sudo /bin/systemctl restart #{service_name}.service",
-                    'service_reload_command ' => "/usr/bin/sudo /bin/systemctl reload #{service_name}.service",
+                    'service_start_command' => "#{PuppetX::CfSystem::SUDO} #{PuppetX::CfSystem::SYSTEMD_CTL} start #{service_name}.service",
+                    'service_stop_command' => "#{PuppetX::CfSystem::SUDO} #{PuppetX::CfSystem::SYSTEMD_CTL} stop #{service_name}.service",
+                    'service_restart_command ' => "#{PuppetX::CfSystem::SUDO} #{PuppetX::CfSystem::SYSTEMD_CTL} restart #{service_name}.service",
+                    'service_reload_command ' => "#{PuppetX::CfSystem::SUDO} #{PuppetX::CfSystem::SYSTEMD_CTL} reload #{service_name}.service",
                 })
             end
             
@@ -556,7 +556,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             
             if File.exists?(restart_required_file)
                 warning("#{user} configuration update. Service restart is required!")
-                warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
+                warning("Please run when safe: #{PuppetX::CfSystem::SYSTEMD_CTL} restart #{service_name}.service")
             end
             
         # No data: witness

@@ -15,8 +15,8 @@ Puppet::Type.type(:cfdb_instance).provide(
     
     mixin_dbtypes('instance')
     
-    commands :sudo => '/usr/bin/sudo'
-    commands :systemctl => '/bin/systemctl'
+    commands :sudo => PuppetX::CfSystem::SUDO
+    commands :systemctl => PuppetX::CfSystem::SYSTEMD_CTL
     commands :df => '/bin/df'
     commands :du => '/usr/bin/du'
 
@@ -186,12 +186,6 @@ Puppet::Type.type(:cfdb_instance).provide(
     end
     
     def self.wait_sock(service_name, sock_file, timeout=60)
-        for i in 1..timeout
-            return true if File.exists? sock_file
-            warning("Waiting #{service_name} startup (#{i})!")
-            sleep 1
-        end
-        
-        fail("Failed to wait for #{service_name} startup")
+        PuppetX::CfSystem::Util.wait_sock(service_name, sock_file, timeout)
     end
 end

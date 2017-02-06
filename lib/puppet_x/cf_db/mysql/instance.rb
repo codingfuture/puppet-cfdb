@@ -535,14 +535,14 @@ module PuppetX::CfDb::MySQL::Instance
                 systemctl('start', "#{service_name}.service")
             elsif File.exists?(restart_required_file)
                 warning("#{user} configuration update. Service restart is required!")
-                warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
+                warning("Please run when safe: #{PuppetX::CfSystem::SYSTEMD_CTL} restart #{service_name}.service")
             end
         elsif data_exists
             if !File.exists?(upgrade_file) or (upgrade_ver != File.read(upgrade_file))
                 # if version comment changed or second run 
                 if config_file_changed or File.exists?(restart_required_file)
                     warning("#{user} please restart before mysql_upgrade can run!")
-                    warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
+                    warning("Please run when safe: #{PuppetX::CfSystem::SYSTEMD_CTL} restart #{service_name}.service")
 
                     # There is a possible security issue, if rogue users run on the same host
                     service_ini['ExecStartPre'] = "/bin/chmod 700 #{run_dir}"
@@ -584,7 +584,7 @@ module PuppetX::CfDb::MySQL::Instance
             
             if File.exists?(restart_required_file)
                 warning("#{user} configuration update. Service restart is required!")
-                warning("Please run when safe: /bin/systemctl restart #{service_name}.service")
+                warning("Please run when safe: #{PuppetX::CfSystem::SYSTEMD_CTL} restart #{service_name}.service")
             end
         elsif is_secondary
             if is_cluster

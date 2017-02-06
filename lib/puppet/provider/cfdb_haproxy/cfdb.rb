@@ -11,7 +11,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
 ) do
     desc "Provider for cfdb_haproxy"
     
-    commands :systemctl => '/bin/systemctl'
+    commands :systemctl => PuppetX::CfSystem::SYSTEMD_CTL
     HAPROXY_SYSTEMD = '/usr/sbin/haproxy-systemd-wrapper' unless defined? HAPROXY_SYSTEMD
     
     def self.get_config_index
