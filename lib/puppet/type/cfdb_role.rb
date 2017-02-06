@@ -78,7 +78,20 @@ Puppet::Type.newtype(:cfdb_role) do
                         IPAddr.new(host)
                     end
                 rescue
-                    host = Resolv.getaddress host
+                    unless host =~ /^([a-zA-Z0-9]+)(\.[a-zA-Z0-9]+)*$/
+                        raise ArgumentError, "%s is not valid DNS entry or IP4/6 address" % host
+                    end
+                    
+                    begin
+                        host = Resolv.getaddress host
+                    rescue
+                        begin
+                            # re-read /etc/hosts
+                            host = Resolv.new.getaddress host
+                        rescue
+                            # leave DNS as-is
+                        end
+                    end
                 end
                 
                 ret[host] = maxconn

@@ -167,8 +167,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     host = "#{host}/32"
                 end
             rescue => e
-                warning("Host #{host}")
-                raise e
+                warning("Named Host #{host} in HBA")
             end
             
             if strict_hba_roles
@@ -383,7 +382,12 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 'cluster' => cluster,
                 'node' => node_id,
                 'node_name' => fqdn,
-                'conninfo' => "host=#{cluster_listen} port=#{port} user=#{REPMGR_USER} dbname=#{REPMGR_USER} #{sslrequire}",
+                'conninfo' => [
+                    "host=#{cluster_listen} port=#{port}",
+                    "user=#{REPMGR_USER} dbname=#{REPMGR_USER}",
+                    "connect_timeout=5",
+                    sslrequire,
+                ].join(' '),
                 # repmgr uses the same for initdb
                 'pg_ctl_options' => "-o \"--config_file=#{conf_file}\"",
                 'pg_bindir' => pg_bin_dir,

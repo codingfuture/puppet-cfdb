@@ -75,14 +75,7 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
                 value.has_key? 'backup' and
                 value.has_key? 'secure')
             
-            return if resource.should(:is_secure) or value['secure']
-            
             value = munge value
-            ip = IPAddr.new(value['addr']) # may raise ArgumentError
-
-            unless ip.ipv4? or ip.ipv6?
-                raise ArgumentError, "%s is not a valid IPv4 or IPv6 address" % value
-            end
         end
         
         munge do |value|
@@ -90,7 +83,22 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
             begin
                 ip = IPAddr.new(value['addr'])
             rescue
-                ip = Resolv.getaddress(value['addr'])
+                ip = value['addr']
+
+                unless ip =~ /^([a-zA-Z0-9]+)(\.[a-zA-Z0-9]+)*$/
+                    raise ArgumentError, "%s is not valid DNS entry or IP4/6 address" % ip
+                end
+                
+                begin
+                    ip = Resolv.getaddress ip
+                rescue
+                    begin
+                        # re-read /etc/hosts
+                        ip = Resolv.new.getaddress ip
+                    rescue
+                        # leave DNS as-is
+                    end
+                end
             end
             
             value['addr'] = "#{ip}"
