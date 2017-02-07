@@ -24,6 +24,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Added 'password' parameter for default user of cfdb::database
 - Fixed to update superuser & repmgr passwords for postgresql on change
 - Aligned with cfnetwork changes for failed DNS resolution
+- Added CFDB binary folder to global search path through cfsystem::binpath
 
 ## [0.10.1]
 - Improved to support automatic Galera joiner startup (based on SSH check)

@@ -42,6 +42,10 @@ class cfdb (
         purge  => true,
     }
 
+    cfsystem::binpath { 'cfdb_paths':
+        bin_dir => $bin_dir,
+    }
+
     create_resources(cfdb::instance, $instances)
     create_resources(cfdb::access, $access)
 
