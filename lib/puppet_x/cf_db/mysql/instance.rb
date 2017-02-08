@@ -43,18 +43,10 @@ module PuppetX::CfDb::MySQL::Instance
         cfdb_settings = settings_tune.fetch('cfdb', {})
         mysqld_tune = settings_tune.fetch('mysqld', {})
         
-        if is_secondary
-            root_pass = cfdb_settings['shared_secret']
-            
-            if root_pass.nil? or root_pass.empty?
-                fail("Secondary instance must get non-empty shared_secret.\n" +
-                     "Something is wrong with facts.\n" +
-                     "Please try to reprovision primary instance first.")
-            end
-            
-            cf_system.genSecret("cfdb/#{cluster}", -1, root_pass)
-        else
-            root_pass = cf_system.genSecret("cfdb/#{cluster}", ROOT_PASS_LEN)
+        root_pass = cfdb_settings['shared_secret']
+        
+        if root_pass.nil? or root_pass.empty?
+            fail("Shared secret must be generated in DSL")
         end
         
         data_exists = File.exists?(data_dir)
@@ -123,15 +115,13 @@ module PuppetX::CfDb::MySQL::Instance
             bind_address = '127.0.0.1'
         end
         
-        port = cf_system.genPort(cluster, cfdb_settings.fetch('port', nil))
-        
+        port = cfdb_settings['port']
+        fail('Missing port') if port.nil?
+
         if is_cluster
             galera_port = port + GALERA_PORT_OFFSET
             sst_port = port + SST_PORT_OFFSET
             ist_port = port + IST_PORT_OFFSET
-            cf_system.genPort(cluster + "#galera", galera_port)
-            cf_system.genPort(cluster + "#sst", sst_port)
-            cf_system.genPort(cluster + "#ist", ist_port)
         end
         #---
 
@@ -255,7 +245,7 @@ module PuppetX::CfDb::MySQL::Instance
                 'socket' => sock_file,
             }
         }
-        cf_system.atomicWriteIni(client_conf_file, client_settings, { :user => user})
+        cf_system.atomicWriteIni(client_conf_file, client_settings, { :user => user, :mask_diff => [root_pass]})
         
         # Make sure we have root password always set
         #---
@@ -270,7 +260,7 @@ module PuppetX::CfDb::MySQL::Instance
                 'FLUSH PRIVILEGES;',
             ]
         end
-        cf_system.atomicWrite(init_file, setup_sql.join("\n"), { :user => user})
+        cf_system.atomicWrite(init_file, setup_sql.join("\n"), { :user => user, :mask_diff => [root_pass] })
         
         # Prepare conf
         #---
@@ -486,7 +476,7 @@ module PuppetX::CfDb::MySQL::Instance
         if is_arbitrator
             config_file_changed = cf_system.atomicWriteEnv(garbd_conf_file, garbd_settings, { :user => user})
         else
-            config_file_changed = cf_system.atomicWriteIni(conf_file, conf_settings, { :user => user})
+            config_file_changed = cf_system.atomicWriteIni(conf_file, conf_settings, { :user => user, :mask_diff => [root_pass] })
         end
         
         # Prepare service file

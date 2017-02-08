@@ -135,7 +135,6 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             
             use_unix_socket = finfo[:use_unix_socket]
             local_port = finfo[:local_port]
-            cf_system.genPort("cfha/#{title}", local_port)
                        
             backend_name = "#{type}:#{cluster}"
             backend_name += ":lb" if distribute_load

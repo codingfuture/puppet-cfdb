@@ -13,6 +13,8 @@ project adheres to [Semantic Versioning](http://semver.org/).
     - Improved of persistent ports & secrets handling based on cfsystem_persist
     - Fixed healthcheck cfdb_access without haproxy case
     - Split DB type-specific features into sub-resources
+    - Added obfuscation of password secrets
+    - Removed deployment-time secret/port generation in favor on catalog resources (cfsystem)
     - Misc. improvements
 - Added dependency on cfnetwork:firewall anchor where applicable
 - Added dependency on cfsystem::randomfeed for HAProxy dhparam generation

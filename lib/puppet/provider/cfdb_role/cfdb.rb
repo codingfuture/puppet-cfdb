@@ -33,12 +33,6 @@ Puppet::Type.type(:cfdb_role).provide(
         super
     end
     
-    def flush
-        title = "cfdb/#{@resource[:cluster]}@#{@resource[:user]}"
-        cf_system.genSecret(title, -1, @resource[:password])
-        super
-    end
-    
     def self.check_exists(params)
         debug('check_exists')
         begin

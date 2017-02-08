@@ -55,6 +55,14 @@ Puppet::Type.newtype(:cfdb_role) do
                 raise ArgumentError, "%s is not valid password" % value
             end
         end
+        
+        def is_to_s(value)
+            return '<old_secret>'
+        end
+
+        def should_to_s(value)
+            return '<new_secret>'
+        end        
     end
     
     newproperty(:readonly, :boolean => true, :parent => Puppet::Property::Boolean)

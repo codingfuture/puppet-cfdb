@@ -50,20 +50,11 @@ module PuppetX::CfDb::PostgreSQL::Instance
         postgresql_tune = settings_tune.fetch('postgresql', {})
         superuser = 'postgres'
         
-        if is_secondary
-            root_pass = cfdb_settings['shared_secret']
-
-            if root_pass.nil? or root_pass.empty?
-                fail("Secondary instance must get non-empty shared_secret.\n" +
-                     "Something is wrong with facts.\n" +
-                     "Please try to reprovision primary instance first.")
-            end
-            
-            cf_system.genSecret("cfdb/#{cluster}", -1, root_pass)
-        else
-            root_pass = cf_system.genSecret("cfdb/#{cluster}", ROOT_PASS_LEN)
-        end
+        root_pass = cfdb_settings['shared_secret']
         
+        if root_pass.nil? or root_pass.empty?
+            fail("Shared secret must be generated in DSL")
+        end
         
         data_exists = (
             File.exists?(root_data_dir) and
@@ -81,7 +72,8 @@ module PuppetX::CfDb::PostgreSQL::Instance
         secure_cluster = cfdb_settings.fetch('secure_cluster', false)
         init_db_from = cfdb_settings.fetch('init_db_from', nil)
         
-        port = cf_system.genPort(cluster, cfdb_settings.fetch('port', nil))
+        port = cfdb_settings['port']
+        fail('Missing port') if port.nil?
         sock_file = "#{run_dir}/.s.PGSQL.#{port}"
         
         ver_parts = version.split('.')
@@ -448,8 +440,8 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 'dbname' => 'postgres',
             }
         }
-        cf_system.atomicWriteIni(client_conf_file, client_settings, {:user => user})
-        cf_system.atomicWrite(pgpass_file, pgpass_content, {:user => user, :mode => 0600})
+        cf_system.atomicWriteIni(client_conf_file, client_settings, {:user => user, :mask_diff => [root_pass]})
+        cf_system.atomicWrite(pgpass_file, pgpass_content, {:user => user, :mode => 0600, :mask_diff => [root_pass]})
         
         cf_system.atomicWrite(
             "#{root_dir}/.postgresqlrc",

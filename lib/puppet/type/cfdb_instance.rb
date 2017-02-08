@@ -123,6 +123,17 @@ Puppet::Type.newtype(:cfdb_instance) do
                 end
             end
         end
+        
+        
+        def is_to_s(value)
+            srepr = value.to_s
+            srepr.gsub!(value.fetch('cfdb', {}).fetch('shared_secret', 'some pass'), '<secret>')
+            return srepr
+        end
+
+        def should_to_s(value)
+            is_to_s value
+        end        
     end
     
     newproperty(:service_name) do
