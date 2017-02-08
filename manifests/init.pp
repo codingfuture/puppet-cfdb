@@ -24,8 +24,8 @@ class cfdb (
     # global healthcheck db/role names
     $healthcheck = 'cfdbhealth'
     $location = pick(
-        $::facts['cf_location'],
         $cfsystem::hierapool::location,
+        $::facts['cf_location'],
         ''
     )
 
