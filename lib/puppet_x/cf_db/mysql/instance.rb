@@ -591,7 +591,8 @@ module PuppetX::CfDb::MySQL::Instance
                 fw_configured = cluster_addr.reduce(true) do |m, v|
                     begin
                         unless v['is_arbitrator']
-                            sudo('-H', '-u', user, '/usr/bin/ssh', v['addr'], 'hostname')
+                            sudo('-H', '-u', user, '/usr/bin/ssh', v['addr'],
+                                 "egrep '(#{cluster_bind_address}|#{fqdn})' #{conf_file}")
                         end
                         m
                     rescue => e

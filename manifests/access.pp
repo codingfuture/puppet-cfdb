@@ -322,6 +322,7 @@ define cfdb::access(
             variable => upcase("${config_prefix}${var}"),
             value    => $val,
             env_file => $env_file,
+            before   => Cfdb_access[$title],
         }
     }
 
