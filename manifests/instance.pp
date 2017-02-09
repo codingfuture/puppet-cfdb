@@ -313,7 +313,7 @@ define cfdb::instance (
         $secret_title = "cfdb/${cluster}"
         $shared_secret_tune = try_get_value($settings_tune, 'cfdb/shared_secret')
     }
-    
+
     $shared_secret = cf_genpass($secret_title, 24, $shared_secret_tune)
 
     #---
