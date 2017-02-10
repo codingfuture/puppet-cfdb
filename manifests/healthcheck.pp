@@ -28,7 +28,7 @@ define cfdb::healthcheck(
                 ],
         ]])
 
-        
+
         $healthcheck_password = size($healtcheck_info_raw) ? {
             0       => defined(Cfdb_role["${cluster}/${healthcheck}"]) ? {
                 true => getparam(Cfdb_role["${cluster}/${healthcheck}"], 'password'),

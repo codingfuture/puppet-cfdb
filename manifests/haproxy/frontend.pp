@@ -55,7 +55,7 @@ define cfdb::haproxy::frontend(
                 ['=', ['parameter', 'location'], $cfdb::location],
             ],
     ]])
-    
+
     if size($cluster_instances_try) > 0 {
         $cluster_instances = $cluster_instances_try
     } else {
