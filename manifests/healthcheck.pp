@@ -19,18 +19,16 @@ define cfdb::healthcheck(
     $healthcheck_access_title = "${cluster}/${healthcheck}"
 
     if !defined(Cfdb_access[$healthcheck_access_title]) {
-        $healtcheck_info_raw = cf_query_resources(
-            false,
-            ['extract', ['certname', 'parameters'],
+        $healtcheck_info_raw = cfsystem::query([
+            'from', 'resources', ['extract', [ 'certname', 'parameters' ],
                 ['and',
                     ['=', 'type', 'Cfdb_role'],
                     ['=', ['parameter', 'cluster'], $cluster],
                     ['=', ['parameter', 'user'], $healthcheck],
                 ],
-            ],
-            false,
-        )
+        ]])
 
+        
         $healthcheck_password = size($healtcheck_info_raw) ? {
             0       => defined(Cfdb_role["${cluster}/${healthcheck}"]) ? {
                 true => getparam(Cfdb_role["${cluster}/${healthcheck}"], 'password'),

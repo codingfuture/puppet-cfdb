@@ -20,9 +20,15 @@ define cfdb::role(
         $static_access = {},
 ) {
     $role = "${database}${subname}"
-    # Note: there is a limitation of PuppetDB query: filter by single parameter only
-    $q = "(Cfdb_access[~'.*']{ cluster = '${cluster}' } and Cfdb_access[~'.*']{ role = '${role}' })"
-    $access = cf_query_resources($q, $q, false)
+
+    $access = cfsystem::query([
+        'from', 'resources', ['extract', [ 'certname', 'parameters' ],
+            ['and',
+                ['=', 'type', 'Cfdb_access'],
+                ['=', ['parameter', 'cluster'], $cluster],
+                ['=', ['parameter', 'role'], $role],
+            ],
+    ]])
 
     $secret_title = "cfdb/${cluster}@${role}"
     $q_password = cf_genpass($secret_title, 16, $password)

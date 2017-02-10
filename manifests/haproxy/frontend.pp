@@ -46,21 +46,29 @@ define cfdb::haproxy::frontend(
     }
 
     #---
-    $cluster_instance_q = "cfdb_instance[${cluster}]{ is_arbitrator = false }"
-
-    # try connect only to DB nodes in same DC
-    $cluster_instance_filter_q = "cfdb_instance[${cluster}]{ location = '${cfdb::location}' }"
-    $cluster_instances_try = cf_query_resources(
-        $cluster_instance_filter_q,
-        $cluster_instance_q,
-        false
-    )
-
-    $cluster_instances = size($cluster_instances_try) ? {
-        # fallback to connect to any possible DC
-        0       => cf_query_resources(false, $cluster_instance_q, false),
-        default => $cluster_instances_try
+    $cluster_instances_try = cfsystem::query([
+        'from', 'resources', ['extract', [ 'certname', 'parameters' ],
+            ['and',
+                ['=', 'type', 'Cfdb_instance'],
+                ['=', 'title', $cluster],
+                ['=', ['parameter', 'is_arbitrator'], false],
+                ['=', ['parameter', 'location'], $cfdb::location],
+            ],
+    ]])
+    
+    if size($cluster_instances_try) > 0 {
+        $cluster_instances = $cluster_instances_try
+    } else {
+        $cluster_instances = cfsystem::query([
+            'from', 'resources', ['extract', [ 'certname', 'parameters' ],
+                ['and',
+                    ['=', 'type', 'Cfdb_instance'],
+                    ['=', 'title', $cluster],
+                    ['=', ['parameter', 'is_arbitrator'], false],
+                ],
+        ]])
     }
+
 
     if empty($cluster_instances) {
         $cluster_addr = []

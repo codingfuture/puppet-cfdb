@@ -194,8 +194,13 @@ define cfdb::instance (
             fail('Unfortunately, secure_cluster supports only "main" cluster_face')
         }
 
-        $cluster_q = "cfdb_instance[${cluster}]"
-        $cluster_instances = cf_query_resources($cluster_q, $cluster_q, false)
+        $cluster_instances = cfsystem::query([
+            'from', 'resources', ['extract', [ 'certname', 'parameters' ],
+                ['and',
+                    ['=', 'type', 'Cfdb_instance'],
+                    ['=', 'title', $cluster],
+                ],
+        ]])
 
         if empty($cluster_instances) {
             $cluster_addr = []
@@ -317,8 +322,13 @@ define cfdb::instance (
     $shared_secret = cf_genpass($secret_title, 24, $shared_secret_tune)
 
     #---
-    $q = "Cfdb_access[~'.*']{ cluster = '${cluster}' }"
-    $access = cf_query_resources($q, $q, false)
+    $access = cfsystem::query([
+        'from', 'resources', ['extract', [ 'certname', 'parameters' ],
+            ['and',
+                ['=', 'type', 'Cfdb_access'],
+                ['=', ['parameter', 'cluster'], $cluster],
+            ],
+    ]])
 
     $access_list = $access.reduce({}) |$memo, $val| {
         $certname = $val['certname']
@@ -480,17 +490,14 @@ define cfdb::instance (
                 user => $user,
             }
 
-            $required_endpoints = cf_query_resources(
-                false,
-                ['extract', ['certname', 'parameters'],
+            $required_endpoints = cfsystem::query([
+                'from', 'resources', ['extract', ['parameters'],
                     ['and',
                         ['=', 'type', 'Cfdb::Require_endpoint'],
                         ['=', ['parameter', 'host'], $::trusted['certname']],
                         ['=', ['parameter', 'cluster'], $cluster],
                     ],
-                ],
-                false,
-            )
+            ]])
 
             $allowed_hosts = unique($required_endpoints.reduce([]) |$memo, $v| {
                 $params = $v['parameters']

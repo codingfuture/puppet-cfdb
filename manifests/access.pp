@@ -39,8 +39,14 @@ define cfdb::access(
     })
 
     #---
-    $cluster_instance_q = "cfdb_instance[${cluster}]{ is_arbitrator = false }"
-    $cluster_instances = cf_query_resources(false, $cluster_instance_q, false)
+    $cluster_instances = cfsystem::query([
+        'from', 'resources', ['extract', [ 'certname', 'parameters' ],
+            ['and',
+                ['=', 'type', 'Cfdb_instance'],
+                ['=', 'title', $cluster],
+                ['=', ['parameter', 'is_arbitrator'], false]
+            ],
+    ]])
 
     $cluster_info = $cluster_instances.reduce(undef) |$memo, $val| {
         $params = $val['parameters']
@@ -93,17 +99,14 @@ define cfdb::access(
     }
 
     #---
-    $role_info_raw = cf_query_resources(
-        false,
-        ['extract', ['certname', 'parameters'],
+    $role_info_raw = cfsystem::query([
+        'from', 'resources', ['extract', [ 'certname', 'parameters' ],
             ['and',
                 ['=', 'type', 'Cfdb_role'],
                 ['=', ['parameter', 'cluster'], $cluster],
                 ['=', ['parameter', 'user'], $role],
             ],
-        ],
-        false,
-    )
+    ]])
 
     $role_info = size($role_info_raw) ? {
         0       => undef,
