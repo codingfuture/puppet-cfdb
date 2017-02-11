@@ -23,7 +23,7 @@ define cfdb::haproxy::frontend(
 
     #---
     $settings_tune = $cfdb::haproxy::settings_tune
-    $tune_bufsize = pick(try_get_value($settings_tune, 'global/tune.bufsize'), 16384)
+    $tune_bufsize = pick($settings_tune.dig('global', 'tune.bufsize'), 16384)
 
     # That's a guess so far. Need more precise calculation
     $mem_per_conn_kb = ceiling($tune_bufsize / 1024.0)

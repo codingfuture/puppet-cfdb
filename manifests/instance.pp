@@ -187,7 +187,7 @@ define cfdb::instance (
             fail('Cluster requires excplicit port')
         }
 
-        $secure_cluster = try_get_value($settings_tune, 'cfdb/secure_cluster')
+        $secure_cluster = $settings_tune.dig('cfdb', 'secure_cluster')
 
         if $secure_cluster and $cluster_face != 'main' {
             # TODO: custom PKI to support extra hostnames
@@ -298,12 +298,12 @@ define cfdb::instance (
         $secret_title = "cfdb/${cluster}"
 
         if $is_primary_node {
-            $shared_secret_tune = try_get_value($settings_tune, 'cfdb/shared_secret')
+            $shared_secret_tune = $settings_tune.dig('cfdb', 'shared_secret')
         } else {
             $shared_secret_tune = $cluster_instances.reduce(undef) |$memo, $host_info| {
                 $host = $host_info['certname']
                 $params = $host_info['parameters']
-                $shared_secret_param = try_get_value($params['settings_tune'], 'cfdb/shared_secret')
+                $shared_secret_param = $params['settings_tune'].dig('cfdb', 'shared_secret')
 
                 if !$params['is_secondary'] and $shared_secret_param {
                     $shared_secret_param
@@ -316,7 +316,7 @@ define cfdb::instance (
         $cluster_addr = []
 
         $secret_title = "cfdb/${cluster}"
-        $shared_secret_tune = try_get_value($settings_tune, 'cfdb/shared_secret')
+        $shared_secret_tune = $settings_tune.dig('cfdb', 'shared_secret')
     }
 
     $shared_secret = cf_genpass($secret_title, 24, $shared_secret_tune)
