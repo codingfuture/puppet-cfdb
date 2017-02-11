@@ -73,7 +73,7 @@ define cfdb::haproxy::frontend(
     if empty($cluster_instances) {
         $cluster_addr = []
     } else {
-        $cluster_addr = cf_stable_sort($cluster_instances.map |$cluster_info| {
+        $cluster_addr = cfsystem::stable_sort($cluster_instances.map |$cluster_info| {
             $host = $cluster_info['certname']
             $params = $cluster_info['parameters']
 
@@ -113,7 +113,7 @@ define cfdb::haproxy::frontend(
             }
 
             $port = $secure_host ? {
-                true    => cfdb_derived_port($cfdb['port'], 'secure'),
+                true    => cfdb::derived_port($cfdb['port'], 'secure'),
                 default => $cfdb['port'],
             }
 

@@ -22,9 +22,9 @@ define cfdb::instance (
         $memory_weight = 100,
     Optional[Integer[1]]
         $memory_max = undef,
-    Integer[1,25600]
+    Cfsystem::CpuWeight
         $cpu_weight = 100,
-    Integer[1,200]
+    Cfsystem::IoWeight
         $io_weight = 100,
 
     Variant[Enum['auto'], Integer[1]]
@@ -35,11 +35,11 @@ define cfdb::instance (
     Optional[Variant[Array[String[1]], Hash]]
         $databases = undef,
 
-    String[1]
+    Cfnetwork::Bindface
         $iface = $cfdb::iface,
-    String[1]
+    Cfnetwork::Bindface
         $cluster_face = $cfdb::cluster_face,
-    Optional[Integer[1,65535]]
+    Optional[Cfnetwork::Port]
         $port = undef,
 
     Boolean
@@ -47,9 +47,9 @@ define cfdb::instance (
     Hash
         $backup_tune = {},
 
-    Enum['rsa', 'ed25519']
+    Cfsystem::Keytype
         $ssh_key_type = 'ed25519',
-    Integer[2048]
+    Cfsystem::Rsabits
         $ssh_key_bits = 2048, # for rsa
 ) {
     include stdlib
@@ -116,13 +116,13 @@ define cfdb::instance (
     {
         $listen = undef
     } else {
-        $listen = cf_get_bind_address($iface)
+        $listen = cfnetwork::bind_address($iface)
     }
 
     # Listen for cluster-only comms
     #---
     $cluster_listen = $is_cluster_by_fact ? {
-        true    => cf_get_bind_address($cluster_face),
+        true    => cfnetwork::bind_address($cluster_face),
         default => undef,
     }
 
@@ -260,7 +260,7 @@ define cfdb::instance (
                     $ret
                 }
             }
-            $cluster_addr = cf_stable_sort(delete_undef_values($cluster_addr_raw))
+            $cluster_addr = cfsystem::stable_sort(delete_undef_values($cluster_addr_raw))
         }
 
         $peer_addr_list = $cluster_addr.map |$v| {
@@ -270,12 +270,12 @@ define cfdb::instance (
         $cluster_ipset = "cfdb_${cluster}"
         cfnetwork::ipset { $cluster_ipset:
             type => 'ip',
-            addr => cf_stable_sort($peer_addr_list),
+            addr => cfsystem::stable_sort($peer_addr_list),
         }
 
         create_resources("cfdb::${type}::clusterports", {
             $title => {
-                iface     => $cluster_face,
+                iface     => cfnetwork::fw_face($cluster_face),
                 cluster   => $cluster,
                 user      => $user,
                 ipset     => $cluster_ipset,
@@ -319,7 +319,7 @@ define cfdb::instance (
         $shared_secret_tune = $settings_tune.dig('cfdb', 'shared_secret')
     }
 
-    $shared_secret = cf_genpass($secret_title, 24, $shared_secret_tune)
+    $shared_secret = cfsystem::gen_pass($secret_title, 24, $shared_secret_tune)
 
     #---
     $access = cfsystem::query([
@@ -355,7 +355,7 @@ define cfdb::instance (
     }
 
     #---
-    $fact_port = cf_genport($cluster, $port)
+    $fact_port = cfsystem::gen_port($cluster, $port)
 
     #---
     $is_first_node = $is_cluster_by_fact and (size($cluster_addr) == 0)
@@ -397,7 +397,7 @@ define cfdb::instance (
         service_name  => $service_name,
         version       => getvar("cfdb::${type}::actual_version"),
         cluster_addr  => $cluster_addr,
-        access_list   => cf_stable_sort($access_list),
+        access_list   => cfsystem::stable_sort($access_list),
         location      => $cfdb::location,
 
         require       => [
@@ -476,7 +476,7 @@ define cfdb::instance (
     #---
     if $access {
         if $fact_port and ($fact_port != '') {
-            $sec_port = cfdb_derived_port($fact_port, 'secure')
+            $sec_port = cfdb::derived_port($fact_port, 'secure')
 
             ensure_resource('cfnetwork::describe_service', "cfdb_${cluster}", {
                 server => "tcp/${fact_port}",
@@ -522,13 +522,17 @@ define cfdb::instance (
                 }
             }
 
+            $fw_face = cfnetwork::fw_face($iface)
+
             if size($allowed_hosts) > 0 {
-                cfnetwork::service_port { "${iface}:cfdb_${cluster}":
+                cfnetwork::service_port { "${fw_face}:cfdb_${cluster}":
+                    dst => $listen,
                     src => $allowed_hosts.sort(),
                 }
             }
             if size($sec_allowed_hosts) > 0 {
-                cfnetwork::service_port { "${iface}:cfdbsec_${cluster}":
+                cfnetwork::service_port { "${fw_face}:cfdbsec_${cluster}":
+                    dst => $listen,
                     src => keys($sec_allowed_hosts).sort(),
                 }
                 $maxconn = $sec_allowed_hosts.reduce(0) |$memo, $kv| {

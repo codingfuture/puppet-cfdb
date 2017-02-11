@@ -31,7 +31,7 @@ define cfdb::role(
     ]])
 
     $secret_title = "cfdb/${cluster}@${role}"
-    $q_password = cf_genpass($secret_title, 16, $password)
+    $q_password = cfsystem::gen_pass($secret_title, 16, $password)
 
     #---
     $allowed_hosts = merge(
@@ -67,6 +67,6 @@ define cfdb::role(
         password      => $q_password,
         readonly      => $readonly,
         custom_grant  => $custom_grant,
-        allowed_hosts => cf_stable_sort($allowed_hosts),
+        allowed_hosts => cfsystem::stable_sort($allowed_hosts),
     }
 }

@@ -3,11 +3,11 @@
 #
 
 define cfdb::postgresql::clusterports(
-    String[1] $iface,
+    Cfnetwork::Ifacename $iface,
     String[1] $cluster,
     String[1] $user,
     String[1] $ipset,
-    Integer[1,65535] $peer_port,
+    Cfnetwork::Port $peer_port,
 ) {
     assert_private()
 

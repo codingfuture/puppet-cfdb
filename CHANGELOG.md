@@ -19,7 +19,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
     - Misc. improvements
 - Added dependency on cfnetwork:firewall anchor where applicable
 - Added dependency on cfsystem::randomfeed for HAProxy dhparam generation
-- Updated to new 'cf_get_bind_address' API
+- Updated to new 'cfnetwork::bind_address' API
 - Enforced public parameter types
 - Updated to work with /etc/sudoers.d cleanup
 - Changed default HAProxy inter tune from 1s to 3s (better fits Python-based checkers)

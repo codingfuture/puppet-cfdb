@@ -8,9 +8,9 @@ class cfdb::haproxy(
         $memory_weight = 1,
     Optional[Integer[1]]
         $memory_max = undef,
-    Integer[1,25600]
+    Cfsystem::CpuWeight
         $cpu_weight = 100,
-    Integer[1,200]
+    Cfsystem::IoWeight
         $io_weight = 100,
 
     Hash[String[1], Any]

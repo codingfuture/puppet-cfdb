@@ -3,17 +3,17 @@
 #
 
 define cfdb::mysql::clusterports(
-    String[1] $iface,
+    Cfnetwork::Ifacename $iface,
     String[1] $cluster,
     String[1] $user,
     String[1] $ipset,
-    Integer[1,65535] $peer_port,
+    Cfnetwork::Port $peer_port,
 ) {
     assert_private()
 
-    $galera_port = cfdb_derived_port($peer_port, 'galera')
-    $sst_port = cfdb_derived_port($peer_port, 'galera_sst')
-    $ist_port = cfdb_derived_port($peer_port, 'galera_ist')
+    $galera_port = cfdb::derived_port($peer_port, 'galera')
+    $sst_port = cfdb::derived_port($peer_port, 'galera_sst')
+    $ist_port = cfdb::derived_port($peer_port, 'galera_ist')
 
     # services
     cfnetwork::describe_service { "cfdb_${cluster}_peer":

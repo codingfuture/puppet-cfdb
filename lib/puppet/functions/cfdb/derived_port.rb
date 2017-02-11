@@ -2,14 +2,15 @@
 # Copyright 2016-2017 (c) Andrey Galkin
 #
 
-
-# Done this way due to some weird behavior in tests also ignoring $LOAD_PATH
 require File.expand_path( '../../../../puppet_x/cf_db', __FILE__ )
 
-module Puppet::Parser::Functions
-    newfunction(:cfdb_derived_port,  :type => :rvalue, :arity => 2) do |args|
-        base_port, derived_type = args
-        
+Puppet::Functions.create_function(:'cfdb::derived_port') do
+    dispatch :derived_port do
+        param 'Cfnetwork::Port', :base_port
+        param "String[1]", :derived_type
+    end
+    
+    def derived_port(base_port, derived_type)
         return case derived_type
         when 'secure'
             base_port + PuppetX::CfDb::SECURE_PORT_OFFSET
@@ -21,7 +22,7 @@ module Puppet::Parser::Functions
             base_port + PuppetX::CfDb::MySQL::IST_PORT_OFFSET
         else
             raise(Puppet::ParseError,
-                "cfdb_derived_port(): invalid derived port type #{derived_type}")
+                "cfdb::derived_port(): invalid derived port type #{derived_type}")
         end
     end
 end

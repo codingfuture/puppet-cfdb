@@ -8,9 +8,9 @@ class cfdb (
         $instances = {},
     Hash
         $access = {},
-    String[1]
+    Cfnetwork::Bindface
         $iface = 'any',
-    String[1]
+    Cfnetwork::Bindface
         $cluster_face = 'main',
     String[1]
         $root_dir = '/db',

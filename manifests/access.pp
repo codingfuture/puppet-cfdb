@@ -89,7 +89,7 @@ define cfdb::access(
     #---
     $client_host = $iface ? {
         'any'   => undef,
-        default => cf_get_bind_address($iface)
+        default => cfnetwork::bind_address($iface)
     }
 
     #---
@@ -121,7 +121,7 @@ define cfdb::access(
             # give it a chance
             # NOTE: in case access is critical after the first Puppet run, please make sure
             #       to use $static_access parameter for role definition!
-            $port = cf_genport($cluster, getparam($cluster_rsc, 'port'))
+            $port = cfsystem::gen_port($cluster, getparam($cluster_rsc, 'port'))
             $type = getparam($cluster_rsc, 'type')
 
             $cfg = {
@@ -129,7 +129,7 @@ define cfdb::access(
                 'port'    => $port,
                 'socket'  => '',
                 'user'    => $role,
-                'pass'    => cf_genpass("cfdb/${cluster}@${role}", 16),
+                'pass'    => cfsystem::gen_pass("cfdb/${cluster}@${role}", 16),
                 'db'      => pick(getparam(Cfdb_role["${cluster}/${role}"], 'database'), $fallback_db, $role),
                 'type'    => $type,
                 'maxconn' => $max_connections,
@@ -168,7 +168,7 @@ define cfdb::access(
 
         $port_persist = "cfha/${resource_title}"
         $port_name = "${type}_${cluster}_${role}_${local_user}"
-        $port = cf_genport($port_persist)
+        $port = cfsystem::gen_port($port_persist)
 
         if $use_unix_socket {
             $host = 'localhost'
