@@ -11,6 +11,19 @@ class cfdb::postgresql::serverpkg {
 
     $ver = $cfdb::postgresql::version
 
+    apt::pin{ 'postgresql-ver':
+        order    => 99,
+        priority => $cfsystem::apt_pin + 2,
+        version  => "${ver}.*",
+        packages => [
+            'postgresql',
+            'postgresql-all',
+            'postgresql-client',
+            'postgresql-contrib',
+            'postgresql-server',
+        ],
+    }
+
     package { "postgresql-${ver}": }
 
     $cfdb::postgresql::extensions.each |$ext| {
@@ -56,12 +69,11 @@ class cfdb::postgresql::serverpkg {
             ensure_resource('package', "postgresql-${ver}-${ext}", {})
         }
 
-        # there are known issues with perl update desync...
-        #'plperl',
+        # 'pltcl',
         [
             'contrib',
-            'plpython',
-            'pltcl',
+            'plperl',
+            'plpython3',
         ].each |$ext| {
             ensure_resource('package', "postgresql-${ext}-${ver}", {})
         }

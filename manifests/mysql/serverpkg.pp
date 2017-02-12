@@ -11,12 +11,25 @@ class cfdb::mysql::serverpkg {
 
     $ver = $cfdb::mysql::actual_version
 
+    apt::pin{ 'percona-ver':
+        order    => 99,
+        priority => $cfsystem::apt_pin + 2,
+        version  => "${ver}.*",
+        packages => [
+            'percona-server-server',
+            'percona-server-client',
+        ],
+    }
+
     if $cfdb::mysql::is_cluster {
         $ver_nodot = regsubst($ver, '\.', '', 'G')
         package { "percona-xtradb-cluster-${ver_nodot}": }
+        package { "percona-xtradb-cluster-server-${ver}": }
+        package { "percona-xtradb-cluster-common-${ver}": }
     } else {
         $xtrabackup_ver = '24'
         package { "percona-server-server-${ver}": }
+        package { "percona-server-common-${ver}": }
         package { "percona-xtrabackup-${xtrabackup_ver}": }
     }
 
