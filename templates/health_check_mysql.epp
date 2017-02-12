@@ -1,39 +1,11 @@
-<% |String $service_name,
-    String $role,
-    String $password,
-    String $database |
+<% |String $conf_dir,
+    String $cluster,
+    String $service_name |
 -%>
-#!/usr/bin/python -B
+#!/bin/dash
 
-import sys, os, MySQLdb
-
-#---
-# workaround for known HAProxy issue with junk getting into connections...
-# http://thread.gmane.org/gmane.comp.web.haproxy/28184/focus=28254
-sys.stdin.close()
-sys.stdout.close()
-sys.stderr.close()
-#---
-
-server_name = os.environ['HAPROXY_SERVER_NAME']
-
-sock_name = '/run/<%= $service_name %>/check__{0}.sock'.format(server_name)
-    
-conn_params={
-    'db': '<%= $database %>',
-    'user': '<%= $role %>',
-    'passwd': '<%= $password %>',
-    'host': 'localhost',
-    'unix_socket': sock_name,
-    'connect_timeout': 2,
-}
-
-try:
-    conn = MySQLdb.connect(**conn_params)
-except:
-    conn = MySQLdb.connect(**conn_params)
-
-curs = conn.cursor()
-curs.execute('SELECT 1;')
-sys.exit(0)
-
+/usr/bin/mysql \
+    --defaults-file=<%= $conf_dir %>/check_<%= $cluster %>.cnf \
+    -S /run/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}.sock \
+    -e 'SELECT 1;' \
+    >/dev/null

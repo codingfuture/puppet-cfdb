@@ -62,6 +62,7 @@ define cfdb::instance (
         include "cfdb::${type}::arbitratorpkg"
     } else {
         include "cfdb::${type}::serverpkg"
+        include "cfdb::${type}::clientpkg"
     }
 
     #---

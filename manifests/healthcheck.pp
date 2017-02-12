@@ -50,16 +50,22 @@ define cfdb::healthcheck(
 
 
         if $add_haproxy {
+            create_resources("cfdb::${type}::healthcheck", {
+                $cluster => {
+                    role     => $healthcheck,
+                    password => $healthcheck_password,
+                    database => $healthcheck,
+                }
+            })
             file { "${cfdb::haproxy::bin_dir}/check_${cluster}":
                 ensure  => present,
                 owner   => $cfdb::haproxy::user,
                 group   => $cfdb::haproxy::user,
                 mode    => '0750',
                 content => epp("cfdb/health_check_${type}", {
+                    conf_dir     => $cfdb::haproxy::conf_dir,
+                    cluster      => $cluster,
                     service_name => $cfdb::haproxy::service_name,
-                    role         => $healthcheck,
-                    password     => $healthcheck_password,
-                    database     => $healthcheck,
                 }),
             }
         }

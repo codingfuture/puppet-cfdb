@@ -17,6 +17,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
     - Removed deployment-time secret/port generation in favor on catalog resources (cfsystem)
     - Improved Percona Cluster pre-joining connection check
     - Changed to use ipsets for client list
+    - Rewritten cluster healthchecks to use native clients instead of Python scripts
     - Misc. improvements
 - Added dependency on cfnetwork:firewall anchor where applicable
 - Added dependency on cfsystem::randomfeed for HAProxy dhparam generation

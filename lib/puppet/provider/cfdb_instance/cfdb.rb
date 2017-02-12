@@ -140,7 +140,6 @@ Puppet::Type.type(:cfdb_instance).provide(
             :cpu_weight => conf[:cpu_weight],
             :io_weight => conf[:io_weight],
             :mem_limit => mem_limit,
-            :mem_lock => true,
         })
         @new_slices << slice_name
     end

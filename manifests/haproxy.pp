@@ -24,6 +24,8 @@ class cfdb::haproxy(
     $user = $service_name
     $root_dir = "${cfdb::root_dir}/${user}"
     $bin_dir = "${root_dir}/bin"
+    $conf_dir = "${root_dir}/conf"
+    $tmp_dir = "${root_dir}/tmp"
     $dh_params = "${root_dir}/pki/dh.pem"
     $openssl = '/usr/bin/openssl'
 
@@ -43,7 +45,7 @@ class cfdb::haproxy(
     # Required for dhparam
     require cfsystem::randomfeed
 
-    file { [$root_dir, $bin_dir, "${root_dir}/conf"]:
+    file { [$root_dir, $bin_dir, $conf_dir, $tmp_dir]:
         ensure => directory,
         owner  => $user,
         group  => $user,

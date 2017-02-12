@@ -1,82 +1,22 @@
-<% |String $service_name,
-    String $role,
-    String $password,
-    String $database |
+<% |String $conf_dir,
+    String $cluster,
+    String $service_name |
 -%>
-#!/usr/bin/python -B
+#!/bin/dash
 
-import sys, os, psycopg2
+port=123
+sock=/run/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}.sock
+host=/db/<%= $service_name %>/tmp/check__${HAPROXY_SERVER_NAME}
+/bin/mkdir -p $host
+/bin/ln -sfn $sock ${host}/.s.PGSQL.${port}
 
-#---
-# workaround for known HAProxy issue with junk getting into connections...
-# http://thread.gmane.org/gmane.comp.web.haproxy/28184/focus=28254
-sys.stdin.close()
-sys.stdout.close()
-sys.stderr.close()
-#---
+export PGSERVICEFILE=<%= $conf_dir %>/check_<%= $cluster %>.conf
+res=$(/usr/bin/psql \
+    "host=$host port=$port service=<%= $cluster %>" \
+    --tuples-only --no-align --quiet \
+    -c 'SELECT pg_is_in_recovery();')
 
-
-proxy_name = os.environ['HAPROXY_PROXY_NAME']
-server_name = os.environ['HAPROXY_SERVER_NAME']
-
-is_load_balance = (proxy_name.find(':lb') >= 0)
-
-sock_name = '/run/<%= $service_name %>/check__{0}.sock'.format(server_name)
-pgsock_dir = '/tmp/<%= $service_name %>/check__{0}'.format(server_name)
-pgport=123
-pgsock_file="{0}/.s.PGSQL.{1}".format(pgsock_dir, pgport)
-
-os.umask(0077)
-
-try:
-    os.makedirs(pgsock_dir)
-except OSError:
-    pass
-
-try:
-    os.symlink(sock_name, pgsock_file)
-except OSError:
-    pass
-    
-sock_dir_stat = os.stat(pgsock_dir)
-
-if sock_dir_stat.st_uid != os.geteuid():
-    print("FATAL: Invalid socket folder permissions. Possible attack.")
-    print(sock_dir_stat)
-    sys.exit(1)
-    
-conn_params={
-    'database': '<%= $database %>',
-    'user': '<%= $role %>',
-    'password': '<%= $password %>',
-    'host': pgsock_dir,
-    'port': pgport,
-    'connect_timeout': 2,
-}
-
-exit_code = 1
-
-try:
-    conn = psycopg2.connect(**conn_params)
-except:
-    conn = psycopg2.connect(**conn_params)
-
-curs = conn.cursor()
-if is_load_balance:
-    curs.execute('SELECT pg_is_in_recovery();')
-    res = curs.fetchone()
-    if res[0] == False:
-        exit_code = 0
-else:
-    curs.execute('SELECT 1;')
-    res = curs.fetchone()
-    if res[0] == 1:
-        exit_code = 0
-
-try:
-    conn.close()
-except:
-    pass
-
-sys.exit(exit_code)
-
+case $HAPROXY_PROXY_NAME in
+    *:lb) [ "${res}" = 't' ] || [ "${res}" = 'f' ] ;;
+    *) [ "${res}" = 'f' ] ;;
+esac
