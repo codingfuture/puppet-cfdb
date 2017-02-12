@@ -291,7 +291,7 @@ define cfdb::instance (
                 is_primary => $is_primary_node,
                 key_type   => $ssh_key_type,
                 key_bits   => $ssh_key_bits,
-                peers      => ["ipset:${cluster_ipset}"],
+                peer_ipset => $cluster_ipset
             }
         }
 
@@ -525,15 +525,26 @@ define cfdb::instance (
             $fw_face = cfnetwork::fw_face($iface)
 
             if size($allowed_hosts) > 0 {
+                $ipset_clients = "cfdb_${cluster}_clients"
+
+                cfnetwork::ipset { $ipset_clients:
+                    addr => $allowed_hosts.sort(),
+                }
                 cfnetwork::service_port { "${fw_face}:cfdb_${cluster}":
                     dst => $listen,
-                    src => $allowed_hosts.sort(),
+                    src => "ipset:${ipset_clients}",
                 }
             }
+
             if size($sec_allowed_hosts) > 0 {
+                $ipset_secclients = "cfdb_${cluster}_secclients"
+
+                cfnetwork::ipset { $ipset_secclients:
+                    addr => keys($sec_allowed_hosts).sort(),
+                }
                 cfnetwork::service_port { "${fw_face}:cfdbsec_${cluster}":
                     dst => $listen,
-                    src => keys($sec_allowed_hosts).sort(),
+                    src => "ipset:${ipset_secclients}",
                 }
                 $maxconn = $sec_allowed_hosts.reduce(0) |$memo, $kv| {
                     $memo + $kv[1]
