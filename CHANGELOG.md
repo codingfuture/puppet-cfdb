@@ -31,6 +31,8 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - Added CFDB binary folder to global search path through cfsystem::binpath
 - Updated to use gpg trusted key files for Percona due to issues with apt::key @stretch
 - Removed deprecated calls to try_get_value()
+- Changed to default versions to already installed or latest
+- Added warning if configured version mismatches the latest
 
 ## [0.10.1]
 - Improved to support automatic Galera joiner startup (based on SSH check)
