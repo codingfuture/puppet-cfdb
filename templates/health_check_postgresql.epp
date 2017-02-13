@@ -17,6 +17,6 @@ res=$(/usr/bin/psql \
     -c 'SELECT pg_is_in_recovery();')
 
 case $HAPROXY_PROXY_NAME in
-    *:lb) [ "${res}" = 't' ] || [ "${res}" = 'f' ] ;;
+    *:lb|*:lb:secure) [ "${res}" = 't' ] || [ "${res}" = 'f' ] ;;
     *) [ "${res}" = 'f' ] ;;
 esac
