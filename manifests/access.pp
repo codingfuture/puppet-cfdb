@@ -95,10 +95,11 @@ define cfdb::access(
 
     #---
     $use_proxy_detected = $use_proxy ? {
-        'auto'  => $cluster_info['is_cluster'] or (
-                defined(Cfdb::Instance[$cluster]) and
-                getparam(Cfdb::Instance[$cluster], 'is_cluster')
-        ),
+        'auto'  => ($cluster_info and $cluster_info['is_cluster']
+            ) or (
+                    defined(Cfdb::Instance[$cluster]) and
+                    getparam(Cfdb::Instance[$cluster], 'is_cluster')
+            ),
         default => $use_proxy
     }
 
@@ -121,11 +122,18 @@ define cfdb::access(
         $cluster_rsc = Cfdb::Instance[$cluster]
 
         if defined($cluster_rsc) {
+            $rsc_port = getparam($cluster_rsc, 'port')
+            $rsc_port_pick = $rsc_port ? {
+                ''      => undef,
+                undef   => undef,
+                default => Integer($rsc_port)
+            }
+
             # the only known instance is local
             # give it a chance
             # NOTE: in case access is critical after the first Puppet run, please make sure
             #       to use $static_access parameter for role definition!
-            $port = cfsystem::gen_port($cluster, getparam($cluster_rsc, 'port'))
+            $port = cfsystem::gen_port($cluster, $rsc_port_pick)
             $type = getparam($cluster_rsc, 'type')
 
             $cfg = {
