@@ -61,14 +61,15 @@ define cfdb::access(
             }
 
             $res = {
-                'certname' => $val['certname'],
-                'type'     => $params['type'],
-                'host'     => pick(
+                'certname'   => $val['certname'],
+                'type'       => $params['type'],
+                'is_cluster' => $params['is_cluster'],
+                'host'       => pick(
                     $cfdb['listen'],
                     $val['certname']
                 ),
-                'port'     => $cfdb['port'],
-                'socket'   => $socket,
+                'port'       => $cfdb['port'],
+                'socket'     => $socket,
             }
         } else {
             $memo
@@ -94,7 +95,10 @@ define cfdb::access(
 
     #---
     $use_proxy_detected = $use_proxy ? {
-        'auto'  => size($cluster_instances) > 1,
+        'auto'  => $cluster_info['is_cluster'] or (
+                defined(Cfdb::Instance[$cluster]) and
+                getparam(Cfdb::Instance[$cluster], 'is_cluster')
+        ),
         default => $use_proxy
     }
 
