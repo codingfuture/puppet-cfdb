@@ -114,7 +114,7 @@ define cfdb::access(
     }
 
     if !$role_info or !$cluster_info {
-        $cluster_rsc = Cfdb_instance[$cluster]
+        $cluster_rsc = Cfdb::Instance[$cluster]
 
         if defined($cluster_rsc) {
             # the only known instance is local
