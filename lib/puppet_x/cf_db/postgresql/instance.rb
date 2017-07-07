@@ -181,7 +181,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         
         #---
         if have_external_conn or is_cluster
-            bind_address = cfdb_settings.fetch('listen', '0.0.0.0')
+            bind_address = cfdb_settings['listen'] || '0.0.0.0'
         else
             bind_address = '127.0.0.1'
         end

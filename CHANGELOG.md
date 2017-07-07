@@ -4,8 +4,9 @@ All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.11.1](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.11.1)
-- Added Puppet 5.x support
-- Added Ubuntu Zesty support
+- FIXED: broken configuration in some cases of cluster bootstrap (empty listen address)
+- NEW: Puppet 5.x support
+- NEW: Ubuntu Zesty support
 
 ## [0.11.0]
 - Major refactoring of internals
