@@ -22,8 +22,8 @@ define cfdb::postgresql::instancebin(
             service_name => $service_name,
         }),
         notify  => Cfdb_instance[$cluster],
-    } ->
-    file { "${root_dir}/bin/cfdb_psql":
+    }
+    -> file { "${root_dir}/bin/cfdb_psql":
         ensure => link,
         target => $psql_script,
     }
@@ -38,8 +38,8 @@ define cfdb::postgresql::instancebin(
                 service_name => $service_name,
             }),
             notify  => Cfdb_instance[$cluster],
-        } ->
-        file { "${root_dir}/bin/cfdb_repmgr":
+        }
+        -> file { "${root_dir}/bin/cfdb_repmgr":
             ensure => link,
             target => $repmgr_script,
         }
@@ -52,8 +52,8 @@ define cfdb::postgresql::instancebin(
                     "/bin/systemctl restart ${service_name}.service",
                     "/bin/systemctl reload ${service_name}.service",
                 ],
-            } ->
-            Cfdb_instance[$cluster]
+            }
+            -> Cfdb_instance[$cluster]
         }
     }
 }

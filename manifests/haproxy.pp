@@ -50,14 +50,14 @@ class cfdb::haproxy(
         owner  => $user,
         group  => $user,
         mode   => '0750',
-    } ->
-    cfsystem::puppetpki { $user: } ->
-    exec {'Generating CFDB HAProxy Diffie-Hellman params...':
+    }
+    -> cfsystem::puppetpki { $user: }
+    -> exec {'Generating CFDB HAProxy Diffie-Hellman params...':
         command  => '/bin/true',
         creates  => $dh_params,
         loglevel => 'warning',
-    } ~>
-    exec { 'cfdbhaproxy_dhparam':
+    }
+    ~> exec { 'cfdbhaproxy_dhparam':
         command     => "${openssl} dhparam -out ${dh_params} -rand /dev/urandom 2048",
         refreshonly => true,
     }
@@ -68,8 +68,8 @@ class cfdb::haproxy(
         weight => $memory_weight,
         min_mb => 16,
         max_mb => $memory_max,
-    } ->
-    cfdb_haproxy { $service_name:
+    }
+    -> cfdb_haproxy { $service_name:
         ensure        => present,
         memory_weight => $memory_weight,
         cpu_weight    => $cpu_weight,

@@ -156,8 +156,8 @@ define cfdb::instance (
         owner  => $user,
         group  => $user,
         mode   => '0750',
-    } ->
-    cfsystem::puppetpki{ $user: }
+    }
+    -> cfsystem::puppetpki{ $user: }
 
     #---
     if $memory_max {
