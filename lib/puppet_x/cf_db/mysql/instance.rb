@@ -625,9 +625,7 @@ module PuppetX::CfDb::MySQL::Instance
             cf_system.atomicWrite(upgrade_file, upgrade_ver, {:user => user})
             
         else
-            have_initialize = sudo('-u', user, MYSQLD, '--verbose', '--help')
-            have_initialize = /--initialize/.match(have_initialize)
-            have_initialize = !have_initialize.nil?
+            have_initialize = is_57
             
             if have_initialize
                 warning('> running mysql initialize')

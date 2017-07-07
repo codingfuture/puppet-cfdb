@@ -5,6 +5,8 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.11.1](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.11.1)
 - FIXED: broken configuration in some cases of cluster bootstrap (empty listen address)
+- FIXED: --initialize detection failing on Puppet 5.x
+- CHANGED: to always expect support for --initialize in MySQL 5.7+
 - NEW: Puppet 5.x support
 - NEW: Ubuntu Zesty support
 
