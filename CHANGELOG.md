@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.11.2](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.11.2)
+- NEW: improved cfdb_*_bootstrap to ask for confirmation with date-based parameter
+- NEW: imrpvoed cfdb_*_bootstrap to "fix" safe_bootstrap Galera state flag
+
 ## [0.11.1](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.11.1)
 - FIXED: broken configuration in some cases of cluster bootstrap (empty listen address)
 - FIXED: --initialize detection failing on Puppet 5.x

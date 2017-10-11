@@ -53,6 +53,7 @@ define cfdb::mysql::instancebin(
                 mode    => '0755',
                 content => epp('cfdb/cfdb_mysql_bootstrap.epp', {
                     service_name => $service_name,
+                    root_dir     => $root_dir,
                 })
             }
         }

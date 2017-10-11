@@ -1,9 +1,44 @@
 <% |
-    String[1] $service_name
+    String[1] $service_name,
+    String[1] $root_dir,
 | -%>
 #!/bin/bash
 
+arg="$1"
+
+m_date="$(date '+%Y%m%d')"
+m_unsafe="yes_I_am_sure_I_want_to_force_bootstrap_of_<%= $service_name %>_${m_date}"
+m_safe="yes_I_am_sure_I_want_to_bootstrap_<%= $service_name %>_${m_date}"
+
+grastate_file=<%= $root_dir %>/data/grastate.dat
+
 echo 'Enabling bootstrap mode...'
+
+if ! grep -q 'safe_to_bootstrap: 1' $grastate_file; then
+    if [ "$arg" != "$m_unsafe" ]; then
+        echo "If you are REALLY sure, please run:"
+        echo
+        echo "   $0 $m_unsafe"
+        echo
+        echo "Galera State:"
+        cat $grastate_file
+        exit 1
+    else
+        arg="$m_safe"
+        sed -i -e 's/safe_to_bootstrap: 0/safe_to_bootstrap: 1/g' $grastate_file
+    fi
+fi
+
+if [ "$arg" != "$m_safe" ]; then
+    echo "If you are REALLY sure, please run:"
+    echo
+    echo "   $0 $m_safe"
+    echo
+    echo "Galera State:"
+    cat $grastate_file
+    exit 1
+fi
+
 
 /bin/sed -i \
     -e 's,^MYSQLD_OPTS.*$,MYSQLD_OPTS="--wsrep_cluster_address=gcomm://",g' \
