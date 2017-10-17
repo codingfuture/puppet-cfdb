@@ -1,0 +1,11 @@
+{
+  "name": "codingfuture-cfdb",
+  "version": "0.11.2",
+  "vcs": "git",
+  "package": [
+    "pkg"
+  ],
+  "tools": {
+    "puppet": "*"
+  }
+}
