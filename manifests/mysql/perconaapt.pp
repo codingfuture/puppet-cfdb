@@ -10,8 +10,8 @@ class cfdb::mysql::perconaapt {
 
     $lsbdistcodename = $::facts['lsbdistcodename']
     $percona_release = $::facts['operatingsystem'] ? {
-        'Debian' => (versioncmp($::facts['operatingsystemrelease'], '9') >= 0) ? {
-            true    => 'jessie',
+        'Debian' => (versioncmp($::facts['operatingsystemrelease'], '10') >= 0) ? {
+            true    => 'stretch',
             default => $lsbdistcodename
         },
         'Ubuntu' => (versioncmp($::facts['operatingsystemrelease'], '17.04') >= 0) ? {
