@@ -25,9 +25,15 @@ class cfdb::backup(
         content => epp('cfdb/cfdb_backup_all.epp'),
     }
 
-    create_resources(cron, $cron, {
-        command => $backup_all_script,
-        hour => 3,
-        minute => 10,
-    })
+    create_resources(
+        cron,
+        {
+            cfdb_backup_all => $cron,
+        },
+        {
+            command => $backup_all_script,
+            hour => 3,
+            minute => 10,
+        }
+    )
 }
