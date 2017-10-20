@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.11.3](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.11.3)
 - FIXED: default cron for cfdb_backup_all
+- FIXED: cfdb_restart_pending to suppprt cluster names with underscore
 - CHANGED: Percona repos for Debian Stretch & Ubuntu Zesty
 - CHANGED: postresql repos for Debian Stretch
 
