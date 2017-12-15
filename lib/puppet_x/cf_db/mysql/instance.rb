@@ -389,7 +389,7 @@ module PuppetX::CfDb::MySQL::Instance
             'safe_user_create' => 'TRUE',
             'secure_auth' => 'ON',
             'secure_file_priv' => tmp_dir,
-            'skip_name_resolve' => 'ON',
+            'skip_name_resolve' => 'OFF',
             'socket' => sock_file,
             'tmpdir' => tmp_dir,
             'user' => user,
