@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.12.0](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.12.0)
+- CHANGED: upgraded to postgresql 10
 - CHANGED: upgraded to repmgr 4
 
 ## [0.11.4](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.11.4)
