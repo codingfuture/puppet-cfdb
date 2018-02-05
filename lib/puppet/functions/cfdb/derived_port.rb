@@ -1,5 +1,5 @@
 #
-# Copyright 2016-2017 (c) Andrey Galkin
+# Copyright 2016-2018 (c) Andrey Galkin
 #
 
 require File.expand_path( '../../../../puppet_x/cf_db', __FILE__ )
