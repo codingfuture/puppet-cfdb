@@ -368,11 +368,10 @@ module PuppetX::CfDb::PostgreSQL::Instance
             
             pgpass_content << "*:*:*:#{REPMGR_USER}:#{root_pass}"
             
-            pgsettings['shared_preload_libraries'] ='repmgr_funcs'
+            pgsettings['shared_preload_libraries'] ='repmgr'
             
             repmgr_conf = {
-                'cluster' => cluster,
-                'node' => node_id,
+                'node_id' => node_id,
                 'node_name' => fqdn,
                 'conninfo' => [
                     "host=#{cluster_listen} port=#{port}",
@@ -380,6 +379,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     "connect_timeout=5",
                     sslrequire,
                 ].join(' '),
+		'data_directory' => data_dir,
                 # repmgr uses the same for initdb
                 'pg_ctl_options' => "-o \"--config_file=#{conf_file}\"",
                 'pg_bindir' => pg_bin_dir,
@@ -530,9 +530,13 @@ module PuppetX::CfDb::PostgreSQL::Instance
                         "ALTER ROLE #{superuser} PASSWORD '#{root_pass}';")
                 
                 if is_cluster
-                    sudo('-H', '-u', user,
-                        "#{root_dir}/bin/cfdb_psql", '-c',
-                        "ALTER ROLE #{REPMGR_USER} PASSWORD '#{root_pass}';")
+                    begin
+                        init_repmgr(cluster, user, root_dir, root_pass)
+                    rescue
+                        sudo('-H', '-u', user,
+                            "#{root_dir}/bin/cfdb_psql", '-c',
+                            "ALTER ROLE #{REPMGR_USER} PASSWORD '#{root_pass}';")
+                    end
                 end
             end
 
@@ -801,23 +805,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 
                 wait_sock(service_name, sock_file)
                 
-                sudo('-H', '-u', user,
-                     "#{root_dir}/bin/cfdb_psql", '-c',
-                     "CREATE USER #{REPMGR_USER} SUPERUSER PASSWORD '#{root_pass}';")
-                
-                sudo('-H', '-u', user,
-                     "#{root_dir}/bin/cfdb_psql", '-c',
-                     "CREATE DATABASE #{REPMGR_USER} WITH OWNER = #{REPMGR_USER};")
-                
-                sudo('-H', '-u', user,
-                     "#{root_dir}/bin/cfdb_psql", '-c',
-                     "ALTER USER #{REPMGR_USER} SET search_path TO repmgr_#{cluster}, \"$user\", public;")
-                
-                sudo('-H', '-u', user,
-                     "#{root_dir}/bin/cfdb_repmgr",
-                     '-f', repmgr_file,
-                     'master', 'register'
-                )
+                init_repmgr(cluster, user, root_dir, root_pass)
             end
             
             cf_system.atomicWrite(active_version_file, version)
@@ -852,6 +840,26 @@ module PuppetX::CfDb::PostgreSQL::Instance
         check_cluster_postgresql(conf)
     end
     
+    def init_repmgr(cluster, user, root_dir, root_pass)
+        sudo('-H', '-u', user,
+                "#{root_dir}/bin/cfdb_psql", '-c',
+                "CREATE USER #{REPMGR_USER} SUPERUSER PASSWORD '#{root_pass}';")
+        
+        sudo('-H', '-u', user,
+                "#{root_dir}/bin/cfdb_psql", '-c',
+                "CREATE DATABASE #{REPMGR_USER} WITH OWNER = #{REPMGR_USER};")
+        
+        sudo('-H', '-u', user,
+                "#{root_dir}/bin/cfdb_psql", '-c',
+                "ALTER USER #{REPMGR_USER} SET search_path TO repmgr_#{cluster}, \"$user\", public;")
+        
+        sudo('-H', '-u', user,
+                "#{root_dir}/bin/cfdb_repmgr",
+                '-f', repmgr_file,
+                'primary', 'register'
+        )
+    end
+    
     def check_cluster_postgresql(conf)
         return true if !conf[:is_cluster]
         
@@ -868,7 +876,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             elsif conf[:is_secondary]
                 mode = 'standby'
             else
-                mode = '* master'
+                mode = 'primary'
             end
             
             if res[fqdn] != mode
@@ -901,12 +909,13 @@ module PuppetX::CfDb::PostgreSQL::Instance
         
         res = res.split("\n").drop(2).reduce({}) do |m, l|
             l = l.split('|')
-            status = l[0].strip()
             host = l[1].strip()
+            role = l[2].strip()
+            status = l[3].strip()
             
-            fact_cluster_size += 1 if ['* master', 'standby', 'witness'].include? status
+            fact_cluster_size += 1 if status == '* running'
             
-            m[host] = status
+            m[host] = role
             m
         end
         
