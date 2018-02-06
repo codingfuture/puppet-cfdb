@@ -356,7 +356,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             hostname = Facter['hostname'].value()
             
             sslrequire = ''
-            sslrequire = 'sslmode=require' if secure_cluster
+            sslrequire = 'sslmode=verify-ca' if secure_cluster
             
             if node_id <= 0
                 node_id = hostname[/([0-9]+)$/, 1].to_i

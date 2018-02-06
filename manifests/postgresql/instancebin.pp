@@ -44,6 +44,33 @@ define cfdb::postgresql::instancebin(
             target => $repmgr_script,
         }
 
+        # SSL
+        #---
+        file { "${root_dir}/.postgresql":
+            ensure => directory,
+            mode   => '0750',
+            owner  => $user,
+        }
+        file { "${root_dir}/.postgresql/root.crt":
+            ensure => link,
+            target => '../pki/puppet/ca.crt',
+            mode   => '0750',
+            owner  => $user,
+        }
+        file { "${root_dir}/.postgresl/postgresql.crt":
+            ensure => link,
+            target => '../pki/puppet/local.crt',
+            mode   => '0750',
+            owner  => $user,
+        }
+        file { "${root_dir}/.postgresql/postgresql.key":
+            ensure => link,
+            target => '../pki/puppet/local.key',
+            mode   => '0750',
+            owner  => $user,
+        }
+        #---
+
         if !$is_arbitrator {
             cfauth::sudoentry { $user:
                 command => [
