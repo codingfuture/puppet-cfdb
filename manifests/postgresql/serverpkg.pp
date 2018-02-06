@@ -40,8 +40,11 @@ class cfdb::postgresql::serverpkg {
         '9.6': {
             $postgis_ver = '2.3'
         }
+        '10': {
+            $postgis_ver = '2.4'
+        }
         default: {
-            $postgis_ver = '2.3'
+            $postgis_ver = '2.4'
         }
     }
 
@@ -70,13 +73,17 @@ class cfdb::postgresql::serverpkg {
         }
 
         # 'pltcl',
+        # 'contrib' - virtual since 10
         [
-            'contrib',
             'plperl',
             'plpython3',
         ].each |$ext| {
             ensure_resource('package', "postgresql-${ext}-${ver}", {})
         }
+
+	if versioncmp( $ver, '10' ) < 0 {
+            ensure_resource('package', "postgresql-contrib-${ver}", {})
+	}
     }
 
     ensure_packages([

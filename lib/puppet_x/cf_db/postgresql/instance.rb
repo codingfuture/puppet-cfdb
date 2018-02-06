@@ -913,7 +913,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             host = l[1].strip()
             role = l[2].strip()
             status = l[3].strip()
-            
+
             fact_cluster_size += 1 if [ '* running', 'running' ].include? status
             
             m[host] = role
