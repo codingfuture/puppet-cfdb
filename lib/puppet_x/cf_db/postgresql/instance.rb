@@ -60,7 +60,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             File.exists?(root_data_dir) and
             File.exists?(data_dir) and
             File.exists?(active_version_file) and
-            (File.read(active_version_file) == version)
+            (File.read(active_version_file).strip() == version)
         )
         
         if cfdb_settings.has_key? 'optimize_ssd'
@@ -379,7 +379,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     "connect_timeout=5",
                     sslrequire,
                 ].join(' '),
-		'data_directory' => data_dir,
+                'data_directory' => data_dir,
                 # repmgr uses the same for initdb
                 'pg_ctl_options' => "-o \"--config_file=#{conf_file}\"",
                 'pg_bindir' => pg_bin_dir,
@@ -402,7 +402,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
 
                 repmgr_conf.merge!({
                     'use_replication_slots' => 1,
-                    'pg_basebackup_options' => '--xlog-method=stream',
+                    'pg_basebackup_options' => '-X stream',
                     'failover' => 'automatic',
                     'promote_command' => "#{root_dir}/bin/cfdb_repmgr standby promote",
                     'follow_command' => "#{root_dir}/bin/cfdb_repmgr standby follow",
@@ -531,7 +531,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 
                 if is_cluster
                     begin
-                        init_repmgr(cluster, user, root_dir, root_pass)
+                        init_repmgr(cluster, user, root_dir, root_pass, repmgr_file)
                     rescue
                         sudo('-H', '-u', user,
                             "#{root_dir}/bin/cfdb_psql", '-c',
@@ -657,7 +657,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     '-d', REPMGR_USER,
                     '-R', user,
                     '-D', data_dir,
-                    '--ignore-external-config-files',
+                    '--fast-checkpoint',
                     'standby', 'clone'
                 )
                 
@@ -805,7 +805,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 
                 wait_sock(service_name, sock_file)
                 
-                init_repmgr(cluster, user, root_dir, root_pass)
+                init_repmgr(cluster, user, root_dir, root_pass, repmgr_file)
             end
             
             cf_system.atomicWrite(active_version_file, version)
@@ -840,7 +840,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         check_cluster_postgresql(conf)
     end
     
-    def init_repmgr(cluster, user, root_dir, root_pass)
+    def init_repmgr(cluster, user, root_dir, root_pass, repmgr_file)
         sudo('-H', '-u', user,
                 "#{root_dir}/bin/cfdb_psql", '-c',
                 "CREATE USER #{REPMGR_USER} SUPERUSER PASSWORD '#{root_pass}';")
