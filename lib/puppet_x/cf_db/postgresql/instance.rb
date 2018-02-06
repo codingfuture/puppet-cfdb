@@ -388,6 +388,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             if is_arbitrator
                 pgsettings.merge!({
                     'wal_level' => 'minimal',
+                    'max_wal_senders' => 0,
                     'archive_mode' => 'off',
                     'archive_command' => '',
                 })
