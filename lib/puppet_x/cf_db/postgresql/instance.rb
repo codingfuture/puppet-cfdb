@@ -120,7 +120,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             
             cluster_addr.each do |v|
                 max_connections += 2
-                max_replication_slots += 1
+                max_replication_slots += 2
                 
                 host = v['addr']
                 hba_host_roles[host] ||= []
@@ -752,7 +752,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     fact_cluster_size, res = get_cluster_postgresql(conf)
                     fqdn = Facter['fqdn'].value()
                     
-                    if res[fqdn] != '* master'
+                    if res[fqdn] != 'primary'
                         fail([
                               'Please make sure the current node is active master!',
                               "Hint: #{root_dir}/bin/cfdb_repmgr cluster switchover"].join("/n"))
@@ -910,13 +910,17 @@ module PuppetX::CfDb::PostgreSQL::Instance
         
         res = res.split("\n").drop(2).reduce({}) do |m, l|
             l = l.split('|')
-            host = l[1].strip()
-            role = l[2].strip()
-            status = l[3].strip()
 
-            fact_cluster_size += 1 if [ '* running', 'running' ].include? status
+            if l[3]
+                host = l[1].strip()
+                role = l[2].strip()
+                status = l[3].strip()
+
+                fact_cluster_size += 1 if [ '* running', 'running' ].include? status
             
-            m[host] = role
+                m[host] = role
+            end
+
             m
         end
         
