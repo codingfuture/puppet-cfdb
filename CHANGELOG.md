@@ -6,6 +6,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.12.0](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.12.0)
 - CHANGED: upgraded to postgresql 10
 - CHANGED: upgraded to repmgr 4
+- CHANGED: repmgr witness to always --force registration
 - FIXED: to use sslmode=verity-ca for repmgr
 - FIXED: cfdb_restart_pending to handle arbitrators
 

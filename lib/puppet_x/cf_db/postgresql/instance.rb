@@ -614,7 +614,8 @@ module PuppetX::CfDb::PostgreSQL::Instance
                     '-U', REPMGR_USER,
                     '-d', REPMGR_USER,
                     '-R', user,
-                    '-D', data_dir,                     
+                    '-D', data_dir,
+                    '--force',
                     'witness', 'register'
                 )
                 
