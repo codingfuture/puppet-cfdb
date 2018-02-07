@@ -57,7 +57,7 @@ define cfdb::postgresql::instancebin(
             mode   => '0750',
             owner  => $user,
         }
-        file { "${root_dir}/.postgresl/postgresql.crt":
+        file { "${root_dir}/.postgresql/postgresql.crt":
             ensure => link,
             target => '../pki/puppet/local.crt',
             mode   => '0750',

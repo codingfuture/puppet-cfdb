@@ -402,8 +402,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 })
 
                 repmgr_conf.merge!({
-                    'use_replication_slots' => 1,
-                    'pg_basebackup_options' => '-X stream',
+                    'use_replication_slots' => 'yes',
                     'failover' => 'automatic',
                     'promote_command' => "#{root_dir}/bin/cfdb_repmgr standby promote",
                     'follow_command' => "#{root_dir}/bin/cfdb_repmgr standby follow",
