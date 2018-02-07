@@ -749,8 +749,14 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 old_pg_bin_dir = "/usr/lib/postgresql/#{old_version}/bin"
 
                 if is_cluster
-                    fact_cluster_size, res = get_cluster_postgresql(conf)
                     fqdn = Facter['fqdn'].value()
+
+                    begin
+                        fact_cluster_size, res = get_cluster_postgresql(conf)
+                    rescue
+                        warning(">> Assuming the cluster has been stopped already!")
+                        res = { fqdn => 'primary' }
+                    end
                     
                     if res[fqdn] != 'primary'
                         fail([
@@ -758,8 +764,8 @@ module PuppetX::CfDb::PostgreSQL::Instance
                               "Hint: #{root_dir}/bin/cfdb_repmgr cluster switchover"].join("/n"))
                     end
                     
-                    if fact_cluster_size != 1
-                        fail('All slave nodes must be stopped before major upgrade!')
+                    if res.length != 1
+                        fail('All slave nodes must be unregistered to free replication slots!')
                     end
 
                     warning("> stopping #{repmgr_service_name}")
@@ -790,7 +796,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             # complete migrate
             if do_migrate
                 sudo('-H', '-u', user, '/bin/sh', '-c',
-                    "cd /tmp && #{pg_bin_dir}/pg_upgrade " +
+                    "cd #{tmp_dir} && #{pg_bin_dir}/pg_upgrade " +
                         "-d #{old_data} -D #{data_dir} " +
                         "-b #{old_pg_bin_dir} -B #{pg_bin_dir} " +
                         "-U #{superuser}")
