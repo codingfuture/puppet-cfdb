@@ -7,6 +7,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - CHANGED: upgraded to postgresql 10
 - CHANGED: upgraded to repmgr 4
 - FIXED: to use sslmode=verity-ca for repmgr
+- FIXED: cfdb_restart_pending to handle arbitrators
 
 ## [0.11.4](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.11.4)
 - CHANGED: enabled hostname resolution in MySQL by default
