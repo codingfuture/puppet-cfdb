@@ -8,6 +8,7 @@ define cfdb::mysql::instancebin(
     String[1] $user,
     String[1] $root_dir,
     String[1] $service_name,
+    String[1] $version,
     Boolean $is_cluster,
     Boolean $is_arbitrator,
     Boolean $is_primary,

@@ -12,4 +12,4 @@ if test "$(/usr/bin/id -u)" = 0; then
 fi
 
 cd $HOME
-/usr/bin/psql -U postgres "$@"
+/usr/bin/vacuumdb -U postgres "$@"

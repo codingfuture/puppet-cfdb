@@ -360,6 +360,7 @@ define cfdb::instance (
 
     #---
     $is_first_node = $is_cluster_by_fact and (size($cluster_addr) == 0)
+    $version = getvar("cfdb::${type}::actual_version")
 
     cfdb_instance { $cluster:
         ensure        => present,
@@ -396,7 +397,7 @@ define cfdb::instance (
             }
         ),
         service_name  => $service_name,
-        version       => getvar("cfdb::${type}::actual_version"),
+        version       => $version,
         cluster_addr  => $cluster_addr,
         access_list   => cfsystem::stable_sort($access_list),
         location      => $cfdb::location,
@@ -630,6 +631,7 @@ define cfdb::instance (
         user          => $user,
         root_dir      => $root_dir,
         service_name  => $service_name,
+        version       => $version,
         is_cluster    => $is_cluster_by_fact,
         is_arbitrator => $is_arbitrator,
         is_primary    => $is_primary_node,

@@ -8,18 +8,22 @@ define cfdb::postgresql::instancebin(
     String[1] $user,
     String[1] $root_dir,
     String[1] $service_name,
+    String[1] $version,
     Boolean $is_cluster,
     Boolean $is_arbitrator,
     Boolean $is_primary,
 ){
     assert_private()
 
+    # psql
+    #---
     $psql_script = "${cfdb::bin_dir}/cfdb_${cluster}_psql"
     file { $psql_script:
         mode    => '0755',
         content => epp('cfdb/cfdb_psql.epp', {
             user         => $user,
             service_name => $service_name,
+            version      => $version,
         }),
         notify  => Cfdb_instance[$cluster],
     }
@@ -28,7 +32,26 @@ define cfdb::postgresql::instancebin(
         target => $psql_script,
     }
 
+    # vacuumdb
+    #---
+    $vacuumdb_script = "${cfdb::bin_dir}/cfdb_${cluster}_vacuumdb"
+    file { $vacuumdb_script:
+        mode    => '0755',
+        content => epp('cfdb/cfdb_vacuumdb.epp', {
+            user         => $user,
+            service_name => $service_name,
+            version      => $version,
+        }),
+        notify  => Cfdb_instance[$cluster],
+    }
+    -> file { "${root_dir}/bin/cfdb_vacuumdb":
+        ensure => link,
+        target => $vacuumdb_script,
+    }
+
     if $is_cluster {
+        # repmgr
+        #---
         $repmgr_script = "${cfdb::bin_dir}/cfdb_${cluster}_repmgr"
         file { $repmgr_script:
             mode    => '0755',

@@ -564,6 +564,7 @@ TLS tunnel is NOT created in the following cases:
 
 * `/db/bin/cfdb_{cluster}_psql` is installed to properly invoke psql with required parameters.
 * `/db/bin/cfdb_{cluster}_repmgr` is installed to properly invoke with required parameters
+* `/db/bin/cfdb_{cluster}_vacuumdb` is installed to properly invoke with required parameters
 * `~/.pgpass` is properly configured for superuser and repmgr
 * `~/.pg_service.conf` is properly configured to be used with `~/bin/cfdb_psql`
 
