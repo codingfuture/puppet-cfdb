@@ -1,0 +1,12 @@
+<%- | String $user | -%>
+#!/bin/bash
+
+# Make sure to run under instance user
+if test "$(/usr/bin/id -u)" = 0; then
+    exec /usr/bin/sudo -H -u <%= $user %> $0 "$@"
+    # should not reach here
+    exit -1
+fi
+
+cd $HOME
+./bin/cfdb_curl "$@"

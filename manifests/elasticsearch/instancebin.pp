@@ -28,6 +28,20 @@ define cfdb::elasticsearch::instancebin(
         ensure  => present,
         owner   => $user,
         mode    => '0640',
-        content => '-Dlog4j2.disable.jmx=true',        
+        content => '-Dlog4j2.disable.jmx=true',
+    }
+
+    file { "${cfdb::bin_dir}/cfdb_${cluster}_curl":
+        mode    => '0755',
+        content => epp('cfdb/cfdb_curl.epp', {
+            user => $user,
+        }),
+    }
+
+    file { "${root_dir}/bin/cfdb_curl":
+        owner   => $user,
+        mode    => '0750',
+        content => '#!/bin/false',
+        replace => false,
     }
 }

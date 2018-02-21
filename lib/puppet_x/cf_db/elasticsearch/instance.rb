@@ -2,7 +2,6 @@
 # Copyright 2018 (c) Andrey Galkin
 #
 
-
 module PuppetX::CfDb::Elasticsearch::Instance
     include PuppetX::CfDb::Elasticsearch
     
@@ -14,7 +13,7 @@ module PuppetX::CfDb::Elasticsearch::Instance
         conf_dir = "#{root_dir}/conf"
         data_dir = "#{root_dir}/data"
         tmp_dir = "#{root_dir}/tmp"
-        pki_dir = "#{root_dir}/pki/puppet"
+        bin_dir = "#{root_dir}/bin"
         
         cluster = conf[:cluster]
         service_name = conf[:service_name]
@@ -73,6 +72,15 @@ module PuppetX::CfDb::Elasticsearch::Instance
         port = cfdb_settings['port']
         cluster_port = port.to_i + CLUSTER_PORT_OFFSET
         fail('Missing port') if port.nil?
+
+        #---
+        cfdb_curl = [
+            '#!/bin/dash',
+            'p=$1',
+            'shift',
+            "/usr/bin/curl --silent \"http://#{bind_address}:#{port}$p\" \"$@\""
+        ]
+        cf_system.atomicWrite("#{bin_dir}/cfdb_curl", cfdb_curl, { :user => user, :mode => 0750 })
 
         #---
         avail_mem = get_memory(cluster)
@@ -160,6 +168,33 @@ module PuppetX::CfDb::Elasticsearch::Instance
     end
 
     def check_cluster_elasticsearch(conf)
-        true
+        root_dir = conf[:root_dir]
+        cluster = conf[:cluster]
+        bin_dir = "#{root_dir}/bin/cfdb_curl"
+
+        begin
+            res = sudo('-H', '-u', conf[:user],
+                "#{root_dir}/bin/cfdb_curl",
+                "/_cluster/health?local",
+                '--max-time', '3'
+            )
+
+            res = JSON.parse( res )
+            cluster_size = conf[:cluster_addr].size + 1
+            fact_cluster_size = res['number_of_nodes']
+
+            if res['status'] != 'green'
+                warning("> cluster #{cluster} status is #{res['status']}")
+            end
+            
+            if fact_cluster_size != cluster_size
+                warning("> cluster #{cluster} is incomplete #{fact_cluster_size}/#{cluster_size}")
+            end
+        rescue => e
+            warning(e)
+            #warning(e.backtrace)
+            conf[:settings_tune]['need_setup'] = true
+            false
+        end
     end
 end
