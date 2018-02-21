@@ -471,6 +471,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             
             #service
             service_ini = {
+                '# Package Version' => PuppetX::CfSystem::Util.get_package_version('repmgr'),
                 'LimitNOFILE' => open_file_limit * 2,
                 'ExecStart' => "#{REPMGRD} --config-file=#{repmgr_file}",
                 'OOMScoreAdjust' => -200,
@@ -482,6 +483,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         
         #service
         service_ini = {
+            '# Package Version' => PuppetX::CfSystem::Util.get_package_version("postgresql-#{version}"),
             'LimitNOFILE' => open_file_limit * 2,
             'ExecStart' => "#{pg_bin_dir}/postgres --config_file=#{conf_file} $PGSQL_OPTS",
             'ExecStartPost' => "/bin/rm -f #{restart_required_file}",

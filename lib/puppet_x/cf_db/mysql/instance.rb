@@ -483,6 +483,7 @@ module PuppetX::CfDb::MySQL::Instance
         #---
         if is_arbitrator
             service_ini = {
+                '# Package Version' => PuppetX::CfSystem::Util.get_package_version('percona-xtradb-cluster-garbd-3'),
                 'LimitNOFILE' => 1024,
                 'ExecStart' => "#{GARBD} --cfg #{garbd_conf_file}",
                 'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
@@ -490,7 +491,14 @@ module PuppetX::CfDb::MySQL::Instance
             service_env = {}
             service_changed = create_service(conf, service_ini, service_env)
         else
+            if is_cluster
+                server_pkg = "percona-xtradb-cluster-server-#{version}"
+            else
+                server_pkg = "percona-server-server-#{version}"
+            end
+
             service_ini = {
+                '# Package Version' => PuppetX::CfSystem::Util.get_package_version(server_pkg),
                 'LimitNOFILE' => open_file_limit * 2,
                 'ExecStart' => "#{MYSQLD} --defaults-file=#{conf_dir}/mysql.cnf $MYSQLD_OPTS",
                 'ExecStartPost' => "/bin/rm -f #{restart_required_file}",

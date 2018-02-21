@@ -133,6 +133,7 @@ module PuppetX::CfDb::Elasticsearch::Instance
         # Prepare service file
         #---
         service_ini = {
+            '# Package Version' => PuppetX::CfSystem::Util.get_package_version('elasticsearch'),
             'LimitNOFILE' => 'infinity',
             'LimitNPROC' => '4096',
             'LimitAS' => 'infinity',

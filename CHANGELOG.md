@@ -7,6 +7,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - CHANGED: to warn only if versions are older than latest known by cfdb
 - CHANGED: per-type defaults of min & max memory limits
 - NEW: Elasticsearch support
+- NEW: record database software running package version to detect restart needed
 
 ## [0.12.0](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.12.0)
 - CHANGED: upgraded to postgresql 10
