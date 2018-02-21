@@ -36,7 +36,7 @@ class cfdb::mysql (
         }
     }
 
-    if $cluster_version != $latest_cluster {
+    if versioncmp( $cluster_version, $latest_cluster ) < 0 {
         notify { "\$cfdb::mysql::cluster_version ${cluster_version} is not the latest ${latest_cluster}":
             loglevel => warning,
         }

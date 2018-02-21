@@ -20,6 +20,8 @@ Puppet::Functions.create_function(:'cfdb::derived_port') do
             base_port + PuppetX::CfDb::MySQL::SST_PORT_OFFSET
         when 'galera_ist'
             base_port + PuppetX::CfDb::MySQL::IST_PORT_OFFSET
+        when 'elasticsearch'
+            base_port + PuppetX::CfDb::Elasticsearch::CLUSTER_PORT_OFFSET
         else
             raise(Puppet::ParseError,
                 "cfdb::derived_port(): invalid derived port type #{derived_type}")

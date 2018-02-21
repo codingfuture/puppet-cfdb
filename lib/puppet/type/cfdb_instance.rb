@@ -10,6 +10,7 @@ Puppet::Type.newtype(:cfdb_instance) do
     VALID_DB_TYPES = [
         'mysql',
         'postgresql',
+        'elasticsearch',
     ] unless defined? VALID_DB_TYPES
     
     autorequire(:cfsystem_flush_config) do
@@ -35,7 +36,7 @@ Puppet::Type.newtype(:cfdb_instance) do
     newproperty(:type) do
         validate do |value|
             unless VALID_DB_TYPES.include? value
-                raise ArgumentError, "%s is not valid username" % value
+                raise ArgumentError, "%s is not valid type" % value
             end
         end
     end

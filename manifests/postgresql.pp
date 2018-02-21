@@ -27,7 +27,7 @@ class cfdb::postgresql (
         stage => setup
     }
 
-    if $version != $latest {
+    if versioncmp( $version, $latest ) < 0 {
         notify { "\$cfdb::postgresql::version ${version} is not the latest ${latest}":
             loglevel => warning,
         }

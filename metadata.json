@@ -10,6 +10,7 @@
   "tags": [
     "mysql",
     "postgresql",
+    "elasticsearch",
     "db",
     "haproxy",
     "high-availability",

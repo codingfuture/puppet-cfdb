@@ -14,7 +14,8 @@ end
 module PuppetX::CfDb
     CFDB_TYPES = [
         'MySQL',
-        'PostgreSQL'
+        'PostgreSQL',
+        'Elasticsearch',
     ]
     ROOT_PASS_LEN = 24
     BASE_DIR = File.expand_path('../', __FILE__)

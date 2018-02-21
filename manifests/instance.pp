@@ -6,7 +6,8 @@
 define cfdb::instance (
     Enum[
         'mysql',
-        'postgresql'
+        'postgresql',
+        'elasticsearch'
     ]
         $type,
     Boolean
@@ -163,15 +164,15 @@ define cfdb::instance (
     if $memory_max {
         $def_memory_max = $memory_max
     } elsif $is_arbitrator {
-        $def_memory_max = 128
+        $def_memory_max = getvar("cfdb::${type}::defaults::max_arb_memory")
     } else {
-        $def_memory_max = undef
+        $def_memory_max = getvar("cfdb::${type}::defaults::max_memory")
     }
 
     if $is_arbitrator {
-        $def_memory_min = 16
+        $def_memory_min = getvar("cfdb::${type}::defaults::min_arb_memory")
     } else {
-        $def_memory_min = 128
+        $def_memory_min = getvar("cfdb::${type}::defaults::min_memory")
     }
 
     $memory_mame = "cfdb-${cluster}"

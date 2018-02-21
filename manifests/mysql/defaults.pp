@@ -16,4 +16,9 @@ class cfdb::mysql::defaults {
         $old.dig(0, 'parameters', 'cluster_version'),
         $latest_cluster
     )
+
+    $min_memory = 128
+    $min_arb_memory = 16
+    $max_memory = undef
+    $max_arb_memory = 128
 }
