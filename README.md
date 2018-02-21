@@ -3,10 +3,12 @@
 ## Description
 
 * Setup & auto tune service instances based on available resources:
+    * Elasticsearch
     * MySQL
     * PostgreSQL
     * a general framework to easily add new types is available
 * Support auto-configurable clustering:
+    * Native for Elasticsearch
     * Galera Cluster for MySQL
     * repmgr for PostgreSQL
 * High Availability and fail-over out-of-the-box
@@ -165,6 +167,10 @@ cfdb::instances:
             cfdb:
                 secure_cluster: true
                 node_id: 3
+
+    esearch:
+        type: elasticsearch
+        port: 9200
                         
 cfdb::access:
     vagrant_mysrv2_db2:
@@ -198,6 +204,10 @@ cfdb::access:
         role: pdb1
         local_user: vagrant
         config_prefix: 'PDB1_'
+    vagramt_esearch:
+        cluster: esearch
+        local_user: vagrant
+        config_prefix: 'ESRCH_'
 ```
 
 For another related host running primary nodes of clusters:
@@ -275,6 +285,10 @@ cfdb::instances:
         settings_tune:
             cfdb:
                 secure_cluster: true
+    esearch:
+        type: elasticsearch
+        is_secondary: true
+        port: 9200
 ```
 
 ## Implicitly created resources
@@ -298,6 +312,22 @@ cfnetwork::service_port:
     "${iface}:cfdb_${cluster}":
         src: $client_hosts
         
+# for each repmgr Elasticsearch cluster (inter-node comms)
+# > access to local instance ports
+cfnetwork::describe_service:
+    "cfdb_${cluster}_peer":
+        server: "tcp/${peer_port}"
+cfnetwork::service_port:
+    "${iface}:cfdb_${cluster}_peer":
+        src: $peer_addr_list
+cfnetwork::service_ports:
+    "${iface}:cfdb_${cluster}_peer":
+        src: 'ipset:cfdb_${cluster}'
+cfnetwork::client_ports:
+    "${iface}:cfdb_${cluster}_peer":
+        dst: 'ipset:cfdb_${cluster}'
+        user: $user
+
 # for each Galera cluster (inter-node comms)
 cfnetwork::describe_service:
     "cfdb_${cluster}_peer":
@@ -405,6 +435,13 @@ This class is included automatically on demand.
 * `$settings_tune = {}` - do not use, unless you know what you are doing. Mostly left for
     exceptional in-field case purposes.
 
+## class `cfdb::elasticsearch` parameters
+This class is included automatically on demand.
+
+* `$version = '6'` - major or major.minor version of Elasticsearch to use
+* `$apt_repo = 'https://artifacts.elastic.co/packages/6.x/apt'` - Official Elastic APT repository location
+
+
 ## class `cfdb::mysql` parameters
 This class is included automatically on demand.
 
@@ -462,7 +499,7 @@ This type must be used only on primary instance of cluster.
 ## type `cfdb::instance` parameters
 Defines and auto-configures instances.
 
-* `$type` - type of cluster, e.g. mysql, postgresql
+* `$type` - type of cluster, e.g. elasticsearch, mysql, postgresql
 * `$is_cluster = false` - if true, configured instance with cluster in mind
 * `$is_secondary = false` - if true, secondary node is assumed
 * `$is_bootstrap = false` - if true, forces cluster bootstrap (should be used only TEMPORARY for recovery purposes).
@@ -553,6 +590,10 @@ TLS tunnel is NOT created in the following cases:
 * `/opt/codingfuture/bin/cfdb_restart_pending` is a helper to restart all DB
     instances with pending restart flag
 
+## Elasticsearch
+
+* `/db/bin/cfdb_{cluster}_curl` is installed to properly invoke REST API
+
 ## MySQL
 
 * `~/.my.cnf` is properly configured for `mysql` client to work without parameters.
@@ -574,6 +615,11 @@ TLS tunnel is NOT created in the following cases:
 
 
 # `$settings_tune` magic
+
+## Elasticsearch:
+
+Flat configuration keys in documentation style (no sub-trees). Most of the settings can be
+tuned here.
 
 ## MySQL
 
