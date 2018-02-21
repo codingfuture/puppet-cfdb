@@ -1,0 +1,53 @@
+<%- | String $backup_dir,
+      String $root_dir,
+      String $user,
+      String $service_name |
+-%>
+#!/bin/bash
+
+backup_dir=<%= $backup_dir %>
+root_dir=<%= $root_dir %>
+user=<%= $user %>
+service_name=<%= $service_name %>
+
+# Make sure to run under instance user
+if test "$(/usr/bin/id -u)" = 0; then
+    exec /usr/bin/sudo -u <%= $user %> $0 "$@"
+    # should not reach here
+    exit -1
+fi
+
+last_backup=$(cat ${backup_dir}/last_backup)
+
+echo "Last backup: $last_backup"
+
+confirm1='Yes, I am sure'
+confirm2='Yes, I am REALLY sure'
+
+echo ""
+echo "Are you sure you want to restore the last backup?"
+echo -n "Print '$confirm1': "
+read check
+test "$check" = "$confirm1" || exit 1
+
+echo ""
+echo "Are you really, really sure?"
+echo -n "Print '$confirm2': "
+read check
+test "$check" = "$confirm2" || exit 1
+
+curl="${root_dir}/bin/cfdb_curl"
+
+echo
+
+set -ex
+
+$curl /_snapshot/${last_backup}/_restore?wait_for_completion=true -X POST --data-raw '{}'
+
+echo
+
+set +ex
+echo "---------"
+echo "All done!"
+echo "---------"
+

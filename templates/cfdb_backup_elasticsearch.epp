@@ -1,0 +1,57 @@
+<%- | String $backup_dir,
+      String $root_dir,
+      String $user,
+      String $base_date='month' |
+-%>
+#!/bin/bash
+
+backup_root_dir=<%= $backup_dir %>
+root_dir=<%= $root_dir %>
+user=<%= $user %>
+base_date=<%= $base_date %>
+
+curl="${root_dir}/bin/cfdb_curl"
+
+# Make sure to run under instance user
+if test "$(/usr/bin/id -u)" = 0; then
+    exec /usr/bin/sudo -u <%= $user %> $0 "$@"
+    # should not reach here
+    exit -1
+fi
+
+case $base_date in
+    'year') base_date='%Y' ;;
+    'quarter') base_date="%YQ$(( $(/bin/date +%m) / 4 + 1 ))" ;;
+    'month') base_date='%Y%m' ;;
+    'week') base_date='%YW%W' ;;
+    'day') base_date='%Y%m%d' ;;
+    'daytime') base_date='%Y%m%d_%H%M%S' ;;
+esac
+
+base_date=$(/bin/date --utc "+${base_date}")
+snap_date=$(/bin/date --utc "+%Y%m%d_%H%M%S")
+repo="base_${base_date}"
+snapshot="snap_${snap_date}"
+
+set -ex
+
+if $curl /_snapshot/$repo | grep -q '^{"error"'; then
+    $curl /_snapshot/$repo -X PUT -d @- <<EOT
+{
+  "type": "fs",
+  "settings": {
+    "location": "$repo"
+  }
+}
+EOT
+    echo
+fi
+
+$curl /_snapshot/${repo}/${snapshot}?wait_for_completion=true -X POST --data-raw '{}'
+
+echo -n "${repo}/${snapshot}" > "${backup_root_dir}/last_backup"
+
+set +ex
+echo "---------"
+echo "All done!"
+echo "---------"

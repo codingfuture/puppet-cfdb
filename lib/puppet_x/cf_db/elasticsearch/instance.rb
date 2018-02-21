@@ -14,6 +14,7 @@ module PuppetX::CfDb::Elasticsearch::Instance
         data_dir = "#{root_dir}/data"
         tmp_dir = "#{root_dir}/tmp"
         bin_dir = "#{root_dir}/bin"
+        backup_dir = conf[:backup_dir]
         
         cluster = conf[:cluster]
         service_name = conf[:service_name]
@@ -78,7 +79,7 @@ module PuppetX::CfDb::Elasticsearch::Instance
             '#!/bin/dash',
             'p=$1',
             'shift',
-            "/usr/bin/curl --silent \"http://#{bind_address}:#{port}$p\" \"$@\""
+            "/usr/bin/curl --silent \"http://#{bind_address}:#{port}$p\" -H 'Content-Type: application/json' \"$@\""
         ]
         cf_system.atomicWrite("#{bin_dir}/cfdb_curl", cfdb_curl, { :user => user, :mode => 0750 })
 
@@ -113,6 +114,7 @@ module PuppetX::CfDb::Elasticsearch::Instance
             'transport.tcp.port' => cluster_port,
             'path.data' => data_dir,
             'path.logs' => tmp_dir,
+            'path.repo' => backup_dir,
         }
 
         if is_arbitrator
