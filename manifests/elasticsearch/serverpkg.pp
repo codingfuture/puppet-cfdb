@@ -14,7 +14,7 @@ class cfdb::elasticsearch::serverpkg {
     apt::pin{ 'elasticsearch-ver':
         order    => 99,
         priority => $cfsystem::apt_pin + 2,
-        version  => $ver,
+        version  => "${ver}.*",
         packages => [
             'apm-server',
             'auditbeat',
@@ -29,7 +29,7 @@ class cfdb::elasticsearch::serverpkg {
     }
 
     ensure_resource( 'package', 'openjdk-8-jre-headless' )
-    package { 'elasticsearch': ensure => $ver }
+    package { 'elasticsearch': }
 
     # default instance must not run
     service { 'elasticsearch':

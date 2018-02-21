@@ -3,7 +3,7 @@
 #
 
 class cfdb::elasticsearch::defaults {
-    $latest = '6.2.1'
+    $latest = '6'
 
     $old = cfsystem::query([
         'resources[parameters]{ ',
