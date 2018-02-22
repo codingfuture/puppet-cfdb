@@ -26,7 +26,8 @@ module PuppetX::CfDb::Elasticsearch::Instance
         access_list = conf[:access_list]
         type = conf[:type]
         conf_file = "#{conf_dir}/elasticsearch.yml"
-        log4j_file = "#{conf_dir}/log4j2.properties"
+        log4j2_file = "#{conf_dir}/log4j2.properties"
+        jvmopt_file = "#{conf_dir}/jvm.options"
         
         run_dir = "/run/#{service_name}"
         restart_required_file = "#{conf_dir}/restart_required"
@@ -132,6 +133,26 @@ module PuppetX::CfDb::Elasticsearch::Instance
 
         # write
         config_file_changed = cf_system.atomicWrite(conf_file, conf_settings.to_yaml, { :user => user })
+
+        #---
+        log4j2 = [
+            'status = error',
+            'appender.console.type = Console',
+            'appender.console.name = console',
+            'appender.console.layout.type = PatternLayout',
+            'appender.console.layout.pattern = %m%n',
+            'rootLogger.level = info',
+            'rootLogger.appenderRef.console.ref = console',
+        ]
+        log4j2_changed = cf_system.atomicWrite(log4j2_file, log4j2, { :user => user })
+        config_file_changed = config_file_changed || log4j2_changed
+
+        #---
+        jvmopt = [
+            "-Dlog4j2.disable.jmx=true"
+        ]
+        jvmopt_changed = cf_system.atomicWrite(jvmopt_file, jvmopt, { :user => user })
+        config_file_changed = config_file_changed || jvmopt_changed
         
         # Prepare service file
         #---
@@ -162,11 +183,18 @@ module PuppetX::CfDb::Elasticsearch::Instance
         if !data_exists
             FileUtils.mkdir(data_dir, :mode => 0750)
             FileUtils.chown(user, user, data_dir)
-            systemctl('start', "#{service_name}.service")
         elsif config_changed
             FileUtils.touch(restart_required_file)
             FileUtils.chown(user, user, restart_required_file)
         end
+
+
+        if File.exists?(restart_required_file)
+            warning("#{user} configuration update. Service restart is required!")
+            warning("Please run when safe: #{PuppetX::CfSystem::SYSTEMD_CTL} restart #{service_name}.service")
+        end
+
+        systemctl('start', "#{service_name}.service")
 
         return check_cluster_elasticsearch(conf)
     end
