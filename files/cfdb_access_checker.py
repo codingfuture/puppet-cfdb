@@ -32,27 +32,27 @@ with open(dotenv, "r") as f:
     for line in f:
         m = var_re.match(line)
         if not m: continue
-    
+
         var = m.group(1)
-        
+
         if m.group(4) is not None:
             val = m.group(4).decode('string_escape')
         else:
             val = m.group(5).strip()
-            
+
         conf[var] = val
 
 # Verify connection
 #---
 def getconf(name):
     var = var_prefix + name
-    
+
     if var not in conf:
         print("ERROR: {0} is missing from {1}".format(var, dotenv))
         sys.exit(1)
-        
+
     return conf[var]
-    
+
 db_type = getconf('TYPE')
 
 if db_type == 'mysql':
@@ -78,12 +78,12 @@ if db_type == 'mysql':
 
 elif db_type == 'postgresql':
     import psycopg2
-    
+
     host = getconf('HOST')
-    
+
     if host == 'localhost':
         host = getconf('SOCKET')
-    
+
     conn_params={
         'database': getconf('DB'),
         'user': getconf('USER'),
@@ -104,9 +104,32 @@ elif db_type == 'postgresql':
     curs.execute('SELECT 1;')
     conn.close()
 
+elif db_type == 'elasticsearch':
+    try:
+        import httplib as client
+    except ImportError:
+        import http.client as client
+
+    conn = client.HTTPConnection( getconf('HOST'), getconf('PORT'), timeout=3 )
+    conn.request( 'GET', '/_cluster/health?local' )
+    res = conn.getresponse()
+
+    if res.status != 200:
+        print( "ERROR: not OK '{0}'".format(res.status) )
+        sys.exit(1)
+
+    res = res.read()
+    conn.close()
+
+    import json
+    res = json.loads(res)
+
+    if res['status'] == 'red':
+        print( "ERROR: red status" )
+        sys.exit(1)
 else:
     print("ERROR: unknown database type '{0}'".format(db_type))
-    sys.exit(1)    
+    sys.exit(1)
 
 #---
 print('OK')

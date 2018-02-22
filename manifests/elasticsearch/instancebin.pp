@@ -28,6 +28,7 @@ define cfdb::elasticsearch::instancebin(
         ensure  => present,
         owner   => $user,
         mode    => '0640',
+        # -Djava.net.preferIPv4Stack=true
         content => '-Dlog4j2.disable.jmx=true',
     }
 

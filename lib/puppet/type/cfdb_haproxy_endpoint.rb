@@ -10,6 +10,7 @@ Puppet::Type.newtype(:cfdb_haproxy_endpoint) do
     VALID_ENDPOINT_DB_TYPES = [
         'mysql',
         'postgresql',
+        'elasticsearch',
     ]
     
     autorequire(:cfsystem_flush_config) do

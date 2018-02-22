@@ -7,9 +7,9 @@ define cfdb::access(
     String[1]
         $cluster,
     String[1]
-        $role,
-    String[1]
         $local_user,
+    String[1]
+        $role = $cluster,
     Variant[Boolean, Enum['auto', 'secure', 'insecure']]
         $use_proxy = 'auto',
     Integer[1]

@@ -467,8 +467,8 @@ This class is included automatically on demand.
 This type defines client with specific properties for auto-configuration of instances.
 
 * `$cluster` - unique cluster name
-* `$role` - unique role name within cluster (note roles defined in databases must be prefixed with database name)
 * `$local_user` - local user to make `.env` configuration for. The `user` resource must be defined with `$home` parameter.
+* `$role = $cluster` - unique role name within cluster (note roles defined in databases must be prefixed with database name)
 * `$use_proxy = 'auto'` - do not change the default (for future use)
 * `$max_connections = $cfdb::max_connections_default` - define max number of client connections for particular case.
 * `$config_prefix = 'DB_'` - variable prefix for `.env` file. The following variables are defined:
@@ -495,6 +495,8 @@ This type must be used only on primary instance of cluster.
 * `$ext = []` - database-specific extensions. Genereral format "{name}" or "{name}:{version}".
     If version is omitted then the latest one is used.
 
+Please note that implementation types without concept of databases have a fictional
+one defined with the same name as the cluster.
 
 ## type `cfdb::instance` parameters
 Defines and auto-configures instances.
@@ -540,6 +542,8 @@ Define and auto-configures roles per database in specified cluster.
 * `$static_access = {}` - host => maxconn pairs for static configuration with data in PuppetDB.
     **Please avoid using it, unless really needed.**
 
+Please note that if particular implementation is missing concept of databases then there is only
+one role with the same name as the cluster.
 
 # Backup & restore
 

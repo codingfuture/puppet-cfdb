@@ -29,6 +29,7 @@ class cfdb::mysql (
 
     $latest = $cfdb::mysql::defaults::latest
     $latest_cluster = $cfdb::mysql::defaults::latest_cluster
+    $is_unidb = false
 
     if $version != $latest {
         notify { "\$cfdb::mysql::version ${version} is not the latest ${latest}":

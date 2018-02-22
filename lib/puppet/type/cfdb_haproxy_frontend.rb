@@ -10,6 +10,7 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
     VALID_PROXY_DB_TYPES = [
         'mysql',
         'postgresql',
+        'elasticsearch',
     ]
     
     autorequire(:cfsystem_flush_config) do

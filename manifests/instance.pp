@@ -432,7 +432,13 @@ define cfdb::instance (
     }
 
     #---
-    if $databases {
+    if $is_primary_node and getvar("cfdb::${type}::is_unidb") {
+        cfdb::database { "${cluster}/${cluster}":
+            cluster  => $cluster,
+            database => $cluster,
+            require  => Cfdb_instance[$cluster],
+        }
+    } elsif $databases {
         if !$is_primary_node {
             fail("It's not allowed to defined databases on secondary server")
         }
@@ -549,10 +555,17 @@ define cfdb::instance (
                     dst => $listen,
                     src => "ipset:${ipset_secclients}",
                 }
+
                 $maxconn = $sec_allowed_hosts.reduce(0) |$memo, $kv| {
                     $memo + $kv[1]
                 }
+
                 include cfdb::haproxy
+                # in case of TCP
+                cfnetwork::client_port { "local:cfdb_${cluster}:cfdbhaproxy":
+                    dst  => $listen,
+                    user => $cfdb::haproxy::user,
+                }
                 cfdb_haproxy_endpoint { $cluster:
                     ensure          => present,
                     listen          => $listen,

@@ -22,6 +22,7 @@ class cfdb::postgresql (
     $latest = $cfdb::postgresql::defaults::latest
     $actual_version = $version
     $is_cluster = true
+    $is_unidb = false
 
     class { 'cfdb::postgresql::aptrepo':
         stage => setup

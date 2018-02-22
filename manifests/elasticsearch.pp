@@ -24,6 +24,7 @@ class cfdb::elasticsearch (
     $latest = $cfdb::elasticsearch::defaults::latest
     $actual_version = $version
     $is_cluster = true
+    $is_unidb = true
 
     class { 'cfdb::elasticsearch::aptrepo':
         stage => setup

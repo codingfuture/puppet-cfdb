@@ -145,19 +145,29 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             if conf_backends.has_key? backend_conf_index
                 backend_conf = conf_backends[backend_conf_index]
             else
-                backend_conf = {
-                    'mode' => 'tcp',
-                    'option external-check' => '',
-                    'retries' => 1,
-                }
-                
-                if distribute_load
-                    backend_conf['balance'] = 'leastconn'
+                if type == 'elasticsearch'
+                    backend_conf = {
+                        'mode' => 'http',
+                        'retries' => 1,
+                        'balance' => 'leastconn',
+                        'option httpchk' => 'GET /_cluster/health?local HTTP/1.0',
+                        'http-check expect' => '! string "status":"red"',
+                    }
                 else
-                    backend_conf['balance'] = 'first'
-                end
+                    backend_conf = {
+                        'mode' => 'tcp',
+                        'option external-check' => '',
+                        'retries' => 1,
+                    }
                 
-                backend_conf['external-check command'] = "#{bin_dir}/check_#{cluster}"
+                    if distribute_load
+                        backend_conf['balance'] = 'leastconn'
+                    else
+                        backend_conf['balance'] = 'first'
+                    end
+                
+                    backend_conf['external-check command'] = "#{bin_dir}/check_#{cluster}"
+                end
 
                 conf_backends[backend_conf_index] = backend_conf
             end
@@ -226,7 +236,9 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 check_listen = "listen #{server_id}:check"
                 conn_per_check = 2
                 
-                if conf_listeners.has_key? check_listen
+                if type === 'elasticsearch'
+                    # noop
+                elsif conf_listeners.has_key? check_listen
                     conf_listeners[check_listen]['maxconn'] += conn_per_check
                 else
                     check_server_config = ["#{ip}:#{port}"]
@@ -291,9 +303,14 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             if conf_listeners.has_key? endpoint_name
                 endpoint_conf = conf_listeners[endpoint_name]
             else
-                socket = "/run/#{cluster_service_name}/"
+                socket = "unix@/run/#{cluster_service_name}/"
+                sock_type = 'unix'
                 
-                if type == 'postgresql'
+                if type === 'elasticsearch'
+                    server_port = (sec_port - PuppetX::CfDb::SECURE_PORT_OFFSET)
+                    socket = "#{listen}:#{server_port}"
+                    sock_type = 'tcp'
+                elsif type == 'postgresql'
                     server_port = (sec_port - PuppetX::CfDb::SECURE_PORT_OFFSET)
                     socket += ".s.PGSQL.#{server_port}"
                 else
@@ -313,7 +330,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     'retries' => 0,
                     'maxconn' => 0,
                     'bind' => bind_config.join(' '),
-                    'server' => "#{type}_#{cluster}_unix unix@#{socket}",
+                    'server' => "#{type}_#{cluster}_#{sock_type} #{socket}",
                 }
 
                 conf_listeners[endpoint_name] = endpoint_conf
