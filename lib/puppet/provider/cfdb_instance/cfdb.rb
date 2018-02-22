@@ -102,7 +102,7 @@ Puppet::Type.type(:cfdb_instance).provide(
                 'Description' => "CFDB instance: #{service_name}",
             },
             'Service' => {
-                'LimitNOFILE' => 100000,
+                'LimitNOFILE' => 'infinity',
                 'WorkingDirectory' => conf[:root_dir],
             },
         }
