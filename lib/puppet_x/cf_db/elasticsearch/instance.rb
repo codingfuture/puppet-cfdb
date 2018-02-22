@@ -68,6 +68,7 @@ module PuppetX::CfDb::Elasticsearch::Instance
             cluster_bind_address = cfdb_settings['cluster_listen'] || '0.0.0.0'
         else
             bind_address = '127.0.0.1'
+            cluster_bind_address = bind_address
         end
         
         port = cfdb_settings['port']

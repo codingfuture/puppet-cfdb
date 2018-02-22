@@ -22,6 +22,7 @@ define cfdb::elasticsearch::instancebin(
         owner   => $user,
         mode    => '0640',
         content => file( 'cfdb/log4j2.properties' ),
+        before  => Cfdb_instance[$cluster],
     }
 
     file { "${conf_dir}/jvm.options":
@@ -30,6 +31,7 @@ define cfdb::elasticsearch::instancebin(
         mode    => '0640',
         # -Djava.net.preferIPv4Stack=true
         content => '-Dlog4j2.disable.jmx=true',
+        before  => Cfdb_instance[$cluster],
     }
 
     file { "${cfdb::bin_dir}/cfdb_${cluster}_curl":
