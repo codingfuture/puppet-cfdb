@@ -302,6 +302,37 @@ define cfdb::access(
     # DB type specific extras
     #---
     case $type {
+        'elasticsearch': {
+            if $use_proxy_detected == 'secure' {
+                $cfg_all = $cfg
+            } else {
+                $nodes = $cluster_instances.reduce([]) |$memo, $val| {
+                    $params = $val['parameters']
+                    $cfdb = $params['settings_tune']['cfdb']
+                    $host = pick(
+                        $cfdb['listen'],
+                        $val['certname']
+                    )
+                    $memo + $host
+                }
+
+                $nodeport = cfdb::derived_port($port, 'elasticsearch')
+
+                $cfg_all = merge( $cfg, {
+                    nodes    => $nodes.join(' '),
+                    nodeport => $nodeport,
+                } )
+
+                # Allow direct access for peer protocol
+                $fw_peer_service = "cfdb_${cluster}_${nodeport}"
+                ensure_resource('cfnetwork::describe_service', $fw_peer_service, {
+                    server => "tcp/${nodeport}",
+                })
+                ensure_resource('cfnetwork::client_port', "local:${fw_peer_service}:${local_user}", {
+                    user => $local_user,
+                })
+            }
+        }
         'postgresql': {
             if $cfg['socket'] != '' {
                 $psql_socket = regsubst(regsubst($cfg['socket'],

@@ -543,6 +543,18 @@ define cfdb::instance (
                     dst => $listen,
                     src => "ipset:${ipset_clients}",
                 }
+
+                if $type == 'elasticsearch' {
+                    $peer_port = cfdb::derived_port($fact_port, 'elasticsearch')
+
+                    ensure_resource('cfnetwork::describe_service', "cfdb_${cluster}_peer", {
+                        server => "tcp/${peer_port}",
+                    })
+                    cfnetwork::service_port { "${fw_face}:cfdb_${cluster}_peer:clients":
+                        dst => $listen,
+                        src => "ipset:${ipset_clients}",
+                    }
+                }
             }
 
             if size($sec_allowed_hosts) > 0 {

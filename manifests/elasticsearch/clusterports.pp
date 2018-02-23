@@ -13,9 +13,9 @@ define cfdb::elasticsearch::clusterports(
 
     $cluster_port = cfdb::derived_port($peer_port, 'elasticsearch')
 
-    cfnetwork::describe_service { "cfdb_${cluster}_peer":
+    ensure_resource('cfnetwork::describe_service', "cfdb_${cluster}_peer", {
         server => "tcp/${cluster_port}",
-    }
+    })
 
     cfnetwork::client_port { "${iface}:cfdb_${cluster}_peer":
         dst  => "ipset:${ipset}",
