@@ -39,7 +39,7 @@ class cfdb::mysql::serverpkg {
     # default instance must not run
     service { 'mysql':
         ensure   => stopped,
-        enable   => false,
+        enable   => mask,
         provider => 'systemd',
     }
 

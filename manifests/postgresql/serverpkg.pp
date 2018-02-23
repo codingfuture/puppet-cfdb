@@ -81,9 +81,9 @@ class cfdb::postgresql::serverpkg {
             ensure_resource('package', "postgresql-${ext}-${ver}", {})
         }
 
-  if versioncmp( $ver, '10' ) < 0 {
+        if versioncmp( $ver, '10' ) < 0 {
             ensure_resource('package', "postgresql-contrib-${ver}", {})
-  }
+        }
     }
 
     ensure_packages([
@@ -98,7 +98,7 @@ class cfdb::postgresql::serverpkg {
     # default instance must not run
     service { ['postgresql', "postgresql@${ver}-main"]:
         ensure   => stopped,
-        enable   => false,
+        enable   => mask,
         provider => 'systemd',
     }
 

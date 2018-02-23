@@ -34,7 +34,7 @@ class cfdb::elasticsearch::serverpkg {
     # default instance must not run
     service { 'elasticsearch':
         ensure   => stopped,
-        enable   => false,
+        enable   => mask,
         provider => 'systemd',
     }
 
