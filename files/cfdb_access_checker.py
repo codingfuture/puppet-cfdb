@@ -22,7 +22,10 @@ user_info = pwd.getpwnam(user)
 if os.geteuid() != user_info.pw_uid:
     os.setegid(user_info.pw_gid)
     os.seteuid(user_info.pw_uid)
-    os.chdir(user_info.pw_dir)
+
+# Change to home
+#---
+os.chdir(user_info.pw_dir)
 
 # Parse file
 #---

@@ -8,6 +8,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - CHANGED: per-type defaults of min & max memory limits
 - CHANGED: to mask instead of just disabled default services
 - FIXED: to properly set infinite open file limit
+- FIXED: cfdb_check_access to properly work for root user (switch to HOME)
 - NEW: Elasticsearch support
 - NEW: record database software running package version to detect restart needed
 
