@@ -9,5 +9,5 @@ class cfdb::elasticsearch::clientpkg {
     include cfdb
     include cfdb::elasticsearch
 
-    $ver = $cfdb::postgresql::version
+    $ver = $cfdb::elasticsearch::version
 }
