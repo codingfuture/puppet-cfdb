@@ -149,7 +149,52 @@ module PuppetX::CfDb::Elasticsearch::Instance
 
         #---
         jvmopt = [
-            "-Dlog4j2.disable.jmx=true"
+            ## GC configuration
+            '-XX:+UseConcMarkSweepGC',
+            '-XX:CMSInitiatingOccupancyFraction=75',
+            '-XX:+UseCMSInitiatingOccupancyOnly',
+
+            ## optimizations
+            '-XX:+AlwaysPreTouch',
+
+            '-Xss1m',
+            '-Djava.awt.headless=true',
+            '-Dfile.encoding=UTF-8',
+
+            '-Djna.nosys=true',
+
+            '-XX:-OmitStackTraceInFastThrow',
+
+            # flags to configure Netty
+            '-Dio.netty.noUnsafe=true',
+            '-Dio.netty.noKeySetOptimization=true',
+            '-Dio.netty.recycler.maxCapacityPerThread=0',
+
+            # log4j 2
+            '-Dlog4j.shutdownHookEnabled=false',
+            '-Dlog4j2.disable.jmx=true',
+
+            "-Djava.io.tmpdir=#{root_dir}/tmp",
+
+            ## heap dumps
+            #'-XX:+HeapDumpOnOutOfMemoryError',
+            #"-XX:HeapDumpPath=${root_dor}/tmp",
+            '7:-XX:OnOutOfMemoryError="kill -9 %p"',
+            '8:-XX:+ExitOnOutOfMemoryError',
+
+            ## JDK 8 GC logging
+            '8:-XX:+PrintGCDetails',
+            '8:-XX:+PrintGCDateStamps',
+            '8:-XX:+PrintTenuringDistribution',
+            '8:-XX:+PrintGCApplicationStoppedTime',
+            "8:-Xloggc:#{root_dir}/logs/gc.log",
+            '8:-XX:+UseGCLogFileRotation',
+            '8:-XX:NumberOfGCLogFiles=32',
+            '8:-XX:GCLogFileSize=64m',
+
+            # JDK 9+ GC logging
+            '9-:-Xlog:gc*,gc+age=trace,safepoint:file=/var/log/elasticsearch/gc.log:utctime,pid,tags:filecount=32,filesize=64m',
+            '9-:-Djava.locale.providers=COMPAT',
         ]
         jvmopt_changed = cf_system.atomicWrite(jvmopt_file, jvmopt, { :user => user })
         config_file_changed = config_file_changed || jvmopt_changed

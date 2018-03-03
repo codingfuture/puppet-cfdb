@@ -4,7 +4,8 @@ All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [0.12.2](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.12.2)
-- FIXED: minor issue to allow standalone elasticsearch (cross ref to postgresql variable)
+- FIXED: minor issue to allow standalone elasticsearch (cross ref to postgresql variable
+- FIXED: missing default elasticsearch JVM options)
 
 ## [0.12.1](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.12.1)
 - CHANGED: to warn only if versions are older than latest known by cfdb
