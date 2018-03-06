@@ -260,7 +260,9 @@ module PuppetX::CfDb::Elasticsearch::Instance
             cluster_size = conf[:cluster_addr].size + 1
             fact_cluster_size = res['number_of_nodes']
 
-            if res['status'] != 'green'
+            if cluster_size == 1 and res['status'] == 'yellow'
+                # pass
+            elsif res['status'] != 'green'
                 warning("> cluster #{cluster} status is #{res['status']}")
             end
             
