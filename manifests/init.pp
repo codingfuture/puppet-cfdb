@@ -23,11 +23,7 @@ class cfdb (
 
     # global healthcheck db/role names
     $healthcheck = 'cfdbhealth'
-    $location = pick(
-        $cfsystem::hierapool::location,
-        $::facts['cf_location'],
-        ''
-    )
+    $location = $cfsystem::location
 
     $bin_dir = "${root_dir}/bin"
 
