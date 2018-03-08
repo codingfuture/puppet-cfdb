@@ -30,4 +30,11 @@ define cfdb::elasticsearch::instancebin(
         content => '#!/bin/false',
         replace => false,
     }
+
+    file { "${conf_dir}/ingest-geoip":
+        owner   => $user,
+        mode    => '0750',
+        source  => '/etc/elasticsearch/ingest-geoip',
+        recurse => true,
+    }
 }
