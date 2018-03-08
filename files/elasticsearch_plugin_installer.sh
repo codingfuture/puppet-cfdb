@@ -12,6 +12,12 @@ pt="${elastic_root}/bin/elasticsearch-plugin"
 ever=$(dpkg-query -W --showformat '${Version}' elasticsearch)
 res=0
 
+touch_restart() {
+    for d in /db/elasticsearch_*/conf/; do
+        touch $d/restart_required
+    done
+}
+
 for p in "$@" skip; do
     if [ $p = "skip" ]; then
         continue;
@@ -24,7 +30,7 @@ for p in "$@" skip; do
     if [ ! -d "${plugin_root}/${n}" ]; then
         if [ $mode = 'install' ]; then
             $pt install $i
-            touch /db/elasticsearch_*/conf/restart_required
+            touch_restart
             touch $s
         else
             res=1
@@ -33,7 +39,7 @@ for p in "$@" skip; do
         if [ $mode = 'install' ]; then
             $pt remove $n
             $pt install $i
-            touch /db/elasticsearch_*/conf/restart_required
+            touch_restart
             touch $s
         else
             res=1
