@@ -37,27 +37,4 @@ class cfdb::elasticsearch (
     cfnetwork::client_port { 'any:cfhttp:elastic':
         user => root,
     }
-
-    #---
-    if $default_extensions {
-        $def_plugins = [
-            'analysis-icu',
-            'ingest-geoip',
-        ]
-    } else {
-        $def_plugins = []
-    }
-
-    $all_plugins = $extensions + $def_plugins
-
-    $plugin_installer = '/usr/share/elasticsearch/bin/elasticsearch-plugin-installer'
-
-    file { $plugin_installer:
-        mode    => '0700',
-        content => file( 'cfdb/elasticsearch_plugin_installer.sh' ),
-    }
-    -> exec { 'Installing ElasticSearch plugins':
-        command => "${plugin_installer} install ${all_plugins.join(' ')}",
-        unless  => "${plugin_installer} check ${all_plugins.join(' ')}",
-    }
 }
