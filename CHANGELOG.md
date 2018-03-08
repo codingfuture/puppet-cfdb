@@ -7,6 +7,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - CHANGE: not to complain for "yellow" status of single-node elasticsearch
 - FIXED: minor issue to allow standalone elasticsearch (cross ref to postgresql variable
 - FIXED: missing default elasticsearch JVM options)
+- NEW: Elasticsearch plugin installer
 
 ## [0.12.1](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.12.1)
 - CHANGED: to warn only if versions are older than latest known by cfdb
