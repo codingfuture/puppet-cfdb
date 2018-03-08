@@ -35,4 +35,8 @@ class cfdb::elasticsearch (
             loglevel => warning,
         }
     }
+
+    cfnetwork::client_port { 'any:cfhttp:elastic':
+        user => root,
+    }
 }
