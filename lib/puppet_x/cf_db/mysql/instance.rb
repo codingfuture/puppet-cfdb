@@ -393,6 +393,10 @@ module PuppetX::CfDb::MySQL::Instance
             'socket' => sock_file,
             'tmpdir' => tmp_dir,
             'user' => user,
+            #
+            'log_syslog' => 'ON',
+            'log_syslog_include_pid' => 'OFF',
+            'log_syslog_tag' => service_name,
             '# major version' => version,
         }
         
@@ -505,6 +509,8 @@ module PuppetX::CfDb::MySQL::Instance
                 'ExecReload' => "#{MYSQLADMIN} refresh",
                 'ExecStop' => "#{MYSQLADMIN} shutdown",
                 'OOMScoreAdjust' => -200,
+                # Prevent mixing with syslog
+                'StandardError' => 'null',
             }
             service_env = {
                 'MYSQLD_OPTS' => '',
