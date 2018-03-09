@@ -66,8 +66,8 @@ class cfdb::elasticsearch::serverpkg {
         command => "${plugin_installer} install ${all_plugins.join(' ')}",
         unless  => "${plugin_installer} check ${all_plugins.join(' ')}",
         require => Package['elasticsearch'],
-    } ->
-    file { '/etc/elasticsearch/ingest-geoip':
+    }
+    -> file { '/etc/elasticsearch/ingest-geoip':
         ensure => directory,
         mode   => '0750',
     }
