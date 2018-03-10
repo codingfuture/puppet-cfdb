@@ -13,6 +13,7 @@ define cfdb::mysql::instancebin(
     Boolean $is_arbitrator,
     Boolean $is_primary,
     Hash $settings_tune,
+    Hash $sched_actions,
 ){
     assert_private()
 

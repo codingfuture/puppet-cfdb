@@ -52,6 +52,9 @@ define cfdb::instance (
         $ssh_key_type = 'ed25519',
     Cfsystem::Rsabits
         $ssh_key_bits = 2048, # for rsa
+
+    Hash[String[1], Hash]
+        $scheduled_actions = {},
 ) {
     include stdlib
     include cfnetwork
@@ -664,5 +667,6 @@ define cfdb::instance (
         is_arbitrator => $is_arbitrator,
         is_primary    => $is_primary_node,
         settings_tune => $act_settings_tune,
+        sched_actions => $scheduled_actions,
     }})
 }

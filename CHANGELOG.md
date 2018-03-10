@@ -10,6 +10,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - FIXED: to properly use syslog in mysql
 - NEW: Elasticsearch plugin installer
 - NEW: elasticsearch-curator support
+- NEW: concept of scheduled actions per instance
 
 ## [0.12.1](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.12.1)
 - CHANGED: to warn only if versions are older than latest known by cfdb

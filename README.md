@@ -32,6 +32,8 @@
 * Automatic DB connection availability checks
 * Automatic cluster state checks
 * Support easy migration from default data dirs (see `init_db_from`).
+* Scheduled actions:
+    * For example, log cleanup in ELK stack
 
 ### Terminology & Concept
 
@@ -527,6 +529,7 @@ Defines and auto-configures instances.
 *
 * `$ssh_key_type = 'ed25519'` - SSH key type for in-cluster communication
 * `$ssh_key_bits = 2048` - SSH key bits for RSA
+* `$scheduled_actions = {}` - type-specific scheduled actions
 
 ## type `cfdb::role` parameters
 Define and auto-configures roles per database in specified cluster.
@@ -697,3 +700,27 @@ However, there is also a special "cfdb" section:
 However, there is also a special "cfdb" section:
 * `inter = '3s'` default for `server inter`
 * `fastinter = '500ms'` default for `server fastinter` - it also serves for `timeout checks`
+
+# Scheduled actions
+
+## Elasticsearch scheduled actions
+
+All actions are based on `elasticsearch-curator` configuration which is run from cron.
+
+*Note: cron actions run only on cfdb $is_primary node.*
+
+### Old index cleanup
+
+Suitable for cleanup in ELK stack.
+
+* `type = 'cleanup_old'` - must be set exactly
+* `prefix` - must be set explicitely (e.g. 'logstash')
+* `timestring = '%Y.%m.%d'` - filter.timestring value
+* `unit = 'days'` - filter.unit value
+* `unit_count = 30` - filter.unit_value value
+* `cron = { hour => 2, minute => 10 }` - cron config
+
+### Generic `elasticsearch-curator` actions
+
+* `actions = {}` - as required by curator action config
+* `cron = { hour => 2, minute => 10 }` - cron config
