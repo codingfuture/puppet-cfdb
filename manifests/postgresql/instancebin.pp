@@ -12,6 +12,7 @@ define cfdb::postgresql::instancebin(
     Boolean $is_cluster,
     Boolean $is_arbitrator,
     Boolean $is_primary,
+    Hash $settings_tune,
 ){
     assert_private()
 

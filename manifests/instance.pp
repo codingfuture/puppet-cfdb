@@ -363,6 +363,23 @@ define cfdb::instance (
     $is_first_node = $is_cluster_by_fact and (size($cluster_addr) == 0)
     $version = getvar("cfdb::${type}::actual_version")
 
+    $act_settings_tune = merge(
+        $settings_tune,
+        {
+            cfdb => merge(
+                {
+                    'listen'         => $listen,
+                    'cluster_listen' => $cluster_listen,
+                },
+                pick($settings_tune['cfdb'], {}),
+                {
+                    'port'          => $fact_port,
+                    'shared_secret' => $shared_secret,
+                },
+            )
+        }
+    )
+
     cfdb_instance { $cluster:
         ensure        => present,
         type          => $type,
@@ -381,22 +398,7 @@ define cfdb::instance (
         root_dir      => $root_dir,
         backup_dir    => $backup_dir,
 
-        settings_tune => merge(
-            $settings_tune,
-            {
-                cfdb => merge(
-                    {
-                        'listen'         => $listen,
-                        'cluster_listen' => $cluster_listen,
-                    },
-                    pick($settings_tune['cfdb'], {}),
-                    {
-                        'port'          => $fact_port,
-                        'shared_secret' => $shared_secret,
-                    },
-                )
-            }
-        ),
+        settings_tune => $act_settings_tune,
         service_name  => $service_name,
         version       => $version,
         cluster_addr  => $cluster_addr,
@@ -661,5 +663,6 @@ define cfdb::instance (
         is_cluster    => $is_cluster_by_fact,
         is_arbitrator => $is_arbitrator,
         is_primary    => $is_primary_node,
+        settings_tune => $act_settings_tune,
     }})
 }

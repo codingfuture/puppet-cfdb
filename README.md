@@ -597,6 +597,8 @@ TLS tunnel is NOT created in the following cases:
 ## Elasticsearch
 
 * `/db/bin/cfdb_{cluster}_curl` is installed to properly invoke REST API
+* `/db/bin/cfdb_{cluster}_curator` is installed to properly invoke `elasticsearch-curator`
+
 
 ## MySQL
 
