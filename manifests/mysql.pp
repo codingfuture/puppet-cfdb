@@ -32,13 +32,13 @@ class cfdb::mysql (
     $is_unidb = false
 
     if $version != $latest {
-        notify { "\$cfdb::mysql::version ${version} is not the latest ${latest}":
+        cf_notify { "\$cfdb::mysql::version ${version} is not the latest ${latest}":
             loglevel => warning,
         }
     }
 
     if versioncmp( $cluster_version, $latest_cluster ) < 0 {
-        notify { "\$cfdb::mysql::cluster_version ${cluster_version} is not the latest ${latest_cluster}":
+        cf_notify { "\$cfdb::mysql::cluster_version ${cluster_version} is not the latest ${latest_cluster}":
             loglevel => warning,
         }
     }

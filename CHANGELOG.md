@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## (next)
+- CHANGED: to use cf_notify for warnings
+
 ## [0.12.2](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.12.2)
 - CHANGE: not to complain for "yellow" status of single-node elasticsearch
 - FIXED: minor issue to allow standalone elasticsearch (cross ref to postgresql variable

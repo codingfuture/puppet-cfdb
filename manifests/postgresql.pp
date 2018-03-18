@@ -29,7 +29,7 @@ class cfdb::postgresql (
     }
 
     if versioncmp( $version, $latest ) < 0 {
-        notify { "\$cfdb::postgresql::version ${version} is not the latest ${latest}":
+        cf_notify { "\$cfdb::postgresql::version ${version} is not the latest ${latest}":
             loglevel => warning,
         }
     }

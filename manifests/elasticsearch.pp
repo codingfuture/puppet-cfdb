@@ -29,7 +29,7 @@ class cfdb::elasticsearch (
     }
 
     if versioncmp( $version, $latest ) < 0 {
-        notify { "\$cfdb::elasticsearch::version ${version} is not the latest ${latest}":
+        cf_notify { "\$cfdb::elasticsearch::version ${version} is not the latest ${latest}":
             loglevel => warning,
         }
     }
