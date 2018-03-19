@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## (next)
 - CHANGED: to use cf_notify for warnings
+- FIXED: elasticsearch plugin-related failures on initial run
 
 ## [0.12.2](https://github.com/codingfuture/puppet-cfdb/releases/tag/v0.12.2)
 - CHANGE: not to complain for "yellow" status of single-node elasticsearch

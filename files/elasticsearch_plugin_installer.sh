@@ -13,7 +13,7 @@ ever=$(dpkg-query -W --showformat '${Version}' elasticsearch)
 res=0
 
 touch_restart() {
-    for d in /db/elasticsearch_*/conf/; do
+    for d in $(ls -d /db/elasticsearch_*/conf 2>/dev/null); do
         touch $d/restart_required
     done
 }

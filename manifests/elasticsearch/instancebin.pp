@@ -55,6 +55,7 @@ define cfdb::elasticsearch::instancebin(
         mode    => '0750',
         source  => '/etc/elasticsearch/ingest-geoip',
         recurse => true,
+        require => File['/etc/elasticsearch/ingest-geoip'],
     }
 
     #---
