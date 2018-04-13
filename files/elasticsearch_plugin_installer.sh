@@ -18,6 +18,24 @@ touch_restart() {
     done
 }
 
+# Make sure to remove incompatible first
+if [ $mode = 'install' ]; then
+    for p in "$@" skip; do
+        if [ $p = "skip" ]; then
+            continue;
+        fi
+
+        n=$(echo $p | cut -d: -f1)
+        i=$(echo "$p:$p" | cut -d: -f2)
+        s="${plugin_root}/${n}/${ever}.stamp"
+
+        if [ -d "${plugin_root}/${n}" ] && [ ! -f $s ]; then
+            $pt remove $n
+        fi
+    done
+fi
+
+#--
 for p in "$@" skip; do
     if [ $p = "skip" ]; then
         continue;
@@ -35,16 +53,7 @@ for p in "$@" skip; do
         else
             res=1
         fi
-    elif [ ! -f $s ]; then
-        if [ $mode = 'install' ]; then
-            $pt remove $n
-            $pt install $i
-            touch_restart
-            touch $s
-        else
-            res=1
-        fi
     fi
 done
-
+#--
 exit $res
