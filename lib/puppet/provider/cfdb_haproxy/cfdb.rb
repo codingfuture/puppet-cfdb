@@ -13,6 +13,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
     
     commands :systemctl => PuppetX::CfSystem::SYSTEMD_CTL
     HAPROXY_SYSTEMD = '/usr/sbin/haproxy-systemd-wrapper' unless defined? HAPROXY_SYSTEMD
+    HAPROXY = '/usr/sbin/haproxy' unless defined? HAPROXY
     
     def self.get_config_index
         'cf20db1_haproxy'
@@ -387,11 +388,20 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             },
             'Service' => {
                 'LimitNOFILE' => cf_system.fitRange(64*1024, open_files),
-                'ExecStart' => "#{HAPROXY_SYSTEMD} -f #{conf_file} -p #{run_dir}/haproxy.pid",
                 'ExecReload' => '/bin/kill -USR2 $MAINPID',
                 'WorkingDirectory' => root_dir,
             },
         }
+
+        if File.exists? HAPROXY_SYSTEMD
+            content_ini['Service'].merge!({
+                'ExecStart' => "#{HAPROXY_SYSTEMD} -f #{conf_file} -p #{run_dir}/haproxy.pid",
+            })
+        else
+            content_ini['Service'].merge!({
+                'ExecStart' => "#{HAPROXY} -Ws -f #{conf_file} -p #{run_dir}/haproxy.pid",
+            })
+        end
         
         service_changed = self.cf_system().createService({
             :service_name => service_name,

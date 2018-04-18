@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
 ## (next)
+- FIXED: to support haproxy 1.8+ (without systemd wrapper)
 - NEW: repmgr "location" support
 
 ## 1.0.1 (2018-04-13)
