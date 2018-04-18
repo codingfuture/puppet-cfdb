@@ -383,6 +383,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 # repmgr uses the same for initdb
                 'pg_ctl_options' => "-o \"--config_file=#{conf_file}\"",
                 'pg_bindir' => pg_bin_dir,
+                'location' => conf[:location],
             }
             
             if is_arbitrator
