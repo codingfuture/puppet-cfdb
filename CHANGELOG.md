@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## (next)
+- CHANGED: to use common cfsystem::pip
+
 ## 1.0.2 (2018-04-18)
 - FIXED: to support haproxy 1.8+ (without systemd wrapper)
 - NEW: repmgr "location" support
