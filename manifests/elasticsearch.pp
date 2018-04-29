@@ -10,7 +10,7 @@ class cfdb::elasticsearch (
     String[1]
         $version = $cfdb::elasticsearch::defaults::version,
     Boolean
-        $default_extensions = true,
+        $default_extensions = false,
     Array[String[1]]
         $extensions = [],
     String[1]

@@ -444,6 +444,10 @@ This class is included automatically on demand.
 
 * `$version = '6'` - major or major.minor version of Elasticsearch to use
 * `$apt_repo = 'https://artifacts.elastic.co/packages/6.x/apt'` - Official Elastic APT repository location
+* `$default_extensions = false` - install default extension list, if true.
+    - Default: 'analysis-icu' and 'ingest-geoip'
+* `$extensions = []` - list of custom extensions to insall.
+    - Note: elasticsearch is quite painful for exact version match.
 
 
 ## class `cfdb::mysql` parameters
