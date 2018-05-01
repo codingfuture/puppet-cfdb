@@ -536,6 +536,7 @@ module PuppetX::CfDb::MySQL::Instance
                 FileUtils.touch(restart_required_file)
                 FileUtils.chown(user, user, restart_required_file)
                 
+                systemctl('enable', "#{service_name}.service")
                 systemctl('start', "#{service_name}.service")
             elsif File.exists?(restart_required_file)
                 warning("#{user} configuration update. Service restart is required!")
@@ -562,6 +563,7 @@ module PuppetX::CfDb::MySQL::Instance
                     
                     create_service(conf, service_ini, service_env)
                 else
+                    systemctl('enable', "#{service_name}.service")
                     systemctl('start', "#{service_name}.service")
                     wait_sock(service_name, sock_file)
                     
@@ -616,6 +618,7 @@ module PuppetX::CfDb::MySQL::Instance
                 
                 if fw_configured
                     warning("> starting JOINER node (this may take time)")
+                    systemctl('enable', "#{service_name}.service")
                     systemctl('start', "#{service_name}.service")
                     wait_sock(service_name, sock_file, cfdb_settings.fetch('joiner_timeout', 600))
                 else
@@ -631,6 +634,7 @@ module PuppetX::CfDb::MySQL::Instance
             FileUtils.chown_R(user, user, data_dir)
             
             warning("> starting service")
+            systemctl('enable', "#{service_name}.service")
             systemctl('start', "#{service_name}.service")
             wait_sock(service_name, sock_file)
             
@@ -648,6 +652,7 @@ module PuppetX::CfDb::MySQL::Instance
                     service_ini,
                     service_env.merge({ 'MYSQLD_OPTS' => '--initialize' })
                 )
+                systemctl('enable', "#{service_name}.service")
                 systemctl('start', "#{service_name}.service")
                 
                 # return to normal
@@ -657,6 +662,7 @@ module PuppetX::CfDb::MySQL::Instance
                 sudo('-u', user, MYSQL_INSTALL_DB,
                     "--defaults-file=#{conf_file}",
                     "--datadir=#{data_dir}")
+                systemctl('enable', "#{service_name}.service")
                 systemctl('start', "#{service_name}.service")
             end
             

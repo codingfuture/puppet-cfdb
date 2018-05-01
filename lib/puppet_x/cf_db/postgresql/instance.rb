@@ -592,6 +592,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 warning('> running repmgr configuration')
                 
                 warning("> starting #{service_name}")
+                systemctl('enable', "#{service_name}.service")
                 systemctl('start', "#{service_name}.service")
                 
                 wait_sock(service_name, sock_file)
@@ -623,6 +624,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 )
                 
                 warning("> starting #{repmgr_service_name}")
+                systemctl('enable', "#{repmgr_service_name}.service")
                 systemctl('start', "#{repmgr_service_name}.service")
                 
                 cf_system.atomicWrite(active_version_file, version)
@@ -667,6 +669,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 
                 warning("> starting #{service_name}")
                 FileUtils.touch(unclean_state_file)
+                systemctl('enable', "#{service_name}.service")
                 systemctl('start', "#{service_name}.service")
                 
                 wait_sock(service_name, sock_file)
@@ -679,6 +682,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 )
                 
                 warning("> starting #{repmgr_service_name}")
+                systemctl('enable', "#{repmgr_service_name}.service")
                 systemctl('start', "#{repmgr_service_name}.service")
                 
                 cf_system.atomicWrite(active_version_file, version)
@@ -811,6 +815,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 warning('> running repmgr configuration')
                 
                 warning("> starting #{service_name}")
+                systemctl('enable', "#{service_name}.service")
                 systemctl('start', "#{service_name}.service")
                 
                 wait_sock(service_name, sock_file)
@@ -824,10 +829,12 @@ module PuppetX::CfDb::PostgreSQL::Instance
             
             if is_cluster
                 warning("> starting #{repmgr_service_name}")
+                systemctl('enable', "#{repmgr_service_name}.service")
                 systemctl('start', "#{repmgr_service_name}.service")
             end
             
             warning("> starting #{service_name}")
+            systemctl('enable', "#{service_name}.service")
             systemctl('start', "#{service_name}.service")
             
             wait_sock(service_name, sock_file)

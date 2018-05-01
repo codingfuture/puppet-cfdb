@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## (next)
 - CHANGED: not to install pre-defined elasticsearch extensions by default
+- FIXED: to also forcible enable instance services
 - NEW: cfsystem::metric declaration for instances
 
 ## 1.0.3 (2018-04-29)

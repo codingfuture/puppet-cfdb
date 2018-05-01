@@ -239,6 +239,7 @@ module PuppetX::CfDb::Elasticsearch::Instance
             warning("Please run when safe: #{PuppetX::CfSystem::SYSTEMD_CTL} restart #{service_name}.service")
         end
 
+        systemctl('enable', "#{service_name}.service")
         systemctl('start', "#{service_name}.service")
 
         return check_cluster_elasticsearch(conf)
