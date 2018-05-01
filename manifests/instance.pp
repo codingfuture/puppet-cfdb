@@ -669,4 +669,15 @@ define cfdb::instance (
         settings_tune => $act_settings_tune,
         sched_actions => $scheduled_actions,
     }})
+
+    # metrics
+    #---
+    cfsystem::metric { $cluster:
+        type => 'cfdb',
+        info => {
+            type    => $type,
+            cluster => $cluster,
+            role    => $cfdb::healthcheck,
+        }
+    }
 }
