@@ -82,7 +82,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 'external-check' => '',
                 'group' => user,
                 'user' => user,
-                'stats socket'  => "#{run_dir}/stats.sock mode 660 level admin",
+                'stats socket'  => "#{run_dir}/stats.sock mode 660 level admin group #{user}",
                 'ssl-server-verify' => 'required',
                 'ssl-default-server-options' => [
                     # not working here

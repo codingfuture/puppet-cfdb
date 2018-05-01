@@ -105,4 +105,14 @@ class cfdb::haproxy(
             "/usr/bin/hatop -s /run/${service_name}/stats.sock"
         ].join("\n"),
     }
+
+    # Metrics
+    #---
+    cfsystem::metric { $service_name:
+        type => haproxy,
+        info => {
+            group  => $user,
+            socket => "/run/${service_name}/stats.sock",
+        }
+    }
 }
