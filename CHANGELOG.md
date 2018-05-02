@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
-## (next)
+## 1.0.4 (2018-05-02)
 - CHANGED: not to install pre-defined elasticsearch extensions by default
 - FIXED: to also forcible enable instance services
 - NEW: cfsystem::metric declaration for instances
