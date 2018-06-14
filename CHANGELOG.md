@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
-## (next)
+## 1.0.5 (2018-06-14)
 - CHANGED: to use utf8mb4 instead of utf8 (utf8mb3) for MySQL by default
 
 ## 1.0.4 (2018-05-02)
