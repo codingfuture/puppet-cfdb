@@ -268,7 +268,9 @@ module PuppetX::CfDb::MySQL::Instance
         # defaults
         conf_settings = {
             'mysqld' => {
-                'character_set_server' => 'utf8',
+                'character_set_server' => 'utf8mb4',
+                'character_set_filesystem' => 'utf8',
+                'collation_server' => 'utf8mb4_unicode_ci',
                 'enforce_gtid_consistency' => 'ON',
                 'expire_logs_days' => 7,
                 'gtid_mode' => 'ON',
