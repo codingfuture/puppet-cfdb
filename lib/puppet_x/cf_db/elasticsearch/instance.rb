@@ -220,6 +220,7 @@ module PuppetX::CfDb::Elasticsearch::Instance
             'ES_HOME' => '/usr/share/elasticsearch',
             'ES_PATH_CONF' => conf_dir,
             'ES_JAVA_OPTS' => "-Xms#{heap_mem}m -Xmx#{heap_mem}m",
+            'ES_TMPDIR' => tmp_dir,
         }
         service_changed = create_service(conf, service_ini, service_env)
         
