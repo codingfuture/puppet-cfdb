@@ -187,7 +187,7 @@ module PuppetX::CfDb::Elasticsearch::Instance
             '8:-XX:+PrintGCDateStamps',
             '8:-XX:+PrintTenuringDistribution',
             '8:-XX:+PrintGCApplicationStoppedTime',
-            "8:-Xloggc:#{root_dir}/logs/gc.log",
+            "8:-Xloggc:#{tmp_dir}/gc.log",
             '8:-XX:+UseGCLogFileRotation',
             '8:-XX:NumberOfGCLogFiles=32',
             '8:-XX:GCLogFileSize=64m',
