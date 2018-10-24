@@ -1,6 +1,6 @@
 {
   "name": "codingfuture-cfdb",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "vcs": "git",
   "package": [
     "pkg"
