@@ -35,55 +35,75 @@ class cfdb::postgresql::serverpkg {
 
     case $ver {
         '9.5': {
-            $postgis_ver = '2.2'
+            $ext_packages = [
+                "postgresql-${ver}-asn1oid",
+                "postgresql-${ver}-debversion",
+                "postgresql-${ver}-ip4r",
+                "postgresql-${ver}-pgextwlist",
+                "postgresql-${ver}-pgmp",
+                "postgresql-${ver}-pgrouting",
+                "postgresql-${ver}-pllua",
+                "postgresql-${ver}-plproxy",
+                "postgresql-${ver}-plr",
+                "postgresql-${ver}-plv8",
+                "postgresql-${ver}-postgis-2.2",
+                "postgresql-${ver}-postgis-scripts",
+                "postgresql-${ver}-powa",
+                "postgresql-${ver}-prefix",
+                "postgresql-${ver}-preprepare",
+                "postgresql-plperl-${ver}",
+                "postgresql-plpython3-${ver}",
+                "postgresql-contrib-${ver}",
+            ]
         }
         '9.6': {
-            $postgis_ver = '2.3'
+            $ext_packages = [
+                "postgresql-${ver}-asn1oid",
+                "postgresql-${ver}-debversion",
+                "postgresql-${ver}-ip4r",
+                "postgresql-${ver}-pgextwlist",
+                "postgresql-${ver}-pgmp",
+                "postgresql-${ver}-pgrouting",
+                "postgresql-${ver}-pllua",
+                "postgresql-${ver}-plproxy",
+                "postgresql-${ver}-plr",
+                "postgresql-${ver}-plv8",
+                "postgresql-${ver}-postgis-2.3",
+                "postgresql-${ver}-postgis-scripts",
+                "postgresql-${ver}-powa",
+                "postgresql-${ver}-prefix",
+                "postgresql-${ver}-preprepare",
+                "postgresql-plperl-${ver}",
+                "postgresql-plpython3-${ver}",
+                "postgresql-contrib-${ver}",
+            ]
         }
         '10': {
-            $postgis_ver = '2.4'
+            $ext_packages = [
+                "postgresql-${ver}-asn1oid",
+                "postgresql-${ver}-debversion",
+                "postgresql-${ver}-ip4r",
+                "postgresql-${ver}-pgextwlist",
+                "postgresql-${ver}-pgmp",
+                "postgresql-${ver}-pllua",
+                "postgresql-${ver}-plproxy",
+                "postgresql-${ver}-plr",
+                "postgresql-${ver}-plv8",
+                "postgresql-${ver}-postgis-2.4-scripts",
+                "postgresql-${ver}-powa",
+                "postgresql-${ver}-prefix",
+                "postgresql-${ver}-preprepare",
+                "postgresql-plperl-${ver}",
+                "postgresql-plpython3-${ver}",
+            ]
         }
         default: {
-            $postgis_ver = '2.4'
+            $ext_packages = []
         }
     }
 
     if $cfdb::postgresql::default_extensions {
-        #'repack',
-        #'partman',
-        # 'pgespresso' - deprecated with 9.6,
-        [
-            'asn1oid',
-            'debversion',
-            'ip4r',
-            'pgextwlist',
-            'pgmp',
-            'pgrouting',
-            'pllua',
-            'plproxy',
-            'plr',
-            'plv8',
-            "postgis-${postgis_ver}",
-            'postgis-scripts',
-            'powa',
-            'prefix',
-            'preprepare',
-        ].each |$ext| {
-            ensure_resource('package', "postgresql-${ver}-${ext}", {})
-        }
-
-        # 'pltcl',
-        # 'contrib' - virtual since 10
-        [
-            'plperl',
-            'plpython3',
-        ].each |$ext| {
-            ensure_resource('package', "postgresql-${ext}-${ver}", {})
-        }
-
-        if versioncmp( $ver, '10' ) < 0 {
-            ensure_resource('package', "postgresql-contrib-${ver}", {})
-        }
+        ensure_packages($ext_packages)
     }
 
     ensure_packages([
