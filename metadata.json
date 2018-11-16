@@ -35,15 +35,14 @@
       "operatingsystem": "Ubuntu",
       "operatingsystemrelease": [
         "16.04",
-        "16.10",
-        "17.04"
+        "18.04"
       ]
     }
   ],
   "requirements": [
     {
       "name": "puppet",
-      "version_requirement": ">=4.7.0 <6.0.0"
+      "version_requirement": ">=4.7.0 <7.0.0"
     }
   ],
   "dependencies": [

@@ -14,8 +14,8 @@ class cfdb::mysql::perconaapt {
             true    => 'stretch',
             default => $lsbdistcodename
         },
-        'Ubuntu' => (versioncmp($::facts['operatingsystemrelease'], '17.04') >= 0) ? {
-            true    => 'zesty',
+        'Ubuntu' => (versioncmp($::facts['operatingsystemrelease'], '18.04') >= 0) ? {
+            true    => 'bionic',
             default => $lsbdistcodename
         },
         default  => $lsbdistcodename

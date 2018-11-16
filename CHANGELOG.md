@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## (next)
+- CHANGED: updated for Ubuntu 18.04 Bionic support
+
 ## 1.0.6 (2018-10-24)
 - FIXED: to properly use ES_TMPDIR (elasticsearch)
 - FIXED: to properly set GC log location (elasticsearch)
