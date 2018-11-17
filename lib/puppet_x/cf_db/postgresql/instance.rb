@@ -673,7 +673,20 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 systemctl('start', "#{service_name}.service")
                 
                 wait_sock(service_name, sock_file)
-                
+
+                # Workaround failure in register
+                while true do
+                    begin
+                        sudo('-H', '-u', user,
+                            "#{root_dir}/bin/cfdb_psql", '-c',
+                            "SELECT 1;")
+                        break
+                    rescue => e
+                        warning("Waiting #{service_name} (#{e})!")
+                        sleep 3
+                    end
+                end
+
                 sudo('-H', '-u', user,
                     "#{root_dir}/bin/cfdb_repmgr",
                     '-f', repmgr_file,

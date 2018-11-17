@@ -6,6 +6,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 ## (next)
 - CHANGED: updated for Ubuntu 18.04 Bionic support
 - CHANGED: revised per-version PostgreSQL extensions
+- FIXED: of repmgr slave registration in PostgreSQL 10
 
 ## 1.0.6 (2018-10-24)
 - FIXED: to properly use ES_TMPDIR (elasticsearch)
