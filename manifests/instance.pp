@@ -60,6 +60,7 @@ define cfdb::instance (
     include cfnetwork
     include cfsystem
     include cfdb
+    include cfdb::backup
 
     include "cfdb::${type}"
     if $is_arbitrator {
@@ -77,10 +78,6 @@ define cfdb::instance (
     if ($is_cluster or $is_secondary) and !getvar("cfdb::${type}::is_cluster") {
         # that's mostly specific to MySQL
         fail("cfdb::${type}::is_cluster must be set to true, if cluster is expected")
-    }
-
-    if $backup_support {
-        include cfdb::backup
     }
 
     #---
