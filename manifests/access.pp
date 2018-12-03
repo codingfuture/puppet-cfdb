@@ -373,13 +373,21 @@ define cfdb::access(
     }
 
     #---
+    if (($use_proxy_detected == false) and
+        ($cluster_info['certname'] == $::trusted['certname'])) {
+        $client_access_host = pick($client_host, $localhost)
+    } else {
+        $client_access_host = $client_host
+    }
+
+    #---
     cfdb_access { $title:
         ensure          => present,
         cluster         => $cluster,
         role            => $role,
         local_user      => $local_user,
         max_connections => $max_connections_reserve,
-        client_host     => $client_host,
+        client_host     => $client_access_host,
         config_info     => {
             'dotenv' => $env_file,
             'prefix' => $config_prefix,

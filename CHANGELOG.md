@@ -9,6 +9,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - FIXED: of repmgr slave registration in PostgreSQL 10
 - FIXED: failure catalog compilation without enabled backup
 - FIXED: to support plain NVMe partitions
+- FIXED: MySQL client host configuration issue with local TCP client
 
 ## 1.0.6 (2018-10-24)
 - FIXED: to properly use ES_TMPDIR (elasticsearch)

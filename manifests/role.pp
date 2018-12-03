@@ -44,9 +44,9 @@ define cfdb::role(
             $params = $val['parameters']
 
             $maxconn = pick($params['max_connections'], $cfdb::max_connections_default)
-            $host = pick($params['host'], $certname).split('/')[0]
+            $host = pick($params['client_host'], $certname).split('/')[0]
 
-            if $certname == $::trusted['certname'] {
+            if $host == $::trusted['certname'] {
                 $host_index = 'localhost'
             } else {
                 $host_index = $host
