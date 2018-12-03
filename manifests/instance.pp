@@ -337,12 +337,13 @@ define cfdb::instance (
         $params = $val['parameters']
 
         $maxconn = pick($params['max_connections'], $cfdb::max_connections_default)
-        $host = pick($params['client_host'], $certname).split('/')[0]
+        $client_host = pick($params['client_host'], $certname).split('/')[0]
         $role = $params['role']
 
         $role_info = [{
-            host    => $host,
-            maxconn => $maxconn,
+            host        => $certname,
+            client_host => $client_host,
+            maxconn     => $maxconn,
         }]
 
         if $memo[$role] {
