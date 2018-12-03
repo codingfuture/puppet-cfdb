@@ -171,7 +171,7 @@ Puppet::Type.type(:cfdb_instance).provide(
             device = "/sys/block/#{device}"
             
             if not File.exists? device
-                device.gsub!(/[0-9]/, '')
+                device.gsub!(/p?[0-9]+$/, '')
             end
             
             rotational = File.read("#{device}/queue/rotational").to_i
