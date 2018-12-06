@@ -22,6 +22,8 @@ define cfdb::instance (
     Integer[1]
         $memory_weight = 100,
     Optional[Integer[1]]
+        $memory_min = undef,
+    Optional[Integer[1]]
         $memory_max = undef,
     Cfsystem::CpuWeight
         $cpu_weight = 100,
@@ -169,7 +171,9 @@ define cfdb::instance (
         $def_memory_max = getvar("cfdb::${type}::defaults::max_memory")
     }
 
-    if $is_arbitrator {
+    if $memory_min {
+        $def_memory_min = $memory_min
+    } elsif $is_arbitrator {
         $def_memory_min = getvar("cfdb::${type}::defaults::min_arb_memory")
     } else {
         $def_memory_min = getvar("cfdb::${type}::defaults::min_memory")
