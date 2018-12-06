@@ -64,12 +64,21 @@ define cfdb::instance (
     include cfdb
     include cfdb::backup
 
+    $cluster = $title
+
     include "cfdb::${type}"
     if $is_arbitrator {
         include "cfdb::${type}::arbitratorpkg"
+
+        Class["cfdb::${type}::arbitratorpkg"]
+        -> Cfdb_instance[$cluster]
     } else {
         include "cfdb::${type}::serverpkg"
         include "cfdb::${type}::clientpkg"
+
+        Class["cfdb::${type}::serverpkg"]
+        -> Class["cfdb::${type}::clientpkg"]
+        -> Cfdb_instance[$cluster]
     }
 
     #---
@@ -101,7 +110,6 @@ define cfdb::instance (
 
 
     #---
-    $cluster = $title
     if $is_arbitrator {
         $service_name = "cf${type}-${cluster}-arb"
         $user = "${type}_${cluster}_arb"
@@ -413,7 +421,6 @@ define cfdb::instance (
         require       => [
             User[$user],
             File[$user_dirs],
-            Class["cfdb::${type}::serverpkg"],
             Cfsystem_memory_weight[$memory_mame],
             Cfsystem::Puppetpki[$user],
             Anchor['cfnetwork:firewall'],
