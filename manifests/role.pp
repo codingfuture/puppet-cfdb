@@ -48,6 +48,8 @@ define cfdb::role(
 
             if $host == $::trusted['certname'] {
                 $host_index = 'localhost'
+            } elsif $params['use_proxy'] == 'secure' {
+                $host_index = 'localhost'
             } else {
                 $host_index = $host
             }

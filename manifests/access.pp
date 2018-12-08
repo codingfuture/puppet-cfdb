@@ -392,6 +392,7 @@ define cfdb::access(
             'dotenv' => $env_file,
             'prefix' => $config_prefix,
         },
+        use_proxy       => $use_proxy_detected,
         require         => [
             File[$access_checker],
         ],

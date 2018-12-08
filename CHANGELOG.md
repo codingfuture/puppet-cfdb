@@ -11,6 +11,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - FIXED: to support plain NVMe partitions
 - FIXED: MySQL client host configuration issue with local TCP client
 - FIXED: only-arbitrator-on-host case 
+- FIXED: secure proxy configuration issues
 - NEW: instance memory_min parameter support
 
 ## 1.0.6 (2018-10-24)

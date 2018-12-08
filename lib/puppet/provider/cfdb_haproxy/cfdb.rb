@@ -207,10 +207,28 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                     end
                 rescue
                 end
+
+                host_use_unix_socket = (ip == '127.0.0.1')
+
+                if type === 'elasticsearch'
+                    host_use_unix_socket = false
+                end
+
+                if host_use_unix_socket
+                    server_dst = "unix@/run/cf#{type}-#{cluster}/"
+
+                    if type == 'postgresql'
+                        server_dst += ".s.PGSQL.#{port}"
+                    else
+                        server_dst += 'service.sock'
+                    end
+                else
+                    server_dst = "#{ip}:#{port}"
+                end
                 
                 secure_server = sinfo['secure']
 
-                server_config = ["#{ip}:#{port} check fall 2 rise 1 inter #{inter} fastinter #{fastinter}"]
+                server_config = ["#{server_dst} check fall 2 rise 1 inter #{inter} fastinter #{fastinter}"]
                 
                 if secure_server
                     server_config << 'weight 10'
@@ -242,7 +260,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 elsif conf_listeners.has_key? check_listen
                     conf_listeners[check_listen]['maxconn'] += conn_per_check
                 else
-                    check_server_config = ["#{ip}:#{port}"]
+                    check_server_config = ["#{server_dst}"]
 
                     if secure_server
                         check_server_config << 'ssl'

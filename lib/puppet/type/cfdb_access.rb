@@ -55,6 +55,9 @@ Puppet::Type.newtype(:cfdb_access) do
     
     newproperty(:client_host) do
     end
+
+    newproperty(:use_proxy) do
+    end
     
     newproperty(:config_info) do
         validate do |value|
