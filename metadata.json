@@ -1,6 +1,6 @@
 {
   "name": "codingfuture-cfdb",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "author": "Andrey Galkin",
   "summary": "Universal multi-instance multi-type database setup tool with cgroup runtime isolation",
   "license": "Apache-2.0",
