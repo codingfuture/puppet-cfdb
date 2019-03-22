@@ -1,5 +1,5 @@
 #
-# Copyright 2016-2018 (c) Andrey Galkin
+# Copyright 2016-2019 (c) Andrey Galkin
 #
 
 
@@ -10,7 +10,7 @@ class cfdb::mysql::clientpkg {
 
     $ver = $cfdb::mysql::actual_version
 
-    # note: this matter for [ossible package conflicts
+    # note: this matter for possible package conflicts
     if $cfdb::mysql::is_cluster {
         package { "percona-xtradb-cluster-client-${ver}": }
     } else {

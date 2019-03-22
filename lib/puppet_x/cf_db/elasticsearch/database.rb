@@ -1,5 +1,5 @@
 #
-# Copyright 2018 (c) Andrey Galkin
+# Copyright 2018-2019 (c) Andrey Galkin
 #
 
 
