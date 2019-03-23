@@ -130,6 +130,23 @@ elif db_type == 'elasticsearch':
     if res['status'] == 'red':
         print( "ERROR: red status" )
         sys.exit(1)
+elif db_type == 'mongodb':
+    from pymongo import MongoClient
+    timeouts = {
+        'connectTimeoutMS' : 3000,
+        'socketTimeoutMS' : 3000,
+        'serverSelectionTimeoutMS' : 3000,
+    }
+
+    socket = getconf('SOCKET')
+
+    if socket :
+        client = MongoClient(socket, **timeouts)
+    else:
+        client = MongoClient(getconf('HOST'), int(getconf('PORT')), **timeouts)
+
+    db = client[getconf('DB')]
+    db.authenticate(getconf('USER'), getconf('PASS'))
 else:
     print("ERROR: unknown database type '{0}'".format(db_type))
     sys.exit(1)

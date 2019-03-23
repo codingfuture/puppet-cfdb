@@ -333,6 +333,31 @@ define cfdb::access(
                 })
             }
         }
+        'mongodb': {
+            if $use_proxy_detected == 'secure' {
+                $cfg_all = $cfg
+            } else {
+                $nodes = $cluster_instances.reduce([]) |$memo, $val| {
+                    $params = $val['parameters']
+                    $cfdb = $params['settings_tune']['cfdb']
+                    $host = pick(
+                        $cfdb['listen'],
+                        $val['certname']
+                    )
+                    $memo + $host
+                }
+
+                $cfg_all = merge( $cfg, {
+                    nodes    => $nodes.join(' '),
+                } )
+
+                # Allow direct access for peer protocol
+                $fw_peer_service = "cfdb_${cluster}"
+                ensure_resource('cfnetwork::client_port', "local:${fw_peer_service}:${local_user}", {
+                    user => $local_user,
+                })
+            }
+        }
         'postgresql': {
             if $cfg['socket'] != '' {
                 $psql_socket = regsubst(regsubst($cfg['socket'],

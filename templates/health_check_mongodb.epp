@@ -1,0 +1,11 @@
+<% |String $conf_dir,
+    String $cluster,
+    String $service_name |
+-%>
+#!/bin/dash
+
+/usr/bin/mongo \
+    --host /run/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}.sock \
+    --norc \
+    '<%= $conf_dir %>/check_<%= $cluster %>.js' \
+    >/dev/null

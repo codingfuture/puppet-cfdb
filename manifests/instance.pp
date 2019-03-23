@@ -7,7 +7,8 @@ define cfdb::instance (
     Enum[
         'mysql',
         'postgresql',
-        'elasticsearch'
+        'elasticsearch',
+        'mongodb'
     ]
         $type,
     Boolean

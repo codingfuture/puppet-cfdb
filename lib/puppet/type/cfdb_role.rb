@@ -108,4 +108,7 @@ Puppet::Type.newtype(:cfdb_role) do
             ret
         end
     end
+
+    newproperty(:cache) do
+    end
 end

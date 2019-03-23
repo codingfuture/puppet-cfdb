@@ -4,11 +4,13 @@
 
 * Setup & auto tune service instances based on available resources:
     * Elasticsearch
+	* MongoDB
     * MySQL
     * PostgreSQL
     * a general framework to easily add new types is available
 * Support auto-configurable clustering:
     * Native for Elasticsearch
+	* Native for MongoDB
     * Galera Cluster for MySQL
     * repmgr for PostgreSQL
 * High Availability and fail-over out-of-the-box
@@ -449,6 +451,10 @@ This class is included automatically on demand.
 * `$extensions = []` - list of custom extensions to insall.
     - Note: elasticsearch is quite painful for exact version match.
 
+## class `cfdb::mongodb` parameters
+This class is included automatically on demand.
+
+* `$version = '5.6'` - version of Percona Server MongoDB to use
 
 ## class `cfdb::mysql` parameters
 This class is included automatically on demand.
@@ -608,6 +614,9 @@ TLS tunnel is NOT created in the following cases:
 * `/db/bin/cfdb_{cluster}_curl` is installed to properly invoke REST API
 * `/db/bin/cfdb_{cluster}_curator` is installed to properly invoke `elasticsearch-curator`
 
+## MongoDB
+* `~/.mongorc.js` is properly configured for `mongo` client to work without password in command line or env
+* `/db/bin/cfdb_{cluster}_mongo` is installed to properly invoke mongo
 
 ## MySQL
 
@@ -631,7 +640,12 @@ TLS tunnel is NOT created in the following cases:
 
 # `$settings_tune` magic
 
-## Elasticsearch:
+## Elasticsearch
+
+Flat configuration keys in documentation style (no sub-trees). Most of the settings can be
+tuned here.
+
+## MongoDB
 
 Flat configuration keys in documentation style (no sub-trees). Most of the settings can be
 tuned here.

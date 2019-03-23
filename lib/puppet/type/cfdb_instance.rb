@@ -11,6 +11,7 @@ Puppet::Type.newtype(:cfdb_instance) do
         'mysql',
         'postgresql',
         'elasticsearch',
+        'mongodb',
     ] unless defined? VALID_DB_TYPES
     
     autorequire(:cfsystem_flush_config) do

@@ -25,11 +25,14 @@ Puppet::Type.type(:cfdb_role).provide(
         # actual DB server config state
         # { cluster_user => { user => { allowed_hosts => max_connections } } }
         attr_accessor :role_cache
+        # Holder of misc cache data
+        attr_accessor :role_cache_misc
     end
-    
+
     def self.instances
         self.role_old = {}
         self.role_cache = {}
+        self.role_cache_misc = []
         super
     end
     
