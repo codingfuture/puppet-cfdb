@@ -22,12 +22,4 @@ define cfdb::postgresql::clusterports(
     cfnetwork::service_port { "${iface}:cfdb_${cluster}_peer":
         src => "ipset:${ipset}",
     }
-
-    # a workaround for ignorant PostgreSQL devs
-    #---
-    cfnetwork::service_port { "local:alludp:${cluster}-stats": }
-    cfnetwork::client_port { "local:alludp:${cluster}-stats":
-        user => $user,
-    }
-    #---
 }

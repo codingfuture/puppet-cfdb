@@ -24,4 +24,13 @@ define cfdb::postgresql::healthcheck(
             "password=${password}",
             'connect_timeout=2',
         ].join("\n"),
-    }}
+    }
+
+    # a workaround for ignorant PostgreSQL devs
+    #---
+    cfnetwork::service_port { "local:alludp:${cluster}-stats": }
+    cfnetwork::client_port { "local:alludp:${cluster}-stats":
+        user => "postgresql_${cluster}",
+    }
+    #---
+}
