@@ -30,7 +30,7 @@ define cfdb::postgresql::healthcheck(
     #---
     cfnetwork::service_port { "local:alludp:${cluster}-stats": }
     cfnetwork::client_port { "local:alludp:${cluster}-stats":
-        user => "postgresql_${cluster}",
+        user => getparam(Cfdb_instance[$cluster], 'user'),
     }
     #---
 }
