@@ -14,21 +14,51 @@ module PuppetX::CfDb::MongoDB::Role
         pass = conf[:password]
         database = conf[:database]
         readonly = conf[:readonly]
+        custom_grant = conf[:custom_grant] || []
         allowed_hosts = conf[:allowed_hosts]
 
         cache = self.role_cache[cluster_user]
         
+        oldconf = self.role_old.fetch(cluster_user, {}).fetch(user, {})
+        mismatch = (
+            (oldconf.fetch(:custom_grant, []).to_json != custom_grant.to_json) ||
+            (oldconf.fetch(:readonly, nil) != readonly) ||
+            (oldconf.fetch(:database, database) != database)
+        )
+
         cmd = [
             "const tdb = db.getMongo().getDB('#{database}');"
         ]
 
+        role = readonly ? 'read' : 'readWrite'
+        roles = [role]
+        roles += custom_grant
+
+        # A small hack...
+        if user == 'cfdbhealth'
+            roles << {
+                'db' => 'admin',
+                'role' => 'clusterMonitor',
+            }
+        end
+
+        user_info = {
+            'pwd' => pass,
+            'roles' => roles,
+            #'authenticationRestrictions' => [
+            #    {
+            #        clientSource: allowed_hosts.keys,
+            #    },
+            #]
+        }
+
         if pass.nil?
             cmd << "tdb.dropUser('#{user}');"
         elsif cache.has_key? user
-            cmd << "tdb.changeUserPassword('#{user}', '#{pass}');"
+            cmd << "tdb.updateUser('#{user}', #{user_info.to_json});"
         else
-            role = readonly ? 'read' : 'readWrite'
-            cmd << "tdb.createUser({user:'#{user}', pwd:'#{pass}', roles:['#{role}']});"
+            user_info['user'] = user
+            cmd << "tdb.createUser(#{user_info.to_json});"
         end
         cmd << "printjson(tdb.getUser('#{user}', {showCredentials: true}))"
 
@@ -86,6 +116,7 @@ module PuppetX::CfDb::MongoDB::Role
                 cache[luser] = {
                     :database => ldb,
                     :pass => v['credentials'],
+                    :roles => v['roles'],
                 }
             end
             
