@@ -43,7 +43,7 @@ module PuppetX::CfDb::MongoDB::Role
             tmp_exec_file).split("\n").drop(2)
 
         while res.size > 1 and res[0] != '{'
-            res.drop! 1
+            res = res.drop(1)
         end
 
         res = JSON.parse(res.join("\n"))

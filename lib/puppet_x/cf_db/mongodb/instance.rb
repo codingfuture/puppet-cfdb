@@ -6,7 +6,7 @@
 module PuppetX::CfDb::MongoDB::Instance
     include PuppetX::CfDb::MongoDB
 
-    def call_mongo(conf, cmd, args=[], ignore=false)
+    def call_mongo(conf, cmd, auth=true, ignore=false)
         user = conf[:user]
         root_dir = conf[:root_dir]
 
@@ -16,11 +16,18 @@ module PuppetX::CfDb::MongoDB::Instance
         cf_system.atomicWrite(tmp_exec_file, cmd, {:user => user, :silent => true})
 
         begin
+            args = []
+
+            if auth
+                args << "#{root_dir}/.mongorc.js"
+            end
+
+            args << tmp_exec_file
+
             res = sudo('-H', '-u', user, MONGO,
                 '--host', "#{root_dir}/server.sock",
                 'admin',
-                "#{root_dir}/.mongorc.js",
-                tmp_exec_file,
+                '--quiet', '--norc',
                 *args)
             FileUtils.rm_f tmp_exec_file
             return res.strip().split("\n").drop(2)
@@ -154,6 +161,14 @@ module PuppetX::CfDb::MongoDB::Instance
         
         cf_system.atomicWrite("#{root_dir}/.mongorc.js", mongorc, {:user => user, :show_diff => false})
 
+        mongoenv = [
+            "DB_HOST=#{bind_address}",
+            "DB_PORT=#{port}",
+            "ROOT_USER=#{root_name}",
+            "ROOT_PASS=#{root_pass}",
+        ]
+        cf_system.atomicWrite("#{root_dir}/.mongorc.sh", mongoenv, {:user => user, :show_diff => false})
+
         #---
         avail_mem = get_memory(cluster)
         cache_coef = cfdb_settings.fetch('cache_percent', 50).to_f / 100.0
@@ -278,14 +293,25 @@ module PuppetX::CfDb::MongoDB::Instance
             warning('> initializing')
             wait_mongo_ready(conf, sock_file)
 
-            call_mongo(conf, 'rs.initiate()', ['--norc'])
+            call_mongo(conf, 'rs.initiate()', false)
             
             # Get some time to become master
             sleep 3
 
-            call_mongo(conf,
-                       "db.createUser({user:'#{root_name}',pwd:'#{root_pass}',roles:['root']});",
-                       ['--norc'])
+            # Mongo has quite weird internal security checks...
+            cmd = [
+                "db.createUser({user:'#{root_name}',pwd:'#{root_pass}',roles:['root']});",
+                # Just do not ask what WTF is here..
+                "db.auth('#{root_name}','#{root_pass}');",
+                'db.createRole(
+                    { role: "superadmin",
+                      privileges: [ { resource: { anyResource: true }, actions: [ "anyAction" ] } ],
+                      roles: []
+                    });',
+                "db.grantRolesToUser('#{root_name}', ['superadmin'])",
+            ]
+
+            call_mongo(conf, cmd, false)
 
             conf_settings['security.authorization'] = 'enabled'
             cf_system.atomicWrite(conf_file, conf_settings.to_yaml, { :user => user })
@@ -301,7 +327,7 @@ module PuppetX::CfDb::MongoDB::Instance
 
             wait_mongo_ready(conf, sock_file)
 
-            ismaster = call_mongo(conf, 'print(rs.isMaster().ismaster)', ['--quiet'])[0]
+            ismaster = call_mongo(conf, 'print(rs.isMaster().ismaster)')[0]
 
             if ismaster != 'true'
                 if !is_arbitrator && !is_secondary
@@ -312,7 +338,7 @@ module PuppetX::CfDb::MongoDB::Instance
             elsif is_arbitrator or is_secondary
                 warning("!!! Trying to step down from Primary for #{cluster} !!!")
                 begin
-                    call_mongo(conf, 'rs.stepDown()', ['--quiet'])
+                    call_mongo(conf, 'rs.stepDown()')
 
                     # give some time
                     sleep 15
@@ -320,14 +346,13 @@ module PuppetX::CfDb::MongoDB::Instance
                     warning("FAILED: #{e}")
                 end
 
-                ismaster = call_mongo(conf, 'print(rs.isMaster().ismaster)', ['--quiet'])[0]
+                ismaster = call_mongo(conf, 'print(rs.isMaster().ismaster)')[0]
             end
 
             if ismaster == 'true'
                 members = call_mongo(
                         conf,
-                        'for (let m of rs.config().members) { print(m.host); }',
-                        ['--quiet'])
+                        'for (let m of rs.config().members) { print(m.host); }')
 
                 cluster_addr.each { |m|
                     maddr = "#{m['addr']}:#{m['port']}"

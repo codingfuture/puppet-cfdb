@@ -29,7 +29,7 @@
     * automatic firewall setup on both client & server side
     * automatic protection for roles x incoming hosts
     * automatic protection for roles x max connections
-* Automatic backup and automated restore
+* Automatic incremental backup and automated restore
 * Strict cgroup-based resource isolation on top of `systemd` integration
 * Automatic DB connection availability checks
 * Automatic cluster state checks

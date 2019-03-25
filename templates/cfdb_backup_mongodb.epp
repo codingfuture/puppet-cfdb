@@ -1,0 +1,84 @@
+<%- | String $backup_dir,
+      String $root_dir,
+      String $user,
+      String $base_date='month' |
+-%>
+#!/bin/bash
+
+backup_root_dir=<%= $backup_dir %>
+root_dir=<%= $root_dir %>
+user=<%= $user %>
+base_date=<%= $base_date %>
+
+curl="${root_dir}/bin/cfdb_curl"
+
+# Make sure to run under instance user
+if test "$(/usr/bin/id -u)" = 0; then
+    exec /usr/bin/sudo -i -u <%= $user %> $0 "$@"
+    # should not reach here
+    exit -1
+fi
+
+case $base_date in
+    'year') base_date='%Y' ;;
+    'quarter') base_date="%YQ$(( $(/bin/date +%m) / 4 + 1 ))" ;;
+    'month') base_date='%Y%m' ;;
+    'week') base_date='%YW%W' ;;
+    'day') base_date='%Y%m%d' ;;
+    'daytime') base_date='%Y%m%d_%H%M%S' ;;
+esac
+
+sub_dir=$(/bin/date --utc "+${base_date}")
+backup_dir="${backup_root_dir}/${sub_dir}"
+
+set -ex
+
+if [ ! -e $backup_dir/base ]; then
+    backup_out=$backup_dir/base
+    inc_opts="--oplog"
+else
+    backup_out=$backup_dir/inc_$(/bin/date --utc "+%Y%m%d_%H%M%S")
+    inc_opts="-d local -c oplog.rs --query {ts:{\$gt:$(cat $backup_dir/last_oplog_ts)}}"
+fi
+
+# just in case
+[ ! -e $backup_out ]
+
+. $root_dir/.mongorc.sh
+
+next_ts=$(
+    echo -e 'use local\ndb.oplog.rs.find().sort({$natural:-1}).limit(1).next().ts' |
+    /usr/bin/mongo --host=$root_dir/server.sock admin | /bin/grep Timestamp)
+
+# NOTES:
+# 1. That's not really secure to expose credentials in env, but MongoDB has such limitations.
+# 2. UNIX socket seems to be not supported.
+# 3. Base backup restore may be more efficient with mongod stop & tar.
+# 4. Oplog should safe to apply multiple times on restore.
+/usr/bin/mongodump \
+    --host=${DB_HOST} \
+    --port=${DB_PORT} \
+    --authenticationDatabase=admin \
+    --username=$ROOT_USER \
+    --password=$ROOT_PASS \
+    --out=$backup_out.tmp \
+    --gzip \
+    $inc_opts
+
+if [ $backup_out != $backup_dir/base ]; then
+    mv $backup_out.tmp/local/oplog.rs.bson.gz $backup_out.tmp/oplog.bson.gz
+    rm -rf $backup_out.tmp/local
+else
+    gzip <$backup_out.tmp/oplog.bson >$backup_out.tmp/oplog.bson.gz
+    rm $backup_out.tmp/oplog.bson
+fi
+
+mv $backup_out.tmp $backup_out
+echo -n "$next_ts" | /bin/sed -e 's/ //g' >$backup_dir/last_oplog_ts
+
+/bin/ln -sfn "${sub_dir}" "${backup_root_dir}/last_backup"
+
+set +ex
+echo "---------"
+echo "All done!"
+echo "---------"
