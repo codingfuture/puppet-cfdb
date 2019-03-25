@@ -20,7 +20,7 @@ define cfdb::mongodb::healthcheck(
         content => [
             "const tdb = db.getMongo().getDB('${database}');",
             "tdb.auth('${role}', '${password}');",
-            "tdb.runCommand( { ping: 1 } )",
+            'tdb.runCommand( { ping: 1 } )',
         ].join("\n"),
     }
 }
