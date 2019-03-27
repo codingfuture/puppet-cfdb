@@ -28,9 +28,11 @@ define cfdb::postgresql::healthcheck(
 
     # a workaround for ignorant PostgreSQL devs
     #---
-    cfnetwork::service_port { "local:alludp:${cluster}-stats": }
-    cfnetwork::client_port { "local:alludp:${cluster}-stats":
-        user => getparam(Cfdb_instance[$cluster], 'user'),
+    if defined(Cfdb_instance[$cluster]) {
+        cfnetwork::service_port { "local:alludp:${cluster}-stats": }
+        cfnetwork::client_port { "local:alludp:${cluster}-stats":
+            user => getparam(Cfdb_instance[$cluster], 'user'),
+        }
     }
     #---
 }
