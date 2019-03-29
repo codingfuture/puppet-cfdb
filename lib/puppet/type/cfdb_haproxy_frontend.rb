@@ -12,6 +12,7 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
         'postgresql',
         'elasticsearch',
         'mongodb',
+        'redis',
     ]
     
     autorequire(:cfsystem_flush_config) do

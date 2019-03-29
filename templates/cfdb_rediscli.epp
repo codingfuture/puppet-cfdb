@@ -1,0 +1,23 @@
+<%- |
+    String $user,
+    String $service_name,
+    Boolean $sentinel,
+| -%>
+#!/bin/bash
+
+# Make sure to run under instance user
+if test "$(/usr/bin/id -u)" = 0; then
+    exec /usr/bin/sudo -H -u <%= $user %> $0 "$@"
+    # should not reach here
+    exit -1
+fi
+
+cd $HOME
+. .redisrc.sh
+
+# Password leaks on command line...
+<% if $sentinel { -%>
+/usr/bin/redis-cli -h "$DB_HOST" -p "$SENTINEL_PORT" -a "$ROOT_PASS" "$@"
+<% } else { -%>
+/usr/bin/redis-cli -s /run/<%= $service_name %>/service.sock -a "$ROOT_PASS" "$@"
+<% } -%>

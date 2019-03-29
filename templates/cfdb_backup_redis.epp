@@ -1,0 +1,55 @@
+<%- | String $backup_dir,
+      String $root_dir,
+      String $user,
+      String $base_date='month' |
+-%>
+#!/bin/bash
+
+backup_root_dir=<%= $backup_dir %>
+root_dir=<%= $root_dir %>
+user=<%= $user %>
+base_date=<%= $base_date %>
+
+# Make sure to run under instance user
+if test "$(/usr/bin/id -u)" = 0; then
+    exec /usr/bin/sudo -u <%= $user %> $0 "$@"
+    # should not reach here
+    exit -1
+fi
+
+case $base_date in
+    'year') base_date='%Y' ;;
+    'quarter') base_date="%Y-Q$(( $(/bin/date +%m) / 4 + 1 ))" ;;
+    'month') base_date='%Y-%m' ;;
+    'week') base_date='%Y-W%W' ;;
+    'day') base_date='%Y-%m-%d' ;;
+    'daytime') base_date='%Y-%m-%d_%H%M%S' ;;
+esac
+
+sub_dir=$(/bin/date --utc "+${base_date}")
+backup_dir="${backup_root_dir}/${sub_dir}"
+
+set -e
+
+. $root_dir/.redisrc.sh
+
+redis_cmd() {
+    /usr/bin/redis-cli -h "$DB_HOST" -p "$DB_PORT" -a "$ROOT_PASS" "$@"
+}
+
+prev_save=$(redis_cmd --raw lastsave)
+redis_cmd bgsave
+
+while [ "$(redis_cmd --raw lastsave)" = "${prev_save}" ]; do
+    echo "Waiting for backup to complete..."
+    sleep 1
+done
+
+/usr/bin/rdiff-backup \
+    -b --no-acls \
+    --include-regexp '\.(rds|aof)$' \
+    --exclude '**' \
+    $root_dir/data $backup_dir
+
+/bin/ln -sfn "${sub_dir}" "${backup_root_dir}/last_backup"
+    

@@ -1,0 +1,17 @@
+<% |String $conf_dir,
+    String $cluster,
+    String $service_name |
+-%>
+#!/bin/dash
+
+. <%= $conf_dir %>/check_<%= $cluster %>.sh
+
+res=$(/usr/bin/redis-cli \
+    -s /run/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}.sock \
+    -a "$ROOT_PASS" \
+    --raw role | /usr/bin/head -n1)
+
+case $HAPROXY_PROXY_NAME in
+    *:lb|*:lb:secure) [ "${res}" = 'master' ] || [ "${res}" = 'slave' ] ;;
+    *) [ "${res}" = 'master' ] ;;
+esac

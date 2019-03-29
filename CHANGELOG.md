@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## (next)
 - NEW: MongoDB support
+- NEW: Redis support
 - FIXED: postgresql UDP stats ports to be open for single instance case as well
 
 ## 1.1.0 (2018-12-09)

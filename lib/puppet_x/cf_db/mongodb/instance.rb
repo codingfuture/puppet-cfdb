@@ -380,6 +380,8 @@ module PuppetX::CfDb::MongoDB::Instance
     end
 
     def check_cluster_mongodb(conf)
+        return true if !conf[:is_cluster]
+
         root_dir = conf[:root_dir]
         cluster = conf[:cluster]
         bin_dir = "#{root_dir}/bin/cfdb_curl"

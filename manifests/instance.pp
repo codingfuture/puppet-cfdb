@@ -8,7 +8,8 @@ define cfdb::instance (
         'mysql',
         'postgresql',
         'elasticsearch',
-        'mongodb'
+        'mongodb',
+        'redis'
     ]
         $type,
     Boolean

@@ -1,0 +1,121 @@
+<%- | String $backup_dir,
+      String $root_dir,
+      String $user,
+      String $service_name |
+-%>
+#!/bin/bash
+
+backup_dir=<%= $backup_dir %>
+root_dir=<%= $root_dir %>
+user=<%= $user %>
+service_name=<%= $service_name %>
+
+# Make sure to run under instance user
+if test "$(/usr/bin/id -u)" != 0; then
+    echo "Error: this script must run under root"
+    exit 1
+fi
+
+data_dir="${root_dir}/data"
+last_backup="${backup_dir}/last_backup"
+last_backup="${backup_dir}/$(/bin/readlink -ns $last_backup)"
+
+echo "Last backup location: $last_backup"
+echo
+echo "NOTE: if needed, you must ensure the cluster is in a clean state by yourself!"
+echo
+
+if ! test -d "$last_backup"; then
+    echo "Last backup is not a directory"
+    exit 1
+fi
+
+confirm1='Yes, I am sure'
+confirm2='Yes, I am REALLY sure'
+
+echo ""
+echo "Are you sure you want to restore the last backup?"
+echo -n "Print '$confirm1': "
+read check
+test "$check" = "$confirm1" || exit 1
+
+echo ""
+echo "Are you really, really sure?"
+echo -n "Print '$confirm2': "
+read check
+test "$check" = "$confirm2" || exit 1
+
+
+# fail on error & be verbose
+set -ex
+
+. $root_dir/.redisrc.sh
+
+redis_cmd() {
+    /usr/bin/sudo -u <%= $user %> /usr/bin/redis-cli -h "$DB_HOST" -p "$DB_PORT" -a "$ROOT_PASS" "$@"
+}
+
+
+# make sure service is not running
+/bin/systemctl stop ${service_name}.service
+
+#/usr/bin/rdiff-backup \
+#    -r now \
+#    $last_backup $root_dir/data
+
+/bin/rm -rf $root_dir/data
+/bin/mkdir $root_dir/data
+/bin/cp -a $last_backup/dump.rds $root_dir/data/
+/bin/chown -R <%= $user %>:<%= $user %> $root_dir/data/
+    
+# Make sure to start as master
+restore_conf=$root_dir/conf/restore.conf
+/bin/sed \
+    -e '/slaveof/d' -e '/appendonly/d' \
+    $root_dir/conf/redis.conf >$restore_conf
+echo "appendonly no" >> $restore_conf
+/bin/chown <%= $user %>:<%= $user %> $restore_conf
+
+/bin/mkdir /run/$service_name
+/bin/chown <%= $user %>:<%= $user %> /run/$service_name
+/usr/bin/sudo -u <%= $user %> /usr/bin/redis-server $restore_conf &
+
+while ! redis_cmd ping; do
+    echo "Waiting startup"
+    sleep 1
+done
+
+redis_cmd config set appendonly yes
+
+while redis_cmd info persistence | /bin/grep -q "aof_pending_rewrite:1"; do
+    echo "Waiting AOF rewrite to start"
+    sleep 1
+done
+
+while redis_cmd info persistence | /bin/grep -q "aof_rewrite_in_progress:1"; do
+    echo "Waiting AOF rewrite to complete"
+    sleep 1
+done
+
+echo "Shutting down"
+redis_cmd shutdown save
+wait
+
+/bin/rm -f $root_dir/conf/restore.conf
+/bin/sed -i '/slaveof/d' $root_dir/conf/redis.conf
+
+echo "Starting normal"
+/bin/systemctl start ${service_name}.service
+
+# Done
+#----
+
+# make sure we do not make incremental backups with invalid base
+# NOTE: not critical for rdiff, but make it consistent
+/bin/mv "$last_backup" "$last_backup.restored$(/bin/date '+%s')"
+
+set +ex
+echo "---------"
+echo "All done!"
+echo "---------"
+

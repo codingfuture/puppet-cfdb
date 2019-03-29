@@ -7,12 +7,14 @@
 	* MongoDB
     * MySQL
     * PostgreSQL
+    * Redis
     * a general framework to easily add new types is available
 * Support auto-configurable clustering:
     * Native for Elasticsearch
 	* Native for MongoDB
     * Galera Cluster for MySQL
     * repmgr for PostgreSQL
+    * Sentinel for Redis Master-Slave
 * High Availability and fail-over out-of-the-box
     * Specialized HAProxy on each client system
 * Support for secure TLS tunnel with mutual authentication for

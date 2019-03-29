@@ -130,6 +130,7 @@ elif db_type == 'elasticsearch':
     if res['status'] == 'red':
         print( "ERROR: red status" )
         sys.exit(1)
+
 elif db_type == 'mongodb':
     from pymongo import MongoClient
     timeouts = {
@@ -147,6 +148,25 @@ elif db_type == 'mongodb':
 
     db = client[getconf('DB')]
     db.authenticate(getconf('USER'), getconf('PASS'))
+
+elif db_type == 'redis':
+    import redis
+
+    socket = getconf('SOCKET')
+    password = getconf('PASS') or None
+
+    if socket :
+        client = redis.Redis(unix_socket_path=socket, password=password)
+    else:
+        client = redis.Redis(
+                host=getconf('HOST'),
+                port=int(getconf('PORT')),
+                password=password,
+                socket_connect_timeout=3,
+                socket_timeout=3)
+
+    client.ping()
+
 else:
     print("ERROR: unknown database type '{0}'".format(db_type))
     sys.exit(1)

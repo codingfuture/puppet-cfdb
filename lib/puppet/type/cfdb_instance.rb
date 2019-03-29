@@ -12,6 +12,7 @@ Puppet::Type.newtype(:cfdb_instance) do
         'postgresql',
         'elasticsearch',
         'mongodb',
+        'redis',
     ] unless defined? VALID_DB_TYPES
     
     autorequire(:cfsystem_flush_config) do

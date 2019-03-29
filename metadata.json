@@ -21,7 +21,9 @@
     "restore",
     "repmgr",
     "percona",
-    "xtradb"
+    "xtradb",
+    "mongodb",
+    "redis"
   ],
   "operatingsystem_support": [
     {

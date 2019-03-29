@@ -324,7 +324,7 @@ define cfdb::access(
                 } )
 
                 # Allow direct access for peer protocol
-                $fw_peer_service = "cfdb_${cluster}_${nodeport}"
+                $fw_peer_service = "cfdb_${cluster}_peeraccess"
                 ensure_resource('cfnetwork::describe_service', $fw_peer_service, {
                     server => "tcp/${nodeport}",
                 })
@@ -333,7 +333,8 @@ define cfdb::access(
                 })
             }
         }
-        'mongodb': {
+        'mongodb',
+        'redis': {
             if $use_proxy_detected == 'secure' {
                 $cfg_all = $cfg
             } else {
@@ -352,7 +353,10 @@ define cfdb::access(
                 } )
 
                 # Allow direct access for peer protocol
-                $fw_peer_service = "cfdb_${cluster}"
+                $fw_peer_service = "cfdb_${cluster}_peeraccess"
+                ensure_resource('cfnetwork::describe_service', $fw_peer_service, {
+                    server => "tcp/${port}",
+                })
                 ensure_resource('cfnetwork::client_port', "local:${fw_peer_service}:${local_user}", {
                     user => $local_user,
                 })
