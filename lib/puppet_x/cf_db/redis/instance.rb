@@ -29,6 +29,7 @@ module PuppetX::CfDb::Redis::Instance
         type = conf[:type]
         conf_file = "#{conf_dir}/redis.conf"
         sentinel_file = "#{conf_dir}/sentinel.conf"
+        sentinel_orig_file = "#{conf_dir}/sentinel.conf.orig"
         
         run_dir = "/run/#{service_name}"
         restart_required_file = "#{conf_dir}/restart_required"
@@ -74,7 +75,7 @@ module PuppetX::CfDb::Redis::Instance
 
         #---
         if have_external_conn or is_cluster
-            bind_address = cfdb_settings['listen'] || '0.0.0.0'
+            bind_address = cfdb_settings['listen'] || cfdb_settings['cluster_listen'] || '0.0.0.0'
             cluster_bind_address = cfdb_settings['cluster_listen'] || '0.0.0.0'
         else
             bind_address = '127.0.0.1'
@@ -103,6 +104,8 @@ module PuppetX::CfDb::Redis::Instance
         backlog_mem = 0
 
         if is_cluster and !is_arbitrator
+            left_mem -= (cfdb_settings.fetch('sentinel_mem', 8).to_f * 1024).to_i
+
             backlog_coef = cfdb_settings.fetch('backlog_percent', 1).to_f / 100.0
             backlog_mem = (left_mem * backlog_coef).to_i
             left_mem -= backlog_mem
@@ -277,7 +280,7 @@ module PuppetX::CfDb::Redis::Instance
             }
 
             # forced
-            quorum = cluster_addr.size # TODO: revise
+            quorum = [((cluster_addr.size + 1) / 2.0).ceil, 1].max
 
             forced_sentinel = {
                 'bind' => "#{cluster_bind_address}",
@@ -290,14 +293,19 @@ module PuppetX::CfDb::Redis::Instance
             conf_sentinel.merge! sentinel_tune
             conf_sentinel.merge! forced_sentinel
 
-            new_sentinel = File.exists? sentinel_file
-            conf_changed = cf_system.atomicWrite(sentinel_file, redis_conf(conf_sentinel),
-                                                 { :user => user, :dry_run => new_sentinel })
+            conf_changed = cf_system.atomicWrite(sentinel_orig_file, redis_conf(conf_sentinel),
+                                                 { :user => user })
 
             # Prepare service file
             #---
             if is_arbitrator
                 sentinel_service_name = service_name
+
+                # Just make the default checks happy
+                if !File.exists?(data_dir)
+                    FileUtils.mkdir(data_dir, :mode => 0750)
+                    FileUtils.chown(user, user, data_dir)
+                end
             else
                 sentinel_service_name = "#{service_name}-arb"
             end
@@ -319,12 +327,13 @@ module PuppetX::CfDb::Redis::Instance
             service_changed = create_service(conf, service_ini, service_env,
                                              slice_name, sentinel_service_name)
 
-            if service_changed
-                systemctl('restart', "#{sentinel_service_name}.service")
-            end
-            
             if conf_changed
-                info("Sentinel config is not automatically overridden - manual changes may be necessary in #{sentinel_file}!")
+                warning("> reconfiguring #{sentinel_service_name} from scratch")
+                systemctl('stop', "#{sentinel_service_name}.service")
+                cf_system.atomicWrite(sentinel_file, redis_conf(conf_sentinel), { :user => user })
+                systemctl('start', "#{sentinel_service_name}.service")
+            elsif service_changed
+                systemctl('restart', "#{sentinel_service_name}.service")
             end
 
             systemctl('enable', "#{sentinel_service_name}.service")
@@ -340,6 +349,39 @@ module PuppetX::CfDb::Redis::Instance
     
     def check_cluster_redis(conf)
         return true if !conf[:is_cluster]
+        return true if conf[:is_arbitrator]
+
+        res = sudo('-u', conf[:user],
+                   "#{conf[:root_dir]}/../bin/cfdb_#{conf[:cluster]}_rediscli",
+                   '--raw', 'info', 'replication')
+        info = {}
+        res.strip().split("\n").each { |l|
+            l = l.split(':', 2)
+            next if l.length != 2
+            info[l[0]] = l[1].strip()
+        }
+
+        if conf[:is_secondary]
+            if info['role'] != 'slave'
+                warning("! #{conf[:service_name]} is not an active slave (#{info['role']}) !")
+            end
+        else
+            if info['role'] != 'master'
+                warning(" ! #{conf[:service_name]} is not an active master (#{info['role']}) !")
+            else
+                slaves = 0
+
+                conf[:cluster_addr].each { |v|
+                    slaves += 1 if !v['is_arbitrator']
+                }
+
+                if slaves != info['connected_slaves'].to_i
+                    warning("! Unexpected numer of slaves #{slaves} vs #{info['connected_slaves']} for #{conf[:service_name]} !")
+                end
+            end
+        end
+
+        true
     end
 
     def redis_conf(settings)
