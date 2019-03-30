@@ -63,5 +63,25 @@ Puppet::Type.newtype(:cfdb_access) do
         validate do |value|
             value.is_a? Hash
         end
+
+        def is_to_s(value)
+            value = value.clone
+
+            if value['password']
+                value['password'] = '<old_secret>'
+            end
+
+            value.to_s
+        end
+
+        def should_to_s(value)
+            value = value.clone
+
+            if value['password']
+                value['password'] = '<new_secret>'
+            end
+
+            value.to_s
+        end
     end    
 end
