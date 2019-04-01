@@ -403,6 +403,7 @@ define cfdb::access(
 
     #---
     if (($use_proxy_detected == false) and
+        $cluster_info and
         ($cluster_info['certname'] == $::trusted['certname'])) {
         $client_access_host = pick($client_host, $localhost)
     } else {
