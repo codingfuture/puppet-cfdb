@@ -111,9 +111,14 @@ class cfdb::postgresql::serverpkg {
         'pgtop',
         'repmgr',
         "postgresql-${ver}-repmgr",
-        'pg-backup-ctl'
     ])
 
+    # Official repo supplies only v0.8, but pg v10 required v1.0+
+    # 'pg-backup-ctl'
+    file { '/usr/bin/pg_backup_ctl':
+        mode    => '0755',
+        content => file('cfdb/pg_backup_ctl'),
+    }
 
     # default instance must not run
     service { ['postgresql', "postgresql@${ver}-main"]:
