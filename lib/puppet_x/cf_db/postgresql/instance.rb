@@ -557,7 +557,11 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 warning("#{user} configuration update. Service restart is required!")
                 warning("Please run when safe: #{PuppetX::CfSystem::SYSTEMD_CTL} restart #{service_name}.service")
             end
-            
+
+            # only required for cfdb migration
+            FileUtils.chmod(0640, active_version_file)
+            FileUtils.chown(user, user, active_version_file)
+
         # No data: witness
         elsif is_arbitrator
             begin
@@ -627,7 +631,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 systemctl('enable', "#{repmgr_service_name}.service")
                 systemctl('start', "#{repmgr_service_name}.service")
                 
-                cf_system.atomicWrite(active_version_file, version)
+                cf_system.atomicWrite(active_version_file, version, { :mode => 0640 })
             rescue => e
                 warning("Failed to setup witness: #{e}")
                 warning("Master server needs to be re-provisioned after this host facts are known. Then run again")
@@ -698,7 +702,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 systemctl('enable', "#{repmgr_service_name}.service")
                 systemctl('start', "#{repmgr_service_name}.service")
                 
-                cf_system.atomicWrite(active_version_file, version)
+                cf_system.atomicWrite(active_version_file, version, { :mode => 0640 })
                 self.atomicWritePG(conf_file, pgsettings, {:user => user})
                 FileUtils.rm_f(unclean_state_file)
             rescue => e
@@ -730,7 +734,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 FileUtils.cp_r(init_data, old_data)
                 FileUtils.chown_R(user, user, old_data)
                 FileUtils.chmod_R("go-rwx", old_data)
-                cf_system.atomicWrite(active_version_file, old_version)
+                cf_system.atomicWrite(active_version_file, old_version, { :mode => 0640 })
                 
                 old_hba_conf = "#{old_data}/pg_hba.conf"
                 old_ident_conf = "#{old_data}/pg_ident.conf"
@@ -836,7 +840,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 init_repmgr(cluster, user, root_dir, root_pass, repmgr_file)
             end
             
-            cf_system.atomicWrite(active_version_file, version)
+            cf_system.atomicWrite(active_version_file, version, { :mode => 0640 })
             #--
             FileUtils.rm_f(unclean_state_file)
             

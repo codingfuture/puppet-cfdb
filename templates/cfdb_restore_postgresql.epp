@@ -17,7 +17,7 @@ if test "$(/usr/bin/id -u)" != 0; then
     exit 1
 fi
 
-data_dir=$(/bin/grep data_directory ${root_dir}/conf/postgresql.conf | /bin/sed -e 's/^data_directory = //' -e "s/'//g")
+data_dir="$(ls -d ${root_dir}/data/$(cat ${root_dir}/conf/active_version))"
 last_backup="$(/bin/ls -dr ${backup_dir}/base/rsync_backup_* | /usr/bin/head -n1)"
 
 echo "Last backup location: $last_backup"
