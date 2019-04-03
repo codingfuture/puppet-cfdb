@@ -28,6 +28,7 @@ module PuppetX::CfDb::Redis::Instance
         access_list = conf[:access_list]
         type = conf[:type]
         conf_file = "#{conf_dir}/redis.conf"
+        conf_orig_file = "#{conf_dir}/redis.conf.orig"
         sentinel_file = "#{conf_dir}/sentinel.conf"
         sentinel_orig_file = "#{conf_dir}/sentinel.conf.orig"
         
@@ -228,7 +229,7 @@ module PuppetX::CfDb::Redis::Instance
             conf_settings.merge! redis_tune
             conf_settings.merge! forced_settings
 
-            config_file_changed = cf_system.atomicWrite(conf_file, redis_conf(conf_settings), { :user => user })
+            config_file_changed = cf_system.atomicWrite(conf_orig_file, redis_conf(conf_settings), { :user => user })
 
             # Prepare service file
             #---
@@ -243,6 +244,7 @@ module PuppetX::CfDb::Redis::Instance
                 'KillSignal' => 'SIGTERM',
                 'KillMode' => 'process',
                 'SendSIGKILL' => 'no',
+                'ExecStartPre' => "/bin/cp -f #{conf_orig_file} #{conf_file}",
                 'ExecStart' => "#{REDIS_SERVER} #{conf_file}",
                 'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
                 'OOMScoreAdjust' => -200,
@@ -274,8 +276,8 @@ module PuppetX::CfDb::Redis::Instance
             # defaults
             conf_sentinel = {
                 'sentinel monitor' => '', # just for config order
-                'sentinel down-after-milliseconds' => "#{cluster} 5000",
-                'sentinel failover-timeout' => "#{cluster} 180000",
+                'sentinel down-after-milliseconds' => "#{cluster} 1000",
+                'sentinel failover-timeout' => "#{cluster} 3000",
                 'sentinel parallel-syncs' => "#{cluster} #{cluster_addr.size}",
             }
 
