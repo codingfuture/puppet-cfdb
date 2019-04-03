@@ -3,7 +3,7 @@
 #
 
 class cfdb::postgresql::defaults {
-    $latest = '10'
+    $latest = '11'
 
     $old = cfsystem::query([
         'resources[parameters]{ ',
