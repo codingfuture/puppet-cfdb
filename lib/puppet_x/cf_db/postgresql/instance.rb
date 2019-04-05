@@ -29,6 +29,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         access_list = conf[:access_list]
         type = conf[:type]
         conf_file = "#{conf_dir}/postgresql.conf"
+        run_conf_file = "#{conf_dir}/postgresql.run.conf"
         hba_file = "#{conf_dir}/pg_hba.conf"
         ident_file = "#{conf_dir}/pg_ident.conf"
         client_conf_file = "#{root_dir}/.pg_service.conf"
@@ -84,7 +85,8 @@ module PuppetX::CfDb::PostgreSQL::Instance
         fqdn = Facter['fqdn'].value()
         cluster_listen = cfdb_settings.fetch('cluster_listen', fqdn)
         
-        
+        #---
+
         # calculate based on user access list x limit
         #---
         superuser_reserved_connections = 10
@@ -95,6 +97,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         hba_content << ['local', 'all', superuser, 'ident', 'map=tosuperuser']
         hba_content << ['local', 'all', 'all', 'md5']
         hba_content << ['host', 'all', 'all', '127.0.0.1/8', 'md5']
+
         hba_host_roles = {}
         
         access_list.each do |role_id, rinfo|
@@ -381,7 +384,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 ].join(' '),
                 'data_directory' => data_dir,
                 # repmgr uses the same for initdb
-                'pg_ctl_options' => "-o \"--config_file=#{conf_file}\"",
+                'pg_ctl_options' => "-o \"--config_file=#{run_conf_file}\"",
                 'pg_bindir' => pg_bin_dir,
                 'location' => conf[:location],
             }
@@ -457,6 +460,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
         #==================================================
         # config
         config_changed = self.atomicWritePG(conf_file, pgsettings, {:user => user})
+        self.atomicWritePG(run_conf_file, pgsettings, {:user => user, :silent => true})
 
         # hba
         hba_content = (hba_content.map{ |v| v.join(' ') }).join("\n")
@@ -486,7 +490,8 @@ module PuppetX::CfDb::PostgreSQL::Instance
         service_ini = {
             '# Package Version' => PuppetX::CfSystem::Util.get_package_version("postgresql-#{version}"),
             'LimitNOFILE' => open_file_limit * 2,
-            'ExecStart' => "#{pg_bin_dir}/postgres --config_file=#{conf_file} $PGSQL_OPTS",
+            'ExecStartPre' => "/bin/cp -f #{conf_file} #{run_conf_file}",
+            'ExecStart' => "#{pg_bin_dir}/postgres --config_file=#{run_conf_file} $PGSQL_OPTS",
             'ExecStartPost' => "/bin/rm -f #{restart_required_file}",
             'ExecReload' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} reload",
             'ExecStop' => "#{pg_bin_dir}/pg_ctl -s -D #{data_dir} stop -m fast",
@@ -519,6 +524,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 if not is_arbitrator
                     begin
                         warning("> reloading #{service_name}")
+                        systemctl('start', "#{service_name}.service")
                         systemctl('reload', "#{service_name}.service")
                     rescue => e
                         warning("Failed to reload instance: #{e}")
@@ -547,6 +553,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             if is_cluster and repmgr_changed
                 begin
                     warning("> restarting #{repmgr_service_name}")
+                    systemctl('start', "#{repmgr_service_name}.service")
                     systemctl('restart', "#{repmgr_service_name}.service")
                 rescue => e
                     warning("Failed to reload instance: #{e}")
@@ -704,6 +711,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 
                 cf_system.atomicWrite(active_version_file, version, { :mode => 0640 })
                 self.atomicWritePG(conf_file, pgsettings, {:user => user})
+                self.atomicWritePG(run_conf_file, pgsettings, {:user => user, :silent => true})
                 FileUtils.rm_f(unclean_state_file)
             rescue => e
                 warning("Failed to clone/setup standby: #{e}")
