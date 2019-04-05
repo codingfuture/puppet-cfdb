@@ -19,8 +19,11 @@ root_dir=<%= $root_dir %>
     # required for XB 2.2
     /bin/mkdir -p \${backup_dir}
 
+    export TMPDIR=$root_dir/tmp 
+
     /usr/bin/innobackupex \
             --defaults-file=$root_dir/conf/mysql.cnf \
+            --tmp-dir=\$TMPDIR \
             \$incremental \
             --compress \
             --slave-info \

@@ -12,6 +12,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - FIXED: to bundle pg_backup_ctl with custom changes for PostgreSQL v10+
 - FIXED: PostgreSQL to always use the original config
 - FIXED: PostgreSQL access in secure mode
+- FIXED: concurrent XtraBackup issues
 - CHANGED: updated PostgreSQL latest version to v11
 - CHANGED: to use cfbackup module
 
