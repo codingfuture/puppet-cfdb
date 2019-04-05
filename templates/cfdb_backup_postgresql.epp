@@ -33,6 +33,7 @@ root_dir=<%= $root_dir %>
 
     /usr/bin/pg_backup_ctl \
             -A "\${backup_dir}" \
-            cleanup
+            cleanup \
+        || true
 
 EOT
