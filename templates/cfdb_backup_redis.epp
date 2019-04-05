@@ -18,9 +18,18 @@ root_dir=<%= $root_dir %>
     prev_save=\$(redis_cmd --raw lastsave)
     redis_cmd bgsave
 
+    count=10
+
     while [ "\$(redis_cmd --raw lastsave)" = "\${prev_save}" ]; do
         echo "Waiting for backup to complete..."
-        sleep 1
+        sleep 3
+
+        if [ \$count -gt 0 ]; then
+            count=\$((count - 1))
+        else
+            echo "Failed to wait"
+            exit 1
+        fi
     done
 
     /usr/bin/rdiff-backup \
