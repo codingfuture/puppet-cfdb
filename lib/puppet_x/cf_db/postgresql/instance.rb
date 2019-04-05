@@ -113,7 +113,24 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 end
             end
         end
-            
+
+        #---
+        if have_external_conn or is_cluster
+            bind_address = cfdb_settings['listen'] || '0.0.0.0'
+
+            # Possible secure connections
+            if bind_address != '0.0.0.0' and bind_address != '127.0.0.1'
+                hba_host_roles[bind_address] ||= []
+                hba_host_roles[bind_address] << 'all'
+            elsif cluster_listen != fqdn
+                hba_host_roles[cluster_listen] ||= []
+                hba_host_roles[cluster_listen] << 'all'
+            end
+        else
+            bind_address = '127.0.0.1'
+        end
+
+        #---
         if is_cluster
             cluster_addr = cluster_addr.clone
             cluster_addr << {
@@ -180,15 +197,6 @@ module PuppetX::CfDb::PostgreSQL::Instance
         
         max_connections_roundto = cfdb_settings.fetch('max_connections_roundto', 100).to_i
         max_connections = round_to(max_connections_roundto, max_connections)
-        #---
-        
-        #---
-        if have_external_conn or is_cluster
-            bind_address = cfdb_settings['listen'] || '0.0.0.0'
-        else
-            bind_address = '127.0.0.1'
-        end
-        
         #---
 
         # Auto-tune to have enough open table cache        
