@@ -22,7 +22,7 @@ class cfdb::backup {
         ensure => absent,
     }
 
-    cron { cfdb_backup_all:
+    cron { 'cfdb_backup_all':
         ensure => absent,
     }
 }
