@@ -17,6 +17,14 @@ define cfdb::postgresql::instancebin(
 ){
     assert_private()
 
+    # a workaround for ignorant PostgreSQL devs
+    #---
+    cfnetwork::service_port { "local:alludp:${cluster}-stats": }
+    cfnetwork::client_port { "local:alludp:${cluster}-stats":
+        user => $user,
+    }
+    #---
+
     # psql
     #---
     $psql_script = "${cfdb::bin_dir}/cfdb_${cluster}_psql"

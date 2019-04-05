@@ -25,14 +25,4 @@ define cfdb::postgresql::healthcheck(
             'connect_timeout=2',
         ].join("\n"),
     }
-
-    # a workaround for ignorant PostgreSQL devs
-    #---
-    if defined(Cfdb_instance[$cluster]) {
-        cfnetwork::service_port { "local:alludp:${cluster}-stats": }
-        cfnetwork::client_port { "local:alludp:${cluster}-stats":
-            user => getparam(Cfdb_instance[$cluster], 'user'),
-        }
-    }
-    #---
 }
