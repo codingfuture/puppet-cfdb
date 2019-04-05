@@ -5,100 +5,52 @@
 -%>
 #!/bin/bash
 
-backup_dir=<%= $backup_dir %>
 root_dir=<%= $root_dir %>
-user=<%= $user %>
 service_name=<%= $service_name %>
+user=<%= $user %>
 
-# Make sure to run under instance user
-if test "$(/usr/bin/id -u)" = 0; then
-    exec /usr/bin/sudo -i -u <%= $user %> $0 "$@"
-    # should not reach here
-    exit -1
-fi
+script=$(cat <<EOT
+    ungz_oplog() {
+        if [ -e \$1/oplog.bson.gz ]; then
+            gzip -d <\$1/oplog.bson.gz > \$1/oplog.bson
+            chown $user:$user \$1/oplog.bson
+        fi
+    }
 
-data_dir="${root_dir}/data"
-last_backup="${backup_dir}/last_backup"
-last_backup="${backup_dir}/$(/bin/readlink -ns $last_backup)"
-
-echo "Last backup location: $last_backup"
-echo
-echo "NOTE: if needed, you must ensure the cluster is in a clean state by yourself!"
-echo
-
-if ! test -d "$last_backup"; then
-    echo "Last backup is not a directory"
-    exit 1
-fi
-
-confirm1='Yes, I am sure'
-confirm2='Yes, I am REALLY sure'
-
-echo ""
-echo "Are you sure you want to restore the last backup?"
-echo -n "Print '$confirm1': "
-read check
-test "$check" = "$confirm1" || exit 1
-
-echo ""
-echo "Are you really, really sure?"
-echo -n "Print '$confirm2': "
-read check
-test "$check" = "$confirm2" || exit 1
-
-
-# fail on error & be verbose
-set -ex
-
-. $root_dir/.mongorc.sh
-
-
-ungz_oplog() {
-    if [ -e $1/oplog.bson.gz ]; then
-        gzip -d <$1/oplog.bson.gz > $1/oplog.bson
-    fi
-}
-
-# 1. Process base backup
-#----
-ungz_oplog $last_backup/base
-/usr/bin/mongorestore \
-    --host=${DB_HOST} \
-    --port=${DB_PORT} \
-    --authenticationDatabase=admin \
-    --username=$ROOT_USER \
-    --password=$ROOT_PASS \
-    --gzip \
-    --maintainInsertionOrder \
-    --stopOnError \
-    --drop \
-    --oplogReplay \
-    $last_backup/base
-
-# 2. Process incremental oplogs
-#----
-/bin/ls -v $last_backup | /bin/grep inc_ | while read sub_dir; do
-    ungz_oplog $last_backup/$sub_dir
-
-    /usr/bin/mongorestore \
-        --host=${DB_HOST} \
-        --port=${DB_PORT} \
-        --authenticationDatabase=admin \
-        --username=$ROOT_USER \
-        --password=$ROOT_PASS \
-        --oplogReplay \
+    call_mongorestore() {
+        /usr/bin/sudo -i -u $user /bin/dash -ex <<EOS
+            . $root_dir/.mongorc.sh
+            /usr/bin/mongorestore \
+                --host=\\\${DB_HOST} \
+                --port=\\\${DB_PORT} \
+                --authenticationDatabase=admin \
+                --username=\\\$ROOT_USER \
+                --password=\\\$ROOT_PASS \
+                \$@
+EOS
+    }
+    
+    # 1. Process base backup
+    #----
+    ungz_oplog \${backup_dir}/base
+    call_mongorestore \
+        --gzip \
+        --maintainInsertionOrder \
         --stopOnError \
-        $last_backup/$sub_dir
-done
+        --drop \
+        --oplogReplay \
+        \${backup_dir}/base
 
-# Done
-#----
+    # 2. Process incremental oplogs
+    #----
+    /bin/ls -v \${backup_dir} | /bin/grep inc_ | while read sub_dir; do
+        ungz_oplog \${backup_dir}/\$sub_dir
+        call_mongorestore \
+            --oplogReplay \
+            --stopOnError \
+            \${backup_dir}/\$sub_dir
+    done
+EOT
+)
 
-# make sure we do not make incremental backups with invalid base
-/bin/mv "$last_backup" "$last_backup.restored$(/bin/date '+%s')"
-
-set +ex
-echo "---------"
-echo "All done!"
-echo "---------"
-
+<%= $cfbackup::periodic_restore_helper %> "<%= $user %>" "<%= $backup_dir %>" "<%= $service_name %>" "$script"

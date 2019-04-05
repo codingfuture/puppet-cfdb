@@ -11,6 +11,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - FIXED: to more reliably detect active version of PostgreSQL for backup purposes
 - FIXED: to bundle pg_backup_ctl with custom changes for PostgreSQL v10+
 - CHANGED: updated PostgreSQL latest version to v11
+- CHANGED: to use cfbackup module
 
 ## 1.1.0 (2018-12-09)
 - CHANGED: updated for Ubuntu 18.04 Bionic support

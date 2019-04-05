@@ -5,66 +5,40 @@
 -%>
 #!/bin/bash
 
-backup_dir=<%= $backup_dir %>
 root_dir=<%= $root_dir %>
-user=<%= $user %>
 service_name=<%= $service_name %>
+user=<%= $user %>
 
-# Make sure to run under instance user
-if test "$(/usr/bin/id -u)" != 0; then
-    echo "Error: this script must run under root"
-    # should not reach here
-    exit 1
-fi
+data_dir=$root_dir/data
 
-data_dir="$(ls -d ${root_dir}/data/$(cat ${root_dir}/conf/active_version))"
-last_backup="$(/bin/ls -dr ${backup_dir}/base/rsync_backup_* | /usr/bin/head -n1)"
+script=$(cat <<EOT
 
-echo "Last backup location: $last_backup"
+    last_backup="\$(/bin/ls -dr \${backup_dir}/base/rsync_backup_* | /usr/bin/head -n1)"
+    last_backup="\$(basename \$last_backup)"
 
-if ! test -e "$last_backup"; then
-    echo "Last backup does not exist!"
-    exit 1
-fi
+    # make sure service is not running
+    /bin/systemctl stop \${service_name}.service
 
-last_backup=$(basename $last_backup)
+    # backup old data, if any
+    test -e "${data_dir}" && /bin/mv -f "${data_dir}" "${data_dir}.bak$(/bin/date '+%s')"
 
-confirm1='Yes, I am sure'
-confirm2='Yes, I am REALLY sure'
+    /bin/mkdir $data_dir
+    /bin/chown -R $user:$user $data_dir
 
-echo ""
-echo "Are you sure you want to restore the last backup?"
-echo -n "Print '$confirm1': "
-read check
-test "$check" = "$confirm1" || exit 1
+    /usr/bin/sudo -i -u $user /bin/dash -ex <<EOS
+        set -ex
+        /bin/rm -rf ${data_dir}
+        /bin/mkdir ${data_dir}
+        /usr/bin/pg_backup_ctl \
+            -A "\${backup_dir}" \
+            -D "${data_dir}" \
+            restore \$last_backup
+EOS
 
-echo ""
-echo "Are you really, really sure?"
-echo -n "Print '$confirm2': "
-read check
-test "$check" = "$confirm2" || exit 1
+    # restart service
+    /bin/systemctl start ${service_name}.service
 
-# make sure service is not running
-/bin/systemctl stop ${service_name}.service
-
-# fail on error & be verbose
-set -ex
-
-/usr/bin/sudo -H -u $user bash <<EOT
-    set -ex
-    /bin/rm -rf ${data_dir}
-    /bin/mkdir ${data_dir}
-    /usr/bin/pg_backup_ctl \
-        -A "${backup_dir}" \
-        -D "${data_dir}" \
-        restore $last_backup
 EOT
+)
 
-# restart service
-/bin/systemctl start ${service_name}.service
-
-set +ex
-echo "---------"
-echo "All done!"
-echo "---------"
-
+<%= $cfbackup::periodic_restore_helper %> "<%= $user %>" "<%= $backup_dir %>" "<%= $service_name %>" "$script"

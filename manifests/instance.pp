@@ -653,15 +653,17 @@ define cfdb::instance (
             ensure => absent,
         }
 
-        if $backup == false {
-            file { $backup_script_auto:
-                ensure => absent,
-            }
-        } else {
-            file { $backup_script_auto:
-                ensure  => link,
-                target  => $backup_script,
-                require => File[$backup_script],
+        # Cleanup legacy
+        file { $backup_script_auto:
+            ensure => absent,
+        }
+
+        if $backup {
+            cfbackup::path { $backup_dir:
+                namespace => 'cfdb',
+                id        => $user,
+                type      => 'periodic_dump',
+                prepare   => $backup_script,
             }
         }
     }

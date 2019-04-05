@@ -857,18 +857,6 @@ module PuppetX::CfDb::PostgreSQL::Instance
             wait_sock(service_name, sock_file)
         end
         
-        #---
-        backup_init_stamp = "#{backup_wal_dir}/.init"
-        if !is_arbitrator and !File.exists?(backup_init_stamp) and File.exists? data_dir
-            sudo('-H', '-u', user, '/usr/bin/pg_backup_ctl',
-                 '-h', run_dir,
-                 '-p', port,
-                 '-U', superuser,
-                 '-A', backup_dir, 'setup')
-            FileUtils.touch(backup_init_stamp)
-        end
-        
-        
         # Check cluster is complete
         #---
         check_cluster_postgresql(conf)

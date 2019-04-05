@@ -1,57 +1,33 @@
-<%- | String $backup_dir,
-      String $root_dir,
-      String $user,
-      String $base_date='month' |
+<%- | String[1] $backup_dir,
+      String[1] $root_dir,
+      String[1] $user,
+      String[1] $base_date='month' |
 -%>
-#!/bin/bash
+#!/bin/dash
 
-backup_root_dir=<%= $backup_dir %>
 root_dir=<%= $root_dir %>
-user=<%= $user %>
-base_date=<%= $base_date %>
-
 curl="${root_dir}/bin/cfdb_curl"
 
-# Make sure to run under instance user
-if test "$(/usr/bin/id -u)" = 0; then
-    exec /usr/bin/sudo -u <%= $user %> $0 "$@"
-    # should not reach here
-    exit -1
-fi
+<%= $cfbackup::periodic_helper %> "<%= $user %>" "<%= $backup_dir %>" "<%= $base_date %>" <<EOT
 
-case $base_date in
-    'year') base_date='%Y' ;;
-    'quarter') base_date="%YQ$(( $(/bin/date +%m) / 4 + 1 ))" ;;
-    'month') base_date='%Y%m' ;;
-    'week') base_date='%YW%W' ;;
-    'day') base_date='%Y%m%d' ;;
-    'daytime') base_date='%Y%m%d_%H%M%S' ;;
-esac
+    snap_date=\$(/bin/date --utc "+%Y%m%d_%H%M%S")
+    repo="base_\${sub_dir}"
+    snapshot="snap_\${snap_date}"
 
-base_date=$(/bin/date --utc "+${base_date}")
-snap_date=$(/bin/date --utc "+%Y%m%d_%H%M%S")
-repo="base_${base_date}"
-snapshot="snap_${snap_date}"
-
-set -ex
-
-if $curl /_snapshot/$repo | grep -q '^{"error"'; then
-    $curl /_snapshot/$repo -X PUT -d @- <<EOT
+    if $curl /_snapshot/\$repo | grep -q '^{"error"'; then
+        $curl /_snapshot/\$repo -X PUT -d @- <<EOC
 {
-  "type": "fs",
-  "settings": {
-    "location": "$repo"
-  }
+"type": "fs",
+"settings": {
+    "location": "\${sub_dir}"
 }
+}
+EOC
+        echo
+    fi
+
+    $curl /_snapshot/\${repo}/\${snapshot}?wait_for_completion=true -X POST --data-raw '{}'
+
+    echo -n "\${snapshot}" > "<%= $backup_dir %>/\${sub_dir}/last_snapshot"
+
 EOT
-    echo
-fi
-
-$curl /_snapshot/${repo}/${snapshot}?wait_for_completion=true -X POST --data-raw '{}'
-
-echo -n "${repo}/${snapshot}" > "${backup_root_dir}/last_backup"
-
-set +ex
-echo "---------"
-echo "All done!"
-echo "---------"

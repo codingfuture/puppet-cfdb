@@ -3,37 +3,26 @@
 #
 
 
-class cfdb::backup(
-    Hash
-        $cron = {},
-    String[1]
-        $root_dir = '/mnt/backup',
-) {
+class cfdb::backup {
     assert_private()
     include cfsystem::custombin
+    include cfbackup
+
+    $root_dir = "${cfbackup::root_dir}/cfdb"
 
     file { $root_dir:
         ensure => directory,
-        mode   => '0555',
+        mode   => '0511',
     }
 
-    #---
+    # cleanup legacy implementation
     $backup_all_script = "${cfsystem::custombin::bin_dir}/cfdb_backup_all"
 
     file { $backup_all_script:
-        mode    => '0700',
-        content => epp('cfdb/cfdb_backup_all.epp'),
+        ensure => absent,
     }
 
-    create_resources(
-        cron,
-        {
-            cfdb_backup_all => $cron,
-        },
-        {
-            command => $backup_all_script,
-            hour => 3,
-            minute => 10,
-        }
-    )
+    cron { cfdb_backup_all:
+        ensure => absent,
+    }
 }

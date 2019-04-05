@@ -1,60 +1,38 @@
-<%- | String $backup_dir,
-      String $root_dir,
-      String $user,
-      String $base_date='month' |
+<%- | String[1] $backup_dir,
+      String[1] $root_dir,
+      String[1] $user,
+      String[1] $base_date='month' |
 -%>
-#!/bin/bash
+#!/bin/dash
 
-backup_root_dir=<%= $backup_dir %>
 root_dir=<%= $root_dir %>
-user=<%= $user %>
-base_date=<%= $base_date %>
 
-# Make sure to run under instance user
-if test "$(/usr/bin/id -u)" = 0; then
-    exec /usr/bin/sudo -H -u <%= $user %> $0 "$@"
-    # should not reach here
-    exit -1
-fi
+<%= $cfbackup::periodic_helper %> "<%= $user %>" "<%= $backup_dir %>" "<%= $base_date %>" <<EOT
 
-case $base_date in
-    'year') base_date='%Y' ;;
-    'quarter') base_date="%Y-Q$(( $(/bin/date +%m) / 4 + 1 ))" ;;
-    'month') base_date='%Y-%m' ;;
-    'week') base_date='%Y-W%W' ;;
-    'day') base_date='%Y-%m-%d' ;;
-    'daytime') base_date='%Y-%m-%d_%H%M%S' ;;
-esac
+    data_dir="\$(ls -d ${root_dir}/data/$(cat ${root_dir}/conf/active_version))"
+    eval "\$(/bin/egrep '^(host|user|port)' ${root_dir}/.pg_service.conf)"
 
-stamp_dir="${backup_root_dir}/base_stamps"
-base_stamp=$(/bin/date --utc "+${base_date}")
-base_stamp_file="${stamp_dir}/${base_stamp}.stamp"
+    if test ! -e \$backup_dir; then
+        /bin/mkdir \$backup_dir
+        /usr/bin/pg_backup_ctl \
+                -A "\${backup_dir}" \
+                -h \$host -p \$port -U postgres \
+                setup
 
-set -ex
+        backup_cmd=rsyncbackup
+    else
+        backup_cmd=currentbackup
+    fi
 
-data_dir="$(ls -d ${root_dir}/data/$(cat ${root_dir}/conf/active_version))"
-eval "$(/bin/egrep '^(host|user|port)' ${root_dir}/.pg_service.conf)"
-
-if test ! -e $base_stamp_file; then
     /usr/bin/pg_backup_ctl \
-        -A "${backup_root_dir}" \
-        -D "${data_dir}" \
-        -z \
-        -h $host -p $port -U postgres \
-        rsyncbackup
-    /bin/mkdir -p $stamp_dir
-    /bin/rm -f $stamp_dir/*.stamp
-    /bin/touch $base_stamp_file
-else
+            -A "\${backup_dir}" \
+            -D "\${data_dir}" \
+            -z \
+            -h \$host -p \$port -U postgres \
+            \$backup_cmd
+
     /usr/bin/pg_backup_ctl \
-        -A "${backup_root_dir}" \
-        -D "${data_dir}" \
-        -z \
-        -h $host -p $port -U postgres \
-        currentbackup
-fi
+            -A "\${backup_dir}" \
+            cleanup
 
-/usr/bin/pg_backup_ctl \
-        -A "${backup_root_dir}" \
-        cleanup
-
+EOT
