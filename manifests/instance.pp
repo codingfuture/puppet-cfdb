@@ -665,6 +665,11 @@ define cfdb::instance (
                 type      => 'periodic_dump',
                 prepare   => $backup_script,
             }
+
+            File[$backup_script]
+            -> File[$restore_script]
+            -> Anchor['cfbackup-ready']
+            -> Cfdb_instance[$cluster]
         }
     }
 
