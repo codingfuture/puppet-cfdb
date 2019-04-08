@@ -316,7 +316,11 @@ define cfdb::access(
                     $memo + $host
                 }
 
-                $nodeport = cfdb::derived_port($port, 'elasticsearch')
+                if $cluster_info {
+                    $nodeport = cfdb::derived_port($cluster_info['port'], 'elasticsearch')
+                } else {
+                    $nodeport = cfdb::derived_port($port, 'elasticsearch')
+                }
 
                 $cfg_all = merge( $cfg, {
                     nodes    => $nodes.join(' '),
@@ -352,10 +356,16 @@ define cfdb::access(
                     nodes    => $nodes.join(' '),
                 } )
 
+                if $cluster_info {
+                    $node_port = $cluster_info['port']
+                } else {
+                    $node_port = $port
+                }
+
                 # Allow direct access for peer protocol
                 $fw_peer_service = "cfdb_${cluster}_peeraccess"
                 ensure_resource('cfnetwork::describe_service', $fw_peer_service, {
-                    server => "tcp/${port}",
+                    server => "tcp/${node_port}",
                 })
                 ensure_resource('cfnetwork::client_port', "local:${fw_peer_service}:${local_user}", {
                     user => $local_user,
