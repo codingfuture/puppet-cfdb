@@ -20,7 +20,9 @@ define cfdb::mongodb::healthcheck(
         content => [
             "const tdb = db.getMongo().getDB('${database}');",
             "tdb.auth('${role}', '${password}');",
-            'tdb.runCommand( { ping: 1 } )',
+            'if (!tdb.isMaster().ismaster && !/:lb/.test(HAPROXY_PROXY_NAME)) {',
+            '   throw "Not Master";',
+            '}',
         ].join("\n"),
     }
 }

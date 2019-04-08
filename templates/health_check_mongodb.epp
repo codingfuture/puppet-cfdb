@@ -5,6 +5,7 @@
 #!/bin/dash
 
 /usr/bin/mongo \
+    --eval "const HAPROXY_PROXY_NAME = '${HAPROXY_PROXY_NAME}';" \
     --host /run/<%= $service_name %>/check__${HAPROXY_SERVER_NAME}.sock \
     --norc \
     '<%= $conf_dir %>/check_<%= $cluster %>.js' \

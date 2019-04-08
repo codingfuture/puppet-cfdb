@@ -219,6 +219,8 @@ Puppet::Type.type(:cfdb_haproxy).provide(
 
                     if type == 'postgresql'
                         server_dst += ".s.PGSQL.#{port}"
+                    elsif type == 'mongodb'
+                        server_dst += "mongodb-#{port}.sock"
                     else
                         server_dst += 'service.sock'
                     end
@@ -332,6 +334,9 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 elsif type == 'postgresql'
                     server_port = (sec_port - PuppetX::CfDb::SECURE_PORT_OFFSET)
                     socket += ".s.PGSQL.#{server_port}"
+                elsif type == 'mongodb'
+                    server_port = (sec_port - PuppetX::CfDb::SECURE_PORT_OFFSET)
+                    socket += "mongodb-#{server_port}.sock"
                 else
                     socket += 'service.sock'
                 end
