@@ -13,6 +13,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - FIXED: PostgreSQL to always use the original config
 - FIXED: PostgreSQL access in secure mode
 - FIXED: concurrent XtraBackup issues
+- FIXED: Elasticsearch APT upgrade issues
 - CHANGED: updated PostgreSQL latest version to v11
 - CHANGED: to use cfbackup module
 

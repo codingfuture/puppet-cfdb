@@ -41,7 +41,10 @@ class cfdb::elasticsearch::serverpkg {
     file { '/etc/default/elasticsearch':
         ensure  => present,
         mode    => '0755',
-        content => '',
+        content => [
+            'ES_PATH_CONF=/etc/elasticsearch',
+            ''
+        ],
     }
 
     #---
