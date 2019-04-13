@@ -29,22 +29,22 @@ class cfdb::elasticsearch::serverpkg {
     }
 
     ensure_resource( 'package', 'openjdk-8-jre-headless' )
-    package { 'elasticsearch': }
 
-    # default instance must not run
-    service { 'elasticsearch':
-        ensure   => stopped,
-        enable   => mask,
-        provider => 'systemd',
-    }
-
-    file { '/etc/default/elasticsearch':
+    Package['openjdk-8-jre-headless']
+    -> file { '/etc/default/elasticsearch':
         ensure  => present,
         mode    => '0755',
         content => [
             'ES_PATH_CONF=/etc/elasticsearch',
             ''
-        ],
+        ].join("\n"),
+    }
+    -> package { 'elasticsearch': }
+    # default instance must not run
+    -> service { 'elasticsearch':
+        ensure   => stopped,
+        enable   => mask,
+        provider => 'systemd',
     }
 
     #---
