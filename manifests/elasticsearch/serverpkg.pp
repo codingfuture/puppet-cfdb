@@ -35,7 +35,7 @@ class cfdb::elasticsearch::serverpkg {
         ensure  => present,
         mode    => '0755',
         content => [
-            'ES_PATH_CONF=${ES_PATH_CONF:-/etc/elasticsearch}',
+            "ES_PATH_CONF=\${ES_PATH_CONF:-/etc/elasticsearch}",
             ''
         ].join("\n"),
     }
