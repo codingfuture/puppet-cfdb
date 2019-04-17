@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## (next)
+- FIXED: to use cfsystem::stable_sort() for ElasticSearch/MongoDB/Redis NODES .env
+
 ## 1.3.0 (2019-04-14)
 - NEW: MongoDB support
 - NEW: Redis support

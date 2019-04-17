@@ -323,7 +323,7 @@ define cfdb::access(
                 }
 
                 $cfg_all = merge( $cfg, {
-                    nodes    => $nodes.join(' '),
+                    nodes    => cfsystem::stable_sort($nodes).join(' '),
                     nodeport => $nodeport,
                 } )
 
@@ -353,7 +353,7 @@ define cfdb::access(
                 }
 
                 $cfg_all = merge( $cfg, {
-                    nodes    => $nodes.join(' '),
+                    nodes    => cfsystem::stable_sort($nodes).join(' '),
                 } )
 
                 if $cluster_info {
