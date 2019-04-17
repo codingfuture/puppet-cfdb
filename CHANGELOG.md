@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## (next)
 - FIXED: to use cfsystem::stable_sort() for ElasticSearch/MongoDB/Redis NODES .env
+- CHANGED: to use systemLog.quiet which is ignored by MongoDB any way...
 
 ## 1.3.0 (2019-04-14)
 - NEW: MongoDB support

@@ -178,8 +178,8 @@ module PuppetX::CfDb::MongoDB::Instance
         
         # defaults
         conf_settings = {
+            'systemLog.quiet' => true,
             'systemLog.verbosity' => 0,
-            # stdout by default
             #'systemLog.destination' => 'syslog',
             'systemLog.timeStampFormat' => 'iso8601-utc',
 
@@ -255,6 +255,7 @@ module PuppetX::CfDb::MongoDB::Instance
         service_ini = {
             '# Package Version' => PuppetX::CfSystem::Util.get_package_version(
                                         "percona-server-mongodb-#{version.sub('.','')}"),
+
             'LimitNOFILE' => 'infinity',
             'LimitNPROC' => 'infinity',
             'LimitAS' => 'infinity',
