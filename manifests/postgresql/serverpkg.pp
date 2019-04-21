@@ -8,6 +8,7 @@ class cfdb::postgresql::serverpkg {
 
     include cfdb
     include cfdb::postgresql
+    include cfdb::postgresql::arbitratorpkg
 
     $ver = $cfdb::postgresql::version
 
@@ -109,7 +110,6 @@ class cfdb::postgresql::serverpkg {
     ensure_packages([
         'postgresql-filedump',
         'pgtop',
-        'repmgr',
         "postgresql-${ver}-repmgr",
     ])
 
@@ -126,10 +126,4 @@ class cfdb::postgresql::serverpkg {
         enable   => mask,
         provider => 'systemd',
     }
-
-    ensure_resource( service, 'repmgrd', {
-        ensure   => stopped,
-        enable   => false,
-        provider => 'systemd',
-    })
 }
