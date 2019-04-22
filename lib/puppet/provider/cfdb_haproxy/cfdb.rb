@@ -209,7 +209,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 rescue
                 end
 
-                host_use_unix_socket = (ip == local_host)
+                host_use_unix_socket = (host == Puppet[:certname])
 
                 if type === 'elasticsearch'
                     host_use_unix_socket = false
