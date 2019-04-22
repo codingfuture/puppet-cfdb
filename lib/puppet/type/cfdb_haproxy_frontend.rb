@@ -83,6 +83,12 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
         
         munge do |value|
             return value if resource.should(:is_secure) or value['secure']
+
+            if value['addr'] == 'localhost'
+                value['addr'] = '127.0.0.1'
+                return value
+            end
+
             begin
                 ip = IPAddr.new(value['addr'])
             rescue
