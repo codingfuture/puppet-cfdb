@@ -109,6 +109,9 @@ Puppet::Type.newtype(:cfdb_haproxy_frontend) do
         end
     end
     
+    newproperty(:local_host) do
+    end
+
     newproperty(:local_port) do
         validate do |value|
             unless value.is_a? Integer and value > 0

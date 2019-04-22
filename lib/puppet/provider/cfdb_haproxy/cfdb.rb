@@ -135,6 +135,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             cluster_addr = finfo[:cluster_addr]
             
             use_unix_socket = finfo[:use_unix_socket]
+            local_host = finfo[:local_host]
             local_port = finfo[:local_port]
                        
             backend_name = "#{type}:#{cluster}"
@@ -208,7 +209,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 rescue
                 end
 
-                host_use_unix_socket = (ip == '127.0.0.1')
+                host_use_unix_socket = (ip == local_host)
 
                 if type === 'elasticsearch'
                     host_use_unix_socket = false
@@ -292,7 +293,7 @@ Puppet::Type.type(:cfdb_haproxy).provide(
             if use_unix_socket
                 bind = "unix@#{socket} user #{access_user} group #{access_user} mode 660"
             else
-                bind = "127.0.0.1:#{local_port}"
+                bind = "#{local_host}:#{local_port}"
             end
 
                        

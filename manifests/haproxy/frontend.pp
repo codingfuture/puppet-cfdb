@@ -13,6 +13,7 @@ define cfdb::haproxy::frontend(
     $distribute_load,
     $client_host,
     $use_unix_socket,
+    $local_host,
     $local_port,
 ) {
     assert_private()
@@ -101,7 +102,7 @@ define cfdb::haproxy::frontend(
             }
 
             $addr = $is_local ? {
-                true    => '127.0.0.1',
+                true    => $local_host,
                 default => pick(
                     $cfdb['listen'] ? {
                         'undef' => undef,
@@ -175,6 +176,7 @@ define cfdb::haproxy::frontend(
         distribute_load => $distribute_load,
         cluster_addr    => $cluster_addr,
         use_unix_socket => $use_unix_socket,
+        local_host      => $local_host,
         local_port      => $local_port,
         require         => [
             Cfdb_haproxy[$cfdb::haproxy::service_name],

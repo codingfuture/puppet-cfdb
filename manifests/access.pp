@@ -20,6 +20,8 @@ define cfdb::access(
         $env_file = '.env',
     String[1]
         $iface = $cfdb::iface,
+    String[1]
+        $local_iface = 'local',
     Optional[String[1]]
         $custom_config = undef,
     Boolean
@@ -81,8 +83,8 @@ define cfdb::access(
         true    => "${cluster}:${role}:${local_user}:dl",
         default => "${cluster}:${role}:${local_user}",
     }
-    $localhost = $use_unix_socket ? {
-        false    => '127.0.0.1',
+    $local_host = $use_unix_socket ? {
+        false    => cfnetwork::bind_address($local_iface),
         default => 'localhost',
     }
     $max_connections_reserve = $max_connections + 2
@@ -137,7 +139,7 @@ define cfdb::access(
             $type = getparam($cluster_rsc, 'type')
 
             $cfg = {
-                'host'    => $localhost,
+                'host'    => $local_host,
                 'port'    => $port,
                 'socket'  => '',
                 'user'    => $role,
@@ -151,7 +153,7 @@ define cfdb::access(
             ensure_resource('cfnetwork::describe_service', $fw_service, {
                 server => "tcp/${port}",
             })
-            ensure_resource('cfnetwork::service_port', "local:${fw_service}", {})
+            ensure_resource('cfnetwork::service_port', "${local_iface}:${fw_service}", {})
             ensure_resource('cfnetwork::client_port', "local:${fw_service}:${local_user}", {
                 user => $local_user,
             })
@@ -202,7 +204,7 @@ define cfdb::access(
                 }
             }
         } else {
-            $host = '127.0.0.1'
+            $host = $local_host
             $socket = ''
             $cfg_socket = ''
 
@@ -214,6 +216,10 @@ define cfdb::access(
             ensure_resource('cfnetwork::client_port', "local:${fw_service}:${local_user}", {
                 user => $local_user,
             })
+
+            if $local_iface != 'local' {
+                ensure_resource('cfnetwork::service_port', "${local_iface}:${fw_service}", {})
+            }
         }
 
         cfdb::haproxy::frontend{ $resource_title:
@@ -226,6 +232,7 @@ define cfdb::access(
             distribute_load => pick($distribute_load, $role_info['readonly']),
             client_host     => $client_host,
             use_unix_socket => $use_unix_socket,
+            local_host      => $local_host,
             local_port      => $port,
         }
 
@@ -249,7 +256,7 @@ define cfdb::access(
         })
 
         if $cluster_info['certname'] == $::trusted['certname'] {
-            $host = $localhost
+            $host = $local_host
             $socket = $cluster_info['socket']
 
             $fw_port = "local:${fw_service}:${local_user}"
@@ -267,6 +274,14 @@ define cfdb::access(
                 dst  => $cluster_info['host'],
                 user => $local_user,
             })
+
+            if $local_iface != 'local' {
+                $fw_router_port = "${local_iface}/any:${fw_service}:${local_user}"
+
+                ensure_resource('cfnetwork::router_port', $fw_router_port, {
+                    dst  => $cluster_info['host']
+                })
+            }
 
             cfdb::require_endpoint{ "${resource_title}:${host}":
                 cluster => $cluster,
@@ -322,8 +337,9 @@ define cfdb::access(
                     $nodeport = cfdb::derived_port($port, 'elasticsearch')
                 }
 
+                $sorted_nodes = cfsystem::stable_sort($nodes)
                 $cfg_all = merge( $cfg, {
-                    nodes    => cfsystem::stable_sort($nodes).join(' '),
+                    nodes    => $sorted_nodes.join(' '),
                     nodeport => $nodeport,
                 } )
 
@@ -332,9 +348,19 @@ define cfdb::access(
                 ensure_resource('cfnetwork::describe_service', $fw_peer_service, {
                     server => "tcp/${nodeport}",
                 })
-                ensure_resource('cfnetwork::client_port', "local:${fw_peer_service}:${local_user}", {
+                ensure_resource('cfnetwork::client_port', "any:${fw_peer_service}:${local_user}", {
                     user => $local_user,
+                    dst  => $sorted_nodes,
                 })
+
+                if $local_iface != 'local' {
+                    ensure_resource(
+                        'cfnetwork::router_port',
+                        "${local_iface}/any:${fw_peer_service}:${local_user}",
+                        {
+                            dst => $sorted_nodes,
+                        })
+                }
             }
         }
         'mongodb',
@@ -352,24 +378,36 @@ define cfdb::access(
                     $memo + $host
                 }
 
-                $cfg_all = merge( $cfg, {
-                    nodes    => cfsystem::stable_sort($nodes).join(' '),
-                } )
-
                 if $cluster_info {
                     $node_port = $cluster_info['port']
                 } else {
                     $node_port = $port
                 }
 
+                $sorted_nodes = cfsystem::stable_sort($nodes)
+                $cfg_all = merge( $cfg, {
+                    nodes    => $sorted_nodes.join(' '),
+                    nodeport => $node_port,
+                } )
+
                 # Allow direct access for peer protocol
                 $fw_peer_service = "cfdb_${cluster}_peeraccess"
                 ensure_resource('cfnetwork::describe_service', $fw_peer_service, {
                     server => "tcp/${node_port}",
                 })
-                ensure_resource('cfnetwork::client_port', "local:${fw_peer_service}:${local_user}", {
+                ensure_resource('cfnetwork::client_port', "any:${fw_peer_service}:${local_user}", {
                     user => $local_user,
+                    dst  => $sorted_nodes,
                 })
+
+                if $local_iface != 'local' {
+                    ensure_resource(
+                        'cfnetwork::router_port',
+                        "${local_iface}/any:${fw_peer_service}:${local_user}",
+                        {
+                            dst => $sorted_nodes,
+                        })
+                }
             }
         }
         'postgresql': {
@@ -415,7 +453,7 @@ define cfdb::access(
     if (($use_proxy_detected == false) and
         $cluster_info and
         ($cluster_info['certname'] == $::trusted['certname'])) {
-        $client_access_host = pick($client_host, $localhost)
+        $client_access_host = pick($client_host, $local_host)
     } else {
         $client_access_host = $client_host
     }
