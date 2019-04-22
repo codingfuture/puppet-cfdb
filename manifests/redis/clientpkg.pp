@@ -10,5 +10,5 @@ class cfdb::redis::clientpkg {
     include cfdb::redis
 
     # required for healthcheck script
-    ensure_resource('package', 'python-redis', {})
+    ensure_packages(['python-redis', 'redis-tools'])
 }
