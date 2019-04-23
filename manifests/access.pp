@@ -264,6 +264,10 @@ define cfdb::access(
             ensure_resource('cfnetwork::client_port', $fw_port, {
                 user => $local_user,
             })
+
+            if $local_iface != 'local' {
+                ensure_resource('cfnetwork::service_port', "${local_iface}:${fw_service}", {})
+            }
         } else {
             $host = $cluster_info['host']
             $socket = ''
@@ -360,6 +364,10 @@ define cfdb::access(
                         {
                             dst => $sorted_nodes,
                         })
+
+                    if defined(Cfdb::Instance[$cluster]) {
+                        ensure_resource('cfnetwork::service_port', "${local_iface}:${fw_peer_service}")
+                    }
                 }
             }
         }
@@ -407,6 +415,10 @@ define cfdb::access(
                         {
                             dst => $sorted_nodes,
                         })
+
+                    if defined(Cfdb::Instance[$cluster]) {
+                        ensure_resource('cfnetwork::service_port', "${local_iface}:${fw_peer_service}")
+                    }
                 }
             }
         }
