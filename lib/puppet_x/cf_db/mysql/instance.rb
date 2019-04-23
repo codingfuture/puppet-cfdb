@@ -96,8 +96,9 @@ module PuppetX::CfDb::MySQL::Instance
                 host = v['host']
                 max_conn = v['maxconn']
                 max_connections += max_conn
+                client_host = v['client_host']
                 
-                if host != fqdn
+                if host != fqdn or (client_host != 'localhost' and client_host != '127.0.0.1')
                     have_external_conn = true
                 end
             end
