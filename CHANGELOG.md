@@ -8,6 +8,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - FIXED: to use cfsystem::stable_sort() for ElasticSearch/MongoDB/Redis NODES .env
 - FIXED: postgresql mix of arbitrator+server leading to failed catalog compilation sometimes
 - FIXED: redis client to work without local server
+- FIXED: cfbackup v1.3.1+ compatibility
 - NEW: cfdb::access acting on behalf-of external clients
 
 ## 1.3.0 (2019-04-14)

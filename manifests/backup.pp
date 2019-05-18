@@ -10,11 +10,6 @@ class cfdb::backup {
 
     $root_dir = "${cfbackup::root_dir}/cfdb"
 
-    file { $root_dir:
-        ensure => directory,
-        mode   => '0511',
-    }
-
     # cleanup legacy implementation
     $backup_all_script = "${cfsystem::custombin::bin_dir}/cfdb_backup_all"
 
