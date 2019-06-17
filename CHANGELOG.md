@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
-## (next)
+## 1.3.1 (2019-06-17)
 - CHANGED: to use systemLog.quiet which is ignored by MongoDB any way...
 - FIXED: to use cfsystem::stable_sort() for ElasticSearch/MongoDB/Redis NODES .env
 - FIXED: postgresql mix of arbitrator+server leading to failed catalog compilation sometimes
