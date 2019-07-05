@@ -103,7 +103,7 @@ module PuppetX::CfDb::Redis::Instance
         #---
         avail_mem = get_memory(cluster)
         left_mem = avail_mem * 1024
-        backlog_mem = 0
+        backlog_mem = 1
 
         if is_cluster and !is_arbitrator
             left_mem -= (cfdb_settings.fetch('sentinel_mem', 8).to_f * 1024).to_i
