@@ -110,7 +110,6 @@ define cfdb::instance (
         $groups = undef
     }
 
-
     #---
     if $is_arbitrator {
         $service_name = "cf${type}-${cluster}-arb"
@@ -205,9 +204,19 @@ define cfdb::instance (
 
         $secure_cluster = $settings_tune.dig('cfdb', 'secure_cluster')
 
-        if $secure_cluster and $cluster_face != 'main' {
+        #---
+        case $type {
+            'mongodb': {
+                $named_peers = true
+            }
+            default: {
+                $named_peers = $secure_cluster
+            }
+        }
+
+        if $named_peers and $cluster_face != 'main' {
             # TODO: custom PKI to support extra hostnames
-            fail('Unfortunately, secure_cluster supports only "main" cluster_face')
+            fail('Unfortunately, secure_cluster/named_peers supports only "main" cluster_face')
         }
 
         $cluster_instances = cfsystem::query([
@@ -230,7 +239,7 @@ define cfdb::instance (
                     fail("Type of ${cluster} on ${host} mismatch ${type}: ${host_info}")
                 }
 
-                $peer_addr = $secure_cluster ? {
+                $peer_addr = $named_peers ? {
                     true => pick(
                         $cfdb['cluster_addr'] ? {
                             'undef' => undef,

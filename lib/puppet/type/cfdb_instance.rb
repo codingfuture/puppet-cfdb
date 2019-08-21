@@ -166,7 +166,9 @@ Puppet::Type.newtype(:cfdb_instance) do
         munge do |value|
             # we need proper commonName
             return value if resource.should(:settings_tune).fetch('cfdb', {}).fetch('secure_cluster', false)
-            
+            # TODO: more generic way
+            return value if resource.should(:type) == 'mongodb'
+
             begin
                 ip = IPAddr.new(value['addr'])
             rescue
