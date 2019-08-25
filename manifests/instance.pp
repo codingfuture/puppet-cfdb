@@ -360,7 +360,7 @@ define cfdb::instance (
         $params = $val['parameters']
 
         $maxconn = pick($params['max_connections'], $cfdb::max_connections_default)
-        $client_host = pick($params['client_host'], $certname).split('/')[0]
+        $client_host = pick($params['client_host'], $certname)
         $role = $params['role']
 
         $role_info = [{

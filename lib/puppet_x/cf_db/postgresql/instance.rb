@@ -107,6 +107,10 @@ module PuppetX::CfDb::PostgreSQL::Instance
                 max_connections += max_conn
                 client_host = v['client_host']
                 
+                if client_host != 'localhost' and client_host != '127.0.0.1' and client_host != fqdn
+                    host = client_host
+                end
+
                 if host != fqdn
                     have_external_conn = true
                     hba_host_roles[host] ||= []
@@ -123,7 +127,7 @@ module PuppetX::CfDb::PostgreSQL::Instance
             if bind_address != '0.0.0.0' and bind_address != '127.0.0.1'
                 hba_host_roles[bind_address] ||= []
                 hba_host_roles[bind_address] << 'all'
-            elsif cluster_listen != fqdn
+            elsif cluster_listen and cluster_listen != fqdn
                 hba_host_roles[cluster_listen] ||= []
                 hba_host_roles[cluster_listen] << 'all'
             end
@@ -168,19 +172,21 @@ module PuppetX::CfDb::PostgreSQL::Instance
         strict_hba_roles = cfdb_settings.fetch('strict_hba_roles', true)
 
         hba_host_roles.each do |host, host_roles|
-            begin
-                host = Resolv.getaddress host
-            rescue
-            end
-            
-            begin
-                if IPAddr.new(host).ipv6?
-                    host = "#{host}/128"
-                else
-                    host = "#{host}/32"
+            if not host.include? '/'
+                begin
+                    host = Resolv.getaddress host
+                rescue
                 end
-            rescue => e
-                warning("Named Host #{host} in HBA")
+            
+                begin
+                    if IPAddr.new(host).ipv6?
+                        host = "#{host}/128"
+                    else
+                        host = "#{host}/32"
+                    end
+                rescue => e
+                    warning("Named Host #{host} in HBA")
+                end
             end
             
             if strict_hba_roles

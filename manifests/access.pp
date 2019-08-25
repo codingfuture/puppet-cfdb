@@ -84,15 +84,16 @@ define cfdb::access(
         default => "${cluster}:${role}:${local_user}",
     }
     $local_host = $use_unix_socket ? {
-        false    => cfnetwork::bind_address($local_iface),
+        false   => cfnetwork::bind_address($local_iface),
         default => 'localhost',
     }
     $max_connections_reserve = $max_connections + 2
 
     #---
     $client_host = $iface ? {
-        'any'   => undef,
-        default => cfnetwork::bind_address($iface)
+        'any'    => undef,
+        'docker' => '172.18.0.0/16',
+        default  => cfnetwork::bind_address($iface)
     }
 
     #---
