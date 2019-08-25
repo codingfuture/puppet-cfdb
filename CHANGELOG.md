@@ -8,6 +8,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - FIXED: to use cfsystem::apt::key instead of raw apt::key to retrieve up-to-date version
 - FIXED: insecure MongoDB cluster to use named peers
 - FIXED: Docker support improvements for PostgreSQL
+- FIXED: extended MongoDB JSON which caused troubles
 
 ## 1.3.1 (2019-06-17)
 - CHANGED: to use systemLog.quiet which is ignored by MongoDB any way...

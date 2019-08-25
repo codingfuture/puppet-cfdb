@@ -60,7 +60,7 @@ module PuppetX::CfDb::MongoDB::Role
             user_info['user'] = user
             cmd << "tdb.createUser(#{user_info.to_json});"
         end
-        cmd << "printjson(tdb.getUser('#{user}', {showCredentials: true}))"
+        cmd << "print(JSON.stringify(tdb.getUser('#{user}', {showCredentials: true})))"
 
         tmp_exec_file = "#{root_dir}/tmp/confuser.js"
         cf_system.atomicWrite(tmp_exec_file, cmd, {:user => cluster_user, :silent => true})
@@ -93,7 +93,7 @@ module PuppetX::CfDb::MongoDB::Role
             tmp_exec_file = "#{root_dir}/tmp/listusers.js"
             cmd = [
                 "let tdb = db.getMongo().getDB('#{database}');",
-                'printjson(tdb.getUsers({showCredentials: true}))',
+                'print(JSON.stringify(tdb.getUsers({showCredentials: true})))',
             ]
             cf_system.atomicWrite(tmp_exec_file, cmd, {:user => cluster_user, :silent => true})
             
