@@ -10,6 +10,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 - FIXED: Docker support improvements for PostgreSQL
 - FIXED: extended MongoDB JSON which caused troubles
 - FIXED: static access to integrate with cfnetwork
+- FIXED: Docker with remote instances
 
 ## 1.3.1 (2019-06-17)
 - CHANGED: to use systemLog.quiet which is ignored by MongoDB any way...

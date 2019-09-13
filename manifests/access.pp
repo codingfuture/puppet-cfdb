@@ -77,6 +77,7 @@ define cfdb::access(
             $memo
         }
     }
+    $is_local_cluster = $cluster_info and ($cluster_info['certname'] == $::trusted['certname'])
 
     #---
     $resource_title = $distribute_load ? {
@@ -90,13 +91,6 @@ define cfdb::access(
     $max_connections_reserve = $max_connections + 2
 
     #---
-    $client_host = $iface ? {
-        'any'    => undef,
-        'docker' => '172.18.0.0/16',
-        default  => cfnetwork::bind_address($iface)
-    }
-
-    #---
     $use_proxy_detected = $use_proxy ? {
         'auto'  => ($cluster_info and $cluster_info['is_cluster']
             ) or (
@@ -104,6 +98,16 @@ define cfdb::access(
                     getparam(Cfdb::Instance[$cluster], 'is_cluster')
             ),
         default => $use_proxy
+    }
+
+    #---
+    $client_host = $iface ? {
+        'any'    => undef,
+        'docker' => ($is_local_cluster and !$use_proxy_detected) ? {
+            true    => '172.18.0.0/16',
+            default => undef
+        },
+        default  => cfnetwork::bind_address($iface)
     }
 
     #---
