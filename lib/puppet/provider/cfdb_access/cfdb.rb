@@ -27,7 +27,8 @@ Puppet::Type.type(:cfdb_access).provide(
         debug('check_exists')
         begin
             return true if params[:role] == CFDB_HEALTH_CHECK
-            
+            return true if params[:local_user] == nil
+
             config_info = params[:config_info]
             
             sudo(PuppetX::CfDb::ACCESS_CHECK_TOOL,
@@ -51,6 +52,7 @@ Puppet::Type.type(:cfdb_access).provide(
         newconf.each do |name, conf|
             begin
                 next if conf[:role] == CFDB_HEALTH_CHECK
+                next if conf[:local_user] == nil
                 
                 config_info = conf[:config_info]
                 

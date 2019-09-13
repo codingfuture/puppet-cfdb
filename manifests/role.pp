@@ -71,4 +71,18 @@ define cfdb::role(
         custom_grant  => $custom_grant,
         allowed_hosts => cfsystem::stable_sort($allowed_hosts),
     }
+
+    #---
+    $static_access.each |$h, $mc| {
+        cfdb_access{ "${role}@${h}":
+            ensure          => present,
+            cluster         => $cluster,
+            role            => $role,
+            local_user      => undef,
+            max_connections => $mc,
+            client_host     => $h,
+            config_info     => {},
+            require         => Anchor['cfnetwork:firewall'],
+        }
+    }
 }
