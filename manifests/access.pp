@@ -262,7 +262,12 @@ define cfdb::access(
 
         if $cluster_info['certname'] == $::trusted['certname'] {
             $host = $local_host
-            $socket = $cluster_info['socket']
+
+            if $use_unix_socket {
+                $socket = $cluster_info['socket']
+            } else {
+                $socket = ''
+            }
 
             $fw_port = "local:${fw_service}:${local_user}"
 
