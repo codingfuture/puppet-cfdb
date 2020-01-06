@@ -5,6 +5,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ## (next)
 - CHANGED: to make Redis primary a priority for failover
+- CHANGED: to forcibly close on failover of non-distributed connections
 
 ## 1.3.2 (2019-11-13)
 - FIXED: to standalone redis configuration issue

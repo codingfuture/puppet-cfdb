@@ -247,13 +247,13 @@ Puppet::Type.type(:cfdb_haproxy).provide(
                 end
                 
                 if !distribute_load
-                    server_config << " on-marked-down shutdown-sessions"
+                    server_config << "on-marked-down shutdown-sessions"
 
                     if sinfo['backup']
                         server_config << "backup"
                     else
                         # This is primarily needed for MongoDB, Redis and other assymetric clusters
-                        server_config << " on-marked-up shutdown-backup-sessions"
+                        server_config << "on-marked-up shutdown-backup-sessions"
                     end
                 end
                 
