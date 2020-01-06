@@ -152,7 +152,7 @@ module PuppetX::CfDb::Redis::Instance
                 'repl-disable-tcp-nodelay' => 'no',
                 'repl-backlog-size' => "#{backlog_mem}kb",
                 'repl-backlog-ttl' => 0,
-                'slave-priority' => 100,
+                'slave-priority' => is_secondary ? 100 : 1,
                 'min-slaves-to-write' => 0,
                 'min-slaves-max-lag' => 10,
                 'maxmemory-policy' => 'noeviction',
@@ -379,7 +379,7 @@ module PuppetX::CfDb::Redis::Instance
                 }
 
                 if slaves != info['connected_slaves'].to_i
-                    warning("! Unexpected numer of slaves #{slaves} vs #{info['connected_slaves']} for #{conf[:service_name]} !")
+                    warning("! Missing slaves #{info['connected_slaves']}/#{slaves} for #{conf[:service_name]} !")
                 end
             end
         end

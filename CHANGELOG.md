@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
+## (next)
+- CHANGED: to make Redis primary a priority for failover
+
 ## 1.3.2 (2019-11-13)
 - FIXED: to standalone redis configuration issue
 - FIXED: to use cfsystem::apt::key instead of raw apt::key to retrieve up-to-date version
