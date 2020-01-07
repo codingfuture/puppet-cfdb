@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file. This
 project adheres to [Semantic Versioning](http://semver.org/).
 
-## (next)
+## 1.3.3 (2020-01-07)
 - CHANGED: to make Redis primary a priority for failover
 - CHANGED: to forcibly close on failover of non-distributed connections
 - FIXED: MongoDB backup with renameCollection() statements
