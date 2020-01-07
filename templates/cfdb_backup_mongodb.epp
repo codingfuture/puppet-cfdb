@@ -13,6 +13,10 @@ curl="${root_dir}/bin/cfdb_curl"
     if [ ! -e \$backup_dir/base ]; then
         backup_out=\$backup_dir/base
         inc_opts="--oplog"
+
+        # Workaround renameCollection with --oplog :(
+        trap "/bin/echo -e 'db.fsyncUnlock()' | /usr/bin/mongo --host=$root_dir/server.sock admin" EXIT
+        /bin/echo -e 'db.fsyncLock()' | /usr/bin/mongo --host=$root_dir/server.sock admin
     else
         backup_out=\$backup_dir/inc_\$(/bin/date --utc "+%Y%m%d_%H%M%S")
         last_oplog_ts=\$(cat \$backup_dir/last_oplog_ts)
